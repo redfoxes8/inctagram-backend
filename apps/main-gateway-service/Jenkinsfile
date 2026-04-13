@@ -3,13 +3,13 @@ pipeline {
     agent any
     environment {
         ENV_TYPE = "production"
-        PORT = 4274
+        PORT = 4278
         NAMESPACE = "nymbi-org"
         REGISTRY_HOSTNAME = "oshknay"
-        PROJECT = "gateway-13-04-2026"
+        PROJECT = "main-gateway-service-14-04-2026"
         SERVICE="main-gateway-service"
         REGISTRY = "registry.hub.docker.com"
-        DEPLOYMENT_NAME = "gateway-13-04-2026-deployment"
+        DEPLOYMENT_NAME = "main-gateway-service-14-04-2026-deployment"
         IMAGE_NAME = "${env.BUILD_ID}_${env.ENV_TYPE}_${env.GIT_COMMIT}"
         DOCKER_BUILD_NAME = "${env.REGISTRY_HOSTNAME}/${env.PROJECT}:${env.IMAGE_NAME}"
     }

@@ -24,9 +24,3 @@ spec:
              runAsUser: 1000         # опционально
            ports:
              - containerPort: PORT_CONTAINER
-           env:
-             - name: PORTS
-               valueFrom:
-                 secretKeyRef:
-                   name: gateway-13-04-2026-production-config-secret
-                   key: PORTS
