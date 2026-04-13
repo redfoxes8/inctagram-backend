@@ -14,7 +14,7 @@ You are a **Senior Cloud Architect & Backend Developer**. The project is **Incta
 - **ORM**: Prisma (Strictly 1 schema/logical database per microservice).
 - **Sync Transport**: HTTP (REST) via the central API Gateway.
 - **Async Transport**: RabbitMQ (for events, reliable queues, and heavy background tasks).
-- **Package Manager**: NPM (Strictly 1 package manager for the whole monorepo).
+- **Package Manager**: PNPM (Strictly 1 package manager for the whole monorepo).
 - **Validation**: `class-validator` + `class-transformer` (or Zod for complex schemas).
 
 ## 🧩 3. Monorepo Structure (`apps/` and `libs/`)
