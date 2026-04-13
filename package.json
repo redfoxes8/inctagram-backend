@@ -7,6 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "build:main-gateway-service": "nest build main-gateway-service",
+    "build:micro-files-service": "nest build micro-files-service",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start main-gateway-service --watch",
@@ -14,6 +16,8 @@
     "start:all": "concurrently \"npm run start:dev\" \"npm run start:files\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/main-gateway-service/main",
+    "start:prod:main-gateway-service": "node dist/apps/main-gateway-service/main",
+    "start:prod:micro-files-service": "node dist/apps/micro-files-service/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
