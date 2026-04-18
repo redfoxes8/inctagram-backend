@@ -1,11 +1,18 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { initAppModule } from './init-app-module';
+import { GatewayConfig } from './core/gateway.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const DynamicAppModule = await initAppModule();
 
-  app.setGlobalPrefix('api');
+  const app = await NestFactory.create(DynamicAppModule);
 
-  await app.listen(process.env.PORT ?? 3003);
+  app.setGlobalPrefix('api'); // make setup files
+
+  const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
+
+  await app.listen(gatewayConfig.port ?? 3003);
+
+  console.log(`Gateway is running on port ${gatewayConfig.port}`);
 }
 bootstrap();
