@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
-import { MicroFilesServiceModule } from './micro-files-service.module';
+import { initAppModule } from './init-app-module';
+import { FilesConfig } from './core/files.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(MicroFilesServiceModule);
+  const appModule = await initAppModule();
+  const app = await NestFactory.create(appModule);
 
   app.setGlobalPrefix('api');
 
-  await app.listen(process.env.port ?? 3001);
+  const filesConfig = app.get<FilesConfig>(FilesConfig);
+
+  await app.listen(filesConfig.port);
+  console.log(`Micro-files-service is running on: ${filesConfig.port}`);
 }
 bootstrap();
