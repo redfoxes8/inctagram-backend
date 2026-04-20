@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { DomainException, DomainExceptionCode, GLOBAL_PREFIX } from '../../../../libs/common/src';
+import { GatewayConfig } from '../core/gateway.config';
 
 type SendTestLogParams = {
   text: string;
@@ -14,10 +14,10 @@ export type SendTestLogResult = {
 
 @Injectable()
 export class FilesHttpClient {
-  constructor(private readonly configService: ConfigService<Record<string, string>, true>) {}
+  constructor(private readonly gatewayConfig: GatewayConfig) {}
 
   async sendTestLog(params: SendTestLogParams): Promise<SendTestLogResult> {
-    const filesServiceUrl = this.configService.get<string>('FILES_SERVICE_URL');
+    const filesServiceUrl = this.gatewayConfig.filesServiceUrl;
 
     if (!filesServiceUrl) {
       throw new DomainException({
