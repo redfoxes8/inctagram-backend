@@ -1,15 +1,15 @@
 import { NestFactory } from '@nestjs/core';
+import { Type } from '@nestjs/common';
 
-import { AppModule } from './app.module';
 import { initAppModule } from './init-app-module';
 import { GLOBAL_PREFIX, appSetup } from '../../../libs/common/src';
 import { FilesConfig } from './core/files.config';
 
 async function bootstrap() {
-  const appModule = await initAppModule();
-  const app = await NestFactory.create(appModule);
+  const dynamicAppModule = await initAppModule();
+  const app = await NestFactory.create(dynamicAppModule);
 
-  appSetup(app, AppModule, {
+  appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {
       enabled: false,
       enableGlobalPrefix: false,

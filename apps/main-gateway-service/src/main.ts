@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
+import { Type } from '@nestjs/common';
 
-import { AppModule } from './app.module';
 import { initAppModule } from './init-app-module';
 import { GLOBAL_PREFIX, appSetup } from '../../../libs/common/src';
 import { GatewayConfig } from './core/gateway.config';
@@ -10,7 +10,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(dynamicAppModule);
 
-  appSetup(app, AppModule, {
+  appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {
       enabled: true,
       enableGlobalPrefix: true,
