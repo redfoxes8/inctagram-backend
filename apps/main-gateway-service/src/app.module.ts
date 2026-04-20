@@ -1,15 +1,13 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { GatewayConfig } from './core/gateway.config';
 import { CoreModule } from '../../../libs/common/src/core.module';
 import { CommonModule } from '../../../libs/common/src';
 import { GatewayConfigModule } from './core/gateway-config.module';
+import { GatewayController } from './api/gateway.controller';
 
 @Module({
   imports: [CommonModule, CoreModule, GatewayConfigModule],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [GatewayController],
 })
 export class AppModule {
   static forRoot(config: GatewayConfig): DynamicModule {
@@ -18,6 +16,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [...(config.includeTestingModule ? [] : [])], // TestingModule
+      controllers: [GatewayController],
     };
   }
 }
