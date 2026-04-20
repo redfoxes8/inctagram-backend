@@ -4,13 +4,11 @@ import { CoreModule } from '../../../libs/common/src/core.module';
 
 import { FilesConfig } from './core/files.config';
 import { FilesConfigModule } from './core/files-config.module';
-import { MicroFilesServiceController } from './micro-files-service.controller';
-import { MicroFilesServiceService } from './micro-files-service.service';
+import { FilesController } from './api/files.controller';
 
 @Module({
   imports: [CoreModule, FilesConfigModule],
-  controllers: [MicroFilesServiceController],
-  providers: [MicroFilesServiceService],
+  controllers: [FilesController],
 })
 export class AppModule {
   static forRoot(config: FilesConfig): DynamicModule {
@@ -19,8 +17,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [...(config.includeTestingModule ? [] : [])],
-      controllers: [MicroFilesServiceController],
-      providers: [MicroFilesServiceService],
+      controllers: [FilesController],
     };
   }
 }
