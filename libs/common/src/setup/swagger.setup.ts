@@ -13,18 +13,12 @@ type DocumentBuilderLike = {
   setTitle(title: string): DocumentBuilderLike;
   setDescription(description: string): DocumentBuilderLike;
   setVersion(version: string): DocumentBuilderLike;
-  addBearerAuth(
-    authOptions: Record<string, unknown>,
-    name: string,
-  ): DocumentBuilderLike;
+  addBearerAuth(authOptions: Record<string, unknown>, name: string): DocumentBuilderLike;
   build(): Record<string, unknown>;
 };
 
 type SwaggerModuleLike = {
-  createDocument(
-    app: INestApplication,
-    config: Record<string, unknown>,
-  ): unknown;
+  createDocument(app: INestApplication, config: Record<string, unknown>): unknown;
   setup(
     path: string,
     app: INestApplication,
@@ -35,10 +29,7 @@ type SwaggerModuleLike = {
 
 const logger = new Logger('SwaggerSetup');
 
-export function setupSwagger(
-  app: INestApplication,
-  options: SwaggerSetupOptions,
-): void {
+export function setupSwagger(app: INestApplication, options: SwaggerSetupOptions): void {
   try {
     const swaggerModule = require('@nestjs/swagger') as {
       DocumentBuilder: new () => DocumentBuilderLike;

@@ -11,9 +11,9 @@ async function bootstrap() {
 
   appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {
-      enabled: false,
-      enableGlobalPrefix: false,
-      enableCors: false,
+      enabled: true,
+      enableGlobalPrefix: true,
+      enableCors: true,
       enableCookies: false,
       enableSwagger: false,
       globalPrefix: GLOBAL_PREFIX,

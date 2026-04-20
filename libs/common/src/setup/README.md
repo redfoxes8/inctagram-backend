@@ -52,6 +52,7 @@
 - только после этого включаются транспортные расширения.
 
 Если поменять порядок, можно получить неочевидные эффекты:
+
 - кастомные валидаторы не увидят провайдеры;
 - ошибки валидации будут форматироваться не тем фильтром;
 - часть инфраструктуры окажется активной только для части запросов.
@@ -163,9 +164,7 @@ import {
 
 @Injectable()
 @ValidatorConstraint({ async: true })
-export class IsUniqueConstraintConstraint
-  implements ValidatorConstraintInterface
-{
+export class IsUniqueConstraintConstraint implements ValidatorConstraintInterface {
   constructor(private readonly usersRepository: UsersRepository) {}
 
   async validate(value: string): Promise<boolean> {
@@ -178,9 +177,7 @@ export class IsUniqueConstraintConstraint
   }
 }
 
-export function IsUniqueConstraint(
-  validationOptions?: ValidationOptions,
-): PropertyDecorator {
+export function IsUniqueConstraint(validationOptions?: ValidationOptions): PropertyDecorator {
   return (object: object, propertyName: string | symbol): void => {
     registerDecorator({
       target: object.constructor,
@@ -238,15 +235,15 @@ export function IsUniqueConstraint(
 
 ### Таблица соответствия
 
-| DomainExceptionCode | HTTP status | RPC payload |
-|---|---:|---|
-| `ValidationError` | `400` | `RPC_VALIDATION_ERROR` |
-| `BadRequest` | `400` | `RPC_BAD_REQUEST` |
-| `Unauthorized` | `401` | `RPC_UNAUTHORIZED` |
-| `Forbidden` | `403` | `RPC_FORBIDDEN` |
-| `NotFound` | `404` | `RPC_NOT_FOUND` |
-| `TooManyRequests` | `429` | `RPC_TOO_MANY_REQUESTS` |
-| `InternalServerError` | `500` | `RPC_INTERNAL_SERVER_ERROR` |
+| DomainExceptionCode   | HTTP status | RPC payload                 |
+| --------------------- | ----------: | --------------------------- |
+| `ValidationError`     |       `400` | `RPC_VALIDATION_ERROR`      |
+| `BadRequest`          |       `400` | `RPC_BAD_REQUEST`           |
+| `Unauthorized`        |       `401` | `RPC_UNAUTHORIZED`          |
+| `Forbidden`           |       `403` | `RPC_FORBIDDEN`             |
+| `NotFound`            |       `404` | `RPC_NOT_FOUND`             |
+| `TooManyRequests`     |       `429` | `RPC_TOO_MANY_REQUESTS`     |
+| `InternalServerError` |       `500` | `RPC_INTERNAL_SERVER_ERROR` |
 
 > Примечание: в текущей реализации RPC-код передается как payload-значение вместе с доменным кодом. Если проекту понадобится строгий enum RPC-кодов, его можно выделить отдельно в `libs/common`.
 
@@ -381,7 +378,7 @@ type Extension = {
 Например:
 
 ```ts
-libs/common/src/setup/sentry.interceptor.ts
+libs / common / src / setup / sentry.interceptor.ts;
 ```
 
 ### Шаг 2. Добавьте флаг в `AppSetupOptions`
@@ -412,6 +409,7 @@ if (options.sentryConfig?.enabled) {
 ### Правило
 
 Если логика:
+
 - общая для всех сервисов;
 - инфраструктурная;
 - не зависит от домена;
@@ -490,4 +488,3 @@ if (options.sentryConfig?.enabled) {
 - как сервис ведет себя в HTTP и RPC;
 - как подключается DI внутри валидаторов;
 - как новые инфраструктурные блоки должны расширяться.
-

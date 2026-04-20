@@ -1,8 +1,4 @@
-import {
-  INestApplication,
-  Type,
-  ValidationPipe,
-} from '@nestjs/common';
+import { INestApplication, Type, ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 
 import { GlobalDomainExceptionFilter } from '../exceptions/global-domain-exception.filter';
@@ -20,9 +16,7 @@ export function appSetup(
   useContainer(app.select(appModule), { fallbackOnErrors: true });
 
   app.useGlobalPipes(
-    new ValidationPipe(
-      createValidationPipeOptions(options.validationCustomConfig),
-    ),
+    new ValidationPipe(createValidationPipeOptions(options.validationCustomConfig)),
   );
   app.useGlobalFilters(new GlobalDomainExceptionFilter());
 

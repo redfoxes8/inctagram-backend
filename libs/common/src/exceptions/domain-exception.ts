@@ -10,11 +10,7 @@ export class DomainException extends Error {
 
   readonly extensions: Extension[];
 
-  constructor(errorInfo: {
-    code: DomainExceptionCode;
-    message: string;
-    extensions?: Extension[];
-  }) {
+  constructor(errorInfo: { code: DomainExceptionCode; message: string; extensions?: Extension[] }) {
     super(errorInfo.message);
     Object.setPrototypeOf(this, new.target.prototype);
 

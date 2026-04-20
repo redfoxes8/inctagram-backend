@@ -1,6 +1,4 @@
-import {
-  ValidationPipeOptions,
-} from '@nestjs/common';
+import { ValidationPipeOptions } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 
 import { DomainException } from '../exceptions/domain-exception';

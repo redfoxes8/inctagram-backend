@@ -49,10 +49,7 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
   private mapToHttpException(exception: DomainException): HttpException {
     const statusCode = Number(exception.code);
 
-    if (
-      statusCode === HttpStatus.BAD_REQUEST &&
-      exception.extensions.length > 0
-    ) {
+    if (statusCode === HttpStatus.BAD_REQUEST && exception.extensions.length > 0) {
       return new HttpException(
         {
           errorsMessages: exception.extensions.map((extension) => ({

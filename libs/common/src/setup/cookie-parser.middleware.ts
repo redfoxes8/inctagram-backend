@@ -43,9 +43,7 @@ export function createCookieParserMiddleware(): RequestHandler {
 
     return cookieParser();
   } catch (error: unknown) {
-    logger.warn(
-      'cookie-parser is not installed. Falling back to a minimal cookie header parser.',
-    );
+    logger.warn('cookie-parser is not installed. Falling back to a minimal cookie header parser.');
 
     return createFallbackCookieParser();
   }

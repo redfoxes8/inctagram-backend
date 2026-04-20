@@ -3,6 +3,7 @@
 Этот документ описывает единый паттерн запуска приложений в монорепозитории Inctagram: `Smart App Setup`.
 
 Его цель:
+
 - убрать дублирование из `main.ts`;
 - синхронизировать поведение `main-gateway-service` и `micro-files-service`;
 - сделать конфигурацию предсказуемой для локальной разработки, Docker и Kubernetes;
@@ -15,6 +16,7 @@
 ### Зачем мы вынесли всё из `main.ts`
 
 Раньше `main.ts` обычно превращается в набор ручных вызовов:
+
 - `setGlobalPrefix(...)`
 - `enableCors(...)`
 - `useGlobalPipes(...)`
@@ -23,12 +25,14 @@
 - ручное чтение `process.env`
 
 Проблема в том, что такой код:
+
 - быстро расходится между сервисами;
 - тяжело поддерживается;
 - плохо масштабируется, когда появляется второй или третий микросервис;
 - делает поведение приложения зависимым от конкретного файла `main.ts`.
 
 `appSetup` решает это следующим образом:
+
 - переносит общие инфраструктурные решения в `libs/common`;
 - делает их параметризуемыми через `AppSetupOptions`;
 - позволяет каждому сервису включать только нужные слои;
@@ -153,6 +157,7 @@ Storage / Object Store
 5. Опционально оставляет задел под RPC-слой.
 
 Идея простая:
+
 - бизнес-логика живет в модулях;
 - инфраструктура живет в `libs/common`;
 - `main.ts` остается тонким и декларативным.
@@ -223,6 +228,7 @@ export type AppSetupOptions = {
 Позволяет расширить базовый `ValidationPipe`.
 
 Это полезно, когда сервису нужно:
+
 - переопределить поведение валидации;
 - добавить собственный `exceptionFactory`;
 - изменить настройки трансформации;
@@ -276,6 +282,7 @@ useContainer(app.select(appModule), { fallbackOnErrors: true });
 Теперь `class-validator` может получать зависимости через Nest DI.
 
 Это особенно важно для кастомных валидаторов:
+
 - проверка уникальности email;
 - проверка существования пользователя;
 - проверка доступности ресурса;
@@ -286,6 +293,7 @@ useContainer(app.select(appModule), { fallbackOnErrors: true });
 `app.select(appModule)` передает `class-validator` доступ к контейнеру конкретного модуля приложения.
 
 `fallbackOnErrors: true` означает:
+
 - если валидатор можно создать через DI, он будет создан через DI;
 - если нет, `class-validator` попробует обычный путь создания.
 
@@ -305,9 +313,7 @@ import {
 
 @Injectable()
 @ValidatorConstraint({ async: true })
-export class IsUserAlreadyExistsConstraint
-  implements ValidatorConstraintInterface
-{
+export class IsUserAlreadyExistsConstraint implements ValidatorConstraintInterface {
   constructor(private readonly usersRepository: UsersRepository) {}
 
   async validate(email: string): Promise<boolean> {
@@ -320,9 +326,7 @@ export class IsUserAlreadyExistsConstraint
   }
 }
 
-export function IsUserAlreadyExists(
-  validationOptions?: ValidationOptions,
-): PropertyDecorator {
+export function IsUserAlreadyExists(validationOptions?: ValidationOptions): PropertyDecorator {
   return (object: object, propertyName: string | symbol): void => {
     registerDecorator({
       target: object.constructor,
@@ -350,6 +354,7 @@ export function IsUserAlreadyExists(
 ### Идея фильтра
 
 Один и тот же `DomainException` должен корректно работать в разных транспортных контекстах:
+
 - в HTTP он должен превращаться в HTTP-ответ;
 - в RPC он должен пробрасываться как `RpcException`.
 
@@ -358,10 +363,11 @@ export function IsUserAlreadyExists(
 Он использует:
 
 ```ts
-host.getType<'http' | 'rpc'>()
+host.getType<'http' | 'rpc'>();
 ```
 
 Логика:
+
 - если контекст `http`, маппим в `HttpException`;
 - если контекст `rpc`, маппим в `RpcException`.
 
@@ -373,9 +379,7 @@ host.getType<'http' | 'rpc'>()
 throw new DomainException({
   code: DomainExceptionCode.ValidationError,
   message: 'Validation failed',
-  extensions: [
-    { field: 'email', message: 'email must be an email' },
-  ],
+  extensions: [{ field: 'email', message: 'email must be an email' }],
 });
 ```
 
@@ -412,6 +416,7 @@ throw new DomainException({
 ```
 
 Это важно для микросервисов:
+
 - ошибка не теряется;
 - транспорт не подменяет смысл доменной ошибки;
 - gateway и worker говорят на одном языке.
@@ -421,6 +426,7 @@ throw new DomainException({
 ## 8. Консистентная валидация
 
 Файлы:
+
 - `libs/common/src/setup/validation-error.formatter.ts`
 - `libs/common/src/setup/validation-pipe-options.ts`
 
@@ -454,6 +460,7 @@ type Extension = {
 - `exceptionFactory`
 
 Это значит:
+
 - DTO трансформируются в экземпляры классов;
 - лишние поля вырезаются;
 - на первом нарушении правила поле падает быстро;
@@ -550,6 +557,7 @@ bootstrap();
 ### 8.3 Как подключить hybrid-сервис
 
 Если сервис одновременно:
+
 - принимает команды по gRPC/TCP;
 - отдает HTTP-стриминг или healthcheck;
 
@@ -594,6 +602,7 @@ appSetup(app, AppModule, {
 ### Рекомендация по расширению
 
 Если новый блок:
+
 - касается всех сервисов;
 - должен вести себя одинаково;
 - зависит только от инфраструктуры;
@@ -618,12 +627,14 @@ appSetup(app, AppModule, {
 ## 12. Итог
 
 `Smart App Setup` делает монорепозиторий:
+
 - более предсказуемым;
 - более расширяемым;
 - легче поддерживаемым;
 - готовым к росту числа сервисов и транспортов.
 
 Если коротко:
+
 - `main.ts` больше не содержит архитектуру;
 - архитектура живет в `libs/common`;
 - сервисы только объявляют, что именно им нужно включить.
