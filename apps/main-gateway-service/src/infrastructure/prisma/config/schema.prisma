@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
+// Add your schemas here. To migrate changes into DB use 'pnpm run prisma:migrate --name YOUR_MIGRATION_NAME' command.
 model User {
   id    Int     @id @default(autoincrement())
   email String  @unique
