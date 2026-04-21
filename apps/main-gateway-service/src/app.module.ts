@@ -3,8 +3,8 @@ import { GatewayConfig } from './core/gateway.config';
 import { CoreModule } from '../../../libs/common/src/core.module';
 import { CommonModule } from '../../../libs/common/src';
 import { GatewayConfigModule } from './core/gateway-config.module';
-import { GatewayController } from './api/gateway.controller';
-import { FilesHttpClient } from './infrastructure/files-http.client';
+import { GatewayController } from './modules/testing/api/gateway.controller';
+import { FilesHttpClient } from './modules/testing/infrastructure/files-http.client';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { PrismaTestController } from './modules/testing/api/prisma-test.controller';
 

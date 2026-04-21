@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-
-import { DomainException, DomainExceptionCode, GLOBAL_PREFIX } from '../../../../libs/common/src';
-import { GatewayConfig } from '../core/gateway.config';
+import { GatewayConfig } from '../../../core/gateway.config';
+import {
+  DomainException,
+  DomainExceptionCode,
+  GLOBAL_PREFIX,
+} from '../../../../../../libs/common/src';
 
 type SendTestLogParams = {
   text: string;
