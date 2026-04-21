@@ -4,7 +4,7 @@ import { CoreModule } from '../../../libs/common/src/core.module';
 
 import { FilesConfig } from './core/files.config';
 import { FilesConfigModule } from './core/files-config.module';
-import { FilesController } from './api/files.controller';
+import { FilesController } from './modules/testing/api/files.controller';
 
 @Module({
   imports: [CoreModule, FilesConfigModule],
