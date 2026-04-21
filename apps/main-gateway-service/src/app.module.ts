@@ -7,7 +7,7 @@ import { GatewayController } from './api/gateway.controller';
 import { FilesHttpClient } from './infrastructure/files-http.client';
 import { PrismaModule } from './infrastructure/prisma/config/prisma.module';
 import { TestService } from './test.service';
-import { TestController } from '../test.controller';
+import { TestController } from './test.controller';
 
 @Module({
   imports: [CommonModule, CoreModule, GatewayConfigModule, PrismaModule],
