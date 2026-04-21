@@ -5,11 +5,14 @@ import { CommonModule } from '../../../libs/common/src';
 import { GatewayConfigModule } from './core/gateway-config.module';
 import { GatewayController } from './api/gateway.controller';
 import { FilesHttpClient } from './infrastructure/files-http.client';
+import { PrismaModule } from './infrastructure/prisma/config/prisma.module';
+import { TestService } from './test.service';
+import { TestController } from '../test.controller';
 
 @Module({
-  imports: [CommonModule, CoreModule, GatewayConfigModule],
-  controllers: [GatewayController],
-  providers: [FilesHttpClient],
+  imports: [CommonModule, CoreModule, GatewayConfigModule, PrismaModule],
+  controllers: [GatewayController, TestController],
+  providers: [FilesHttpClient, TestService],
 })
 export class AppModule {
   static forRoot(config: GatewayConfig): DynamicModule {

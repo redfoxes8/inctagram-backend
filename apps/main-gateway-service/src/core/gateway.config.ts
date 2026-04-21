@@ -16,10 +16,13 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable INCLUDE_TESTING_MODULE, example: false' })
   includeTestingModule: boolean;
 
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
+  prismaUrl: string;
+
   constructor(private configService: ConfigService<any, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
-
+    this.prismaUrl = this.configService.get('PRISMA_DB_URL');
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );
