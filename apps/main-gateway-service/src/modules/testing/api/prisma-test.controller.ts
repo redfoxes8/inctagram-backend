@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { PrismaService } from '../../../infrastructure/prisma/config/prisma.service';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 
 //localhost:3000/api/v1/prisma/prismaTest
 @Controller('prisma')

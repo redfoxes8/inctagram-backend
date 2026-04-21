@@ -24,7 +24,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./apps/main-gateway-service/test/jest-e2e.json",
-    "prisma:migrate": "prisma migrate dev --config apps/main-gateway-service/src/infrastructure/prisma/config/prisma.config.ts"
+    "prisma:migrate": "prisma migrate dev --config apps/main-gateway-service/src/core/prisma/prisma.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

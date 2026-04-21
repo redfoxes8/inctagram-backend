@@ -5,7 +5,7 @@ import { CommonModule } from '../../../libs/common/src';
 import { GatewayConfigModule } from './core/gateway-config.module';
 import { GatewayController } from './api/gateway.controller';
 import { FilesHttpClient } from './infrastructure/files-http.client';
-import { PrismaModule } from './infrastructure/prisma/config/prisma.module';
+import { PrismaModule } from './core/prisma/prisma.module';
 import { PrismaTestController } from './modules/testing/api/prisma-test.controller';
 
 @Module({
