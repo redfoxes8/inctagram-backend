@@ -3,6 +3,8 @@ import { SessionEntity } from '../session.entity';
 export abstract class ISessionsRepository {
   abstract save(session: SessionEntity): Promise<void>;
 
+  abstract findAllByUserId(userId: string): Promise<SessionEntity[]>;
+
   abstract findByDeviceId(deviceId: string): Promise<SessionEntity | null>;
 
   abstract findByUserIdAndDeviceId(userId: string, deviceId: string): Promise<SessionEntity | null>;
