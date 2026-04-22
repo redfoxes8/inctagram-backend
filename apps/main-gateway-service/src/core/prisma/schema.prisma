@@ -7,9 +7,59 @@ datasource db {
   provider = "postgresql"
 }
 
-// Add your schemas here. To migrate changes into DB use 'pnpm run prisma:migrate --name YOUR_MIGRATION_NAME' command.
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id               String             @id @default(uuid())
+  username         String             @unique
+  email            String             @unique
+  passwordHash     String
+  isConfirmed      Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now())
+  deletedAt        DateTime?
+  sessions         Session[]
+  emailConfirmation EmailConfirmation?
+  passwordRecovery PasswordRecovery?
+
+  @@index([username])
+  @@index([email])
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String
+  deviceId   String   @unique
+  deviceName String
+  ip         String
+  iat        Int
+  exp        Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
+  deletedAt  DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailConfirmation {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  confirmationCode  String   @unique
+  expirationDate    DateTime
+  isConfirmed       Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordRecovery {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  recoveryCode     String   @unique
+  expirationDate    DateTime
+  isUsed           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+  deletedAt        DateTime?
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

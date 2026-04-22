@@ -7,9 +7,20 @@ import { GatewayController } from './modules/testing/api/gateway.controller';
 import { FilesHttpClient } from './modules/testing/infrastructure/files-http.client';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { PrismaTestController } from './modules/testing/api/prisma-test.controller';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
 
 @Module({
-  imports: [CommonModule, CoreModule, GatewayConfigModule, PrismaModule],
+  imports: [
+    CommonModule,
+    CoreModule,
+    GatewayConfigModule,
+    PrismaModule,
+    AuthModule,
+    UsersModule,
+    SessionsModule,
+  ],
   controllers: [GatewayController, PrismaTestController],
   providers: [FilesHttpClient],
 })
