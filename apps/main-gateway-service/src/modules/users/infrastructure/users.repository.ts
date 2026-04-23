@@ -3,6 +3,8 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { UserEntity } from '../domain/user.entity';
 import { IUsersRepository } from '../domain/interfaces/users.repository.interface';
 import { UserMapper, type UserRecord } from './mappers/user.mapper';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 type UserCreateData = {
   id: string;
@@ -25,7 +27,7 @@ type UserUpdateData = {
 };
 
 @Injectable()
-export class PrismaUserRepository implements IUsersRepository {
+export class PrismaUsersRepository implements IUsersRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
   public async save(user: UserEntity): Promise<UserEntity> {
@@ -71,12 +73,28 @@ export class PrismaUserRepository implements IUsersRepository {
 
   public async update(user: UserEntity): Promise<UserEntity> {
     const userId = this.requireUserId(user);
-    const updatedUser = await this.prismaService.user.update({
+    const affectedRows = await this.prismaService.user.updateMany({
       where: {
         id: userId,
+        deletedAt: null,
       },
       data: this.toUpdateData(user),
     });
+
+    if (affectedRows.count === 0) {
+      throw this.createUserNotFoundException(userId);
+    }
+
+    const updatedUser = await this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!updatedUser) {
+      throw this.createUserNotFoundException(userId);
+    }
 
     return UserMapper.toDomain(updatedUser as UserRecord);
   }
@@ -113,6 +131,15 @@ export class PrismaUserRepository implements IUsersRepository {
       return user.id;
     }
 
-    throw new Error('User id is required for persistence');
+    throw this.createUserNotFoundException('');
+  }
+
+  private createUserNotFoundException(userId: string): DomainException {
+    return new DomainException({
+      code: DomainExceptionCode.NotFound,
+      message: userId ? `User with id ${userId} was not found` : 'User was not found',
+    });
   }
 }
+
+export { PrismaUsersRepository as PrismaUserRepository };
