@@ -17,6 +17,6 @@ const useCases = [DeactivateOneUseCase, DeactivateAllUseCase];
     { provide: ISessionsRepository, useClass: PrismaSessionsRepository },
     { provide: ISessionsQueryRepository, useClass: PrismaSessionsQueryRepository },
   ],
-  exports: [ISessionsRepository],
+  exports: [ISessionsRepository, ISessionsQueryRepository],
 })
 export class SessionsModule {}
