@@ -19,6 +19,19 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
   prismaUrl: string;
 
+  @IsNotEmpty({ message: 'Set Env variable FRONTEND_URL, example: https://inctagram.com' })
+  frontEndUrl: string;
+
+  @IsNotEmpty({ message: 'Set Env variable JWT_SECRET' })
+  jwtSecret: string;
+
+  @IsNotEmpty({ message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  accessTokenExpTime: number;
+
+  @IsNotEmpty({ message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  refreshTokenExpTime: number;
+
+  accessTokenExpTimeV;
   constructor(private configService: ConfigService<any, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
@@ -26,6 +39,10 @@ export class GatewayConfig {
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );
+    this.frontEndUrl = this.configService.get('FRONTEND_URL');
+    this.jwtSecret = this.configService.get('JWT_SECRET');
+    this.accessTokenExpTime = Number(this.configService.get('ACCESS_TOKEN_EXPIRE_TIME'));
+    this.refreshTokenExpTime = Number(this.configService.get('REFRESH_TOKEN_EXPIRE_TIME'));
 
     configValidationUtility.validateConfig(this);
   }

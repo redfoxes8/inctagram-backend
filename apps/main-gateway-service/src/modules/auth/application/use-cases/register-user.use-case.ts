@@ -1,5 +1,4 @@
-import { randomBytes } from 'crypto';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { RegisterUserDto } from '../../api/dto/register-user.dto';
@@ -9,8 +8,14 @@ import { IPasswordService } from '../../../users/application/interfaces/password
 import { UserEntity } from '../../../users/domain/user.entity';
 import { EmailConfirmationEntity } from '../../domain/email-confirmation.entity';
 import { IEmailConfirmationRepository } from '../../domain/interfaces/email-confirmation.repository.interface';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 
-export class RegisterUserUseCase {
+export class RegisterUserCommand {
+  constructor(public dto: RegisterUserDto) {}
+}
+
+@CommandHandler(RegisterUserCommand)
+export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand, void> {
   constructor(
     private usersRepository: IUsersRepository,
     private passwordService: IPasswordService,
@@ -18,15 +23,24 @@ export class RegisterUserUseCase {
     private emailConfirmationRepository: IEmailConfirmationRepository,
   ) {}
 
-  public async execute(dto: RegisterUserDto): Promise<void> {
+  public async execute({ dto }: RegisterUserCommand): Promise<void> {
     const existingUser = await this.usersRepository.findByEmail(dto.email);
     const passwordHash = await this.passwordService.hashPassword(dto.password);
     const confirmationCode = this.generateConfirmationCode();
 
+    const existingUserUsername: UserEntity | null =
+      await this.usersRepository.findByUsernameOrEmail(dto.username);
+    if (existingUserUsername) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'User with this username is already registered',
+      });
+    }
+
     if (existingUser && existingUser.isConfirmed) {
       throw new DomainException({
         code: DomainExceptionCode.BadRequest,
-        message: 'Email already exists',
+        message: 'User with this email is already registered',
       });
     }
 

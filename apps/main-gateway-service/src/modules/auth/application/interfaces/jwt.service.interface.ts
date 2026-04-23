@@ -11,7 +11,9 @@ export type AuthTokens = {
 };
 
 export abstract class IJwtService {
-  abstract createTokens(userId: string, deviceId: string): Promise<AuthTokens>;
+  abstract createTokens(userId: string, deviceId: string): AuthTokens;
 
   abstract getPayload(token: string): Promise<TokenPayload | null>;
+
+  abstract verify(token: string): TokenPayload;
 }

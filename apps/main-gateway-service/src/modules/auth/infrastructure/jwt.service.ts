@@ -1,16 +1,51 @@
 import { Injectable } from '@nestjs/common';
-import { AuthTokens, IJwtService, TokenPayload } from '../application/interfaces/jwt.service.interface';
+import {
+  AuthTokens,
+  IJwtService,
+  TokenPayload,
+} from '../application/interfaces/jwt.service.interface';
+import { JwtService } from '@nestjs/jwt';
+import { GatewayConfig } from '../../../core/gateway.config';
+import { DomainException, DomainExceptionCode } from '@inctagram/common';
 
 @Injectable()
 export class JwtServiceImplementation implements IJwtService {
-  public async createTokens(userId: string, deviceId: string): Promise<AuthTokens> {
-    void userId;
-    void deviceId;
-    throw new Error('JwtServiceImplementation is not implemented yet');
+  constructor(
+    private jwtService: JwtService,
+    private config: GatewayConfig,
+  ) {}
+  public createTokens(userId: string, deviceId: string): AuthTokens {
+    const accessToken: string = this.jwtService.sign(
+      { userId: userId, deviceId: deviceId },
+      {
+        expiresIn: this.config.accessTokenExpTime,
+      },
+    );
+    const refreshToken: string = this.jwtService.sign(
+      { userId: userId, deviceId: deviceId },
+      {
+        expiresIn: this.config.refreshTokenExpTime,
+      },
+    );
+    return {
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    };
   }
 
-  public async getPayload(token: string): Promise<TokenPayload | null> {
-    void token;
-    throw new Error('JwtServiceImplementation is not implemented yet');
+  public getPayload(token: string): Promise<TokenPayload | null> {
+    return this.jwtService.decode(token);
+  }
+
+  public verify(token: string): TokenPayload {
+    try {
+      return this.jwtService.verify(token);
+    } catch (e) {
+      console.log(e);
+      throw new DomainException({
+        code: DomainExceptionCode.Unauthorized,
+        message: 'Unauthorized',
+      });
+    }
   }
 }

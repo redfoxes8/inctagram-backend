@@ -2,20 +2,27 @@ import { DomainException } from '../../../../../../../libs/common/src/exceptions
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { PasswordRecoveryDto } from '../../api/dto/password-recovery.dto';
 import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
-import { IPasswordService } from '../../../users/application/interfaces/password.service.interface';
-import { ISessionsRepository } from '../../../sessions/domain/interfaces/sessions.repository.interface';
 import { IPasswordRecoveryRepository } from '../../domain/interfaces/password-recovery.repository.interface';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { UserEntity } from '../../../users/domain/user.entity';
+import { randomBytes, randomUUID } from 'crypto';
+import { PasswordRecoveryEntity } from '../../domain/password-recovery.entity';
+import { IEmailAdapter } from '../interfaces/email.adapter.interface';
 
-export class PasswordRecoveryUseCase {
+export class PasswordRecoveryCommand {
+  constructor(public dto: PasswordRecoveryDto) {}
+}
+
+@CommandHandler(PasswordRecoveryCommand)
+export class PasswordRecoveryUseCase implements ICommandHandler<PasswordRecoveryCommand, void> {
   constructor(
     private usersRepository: IUsersRepository,
-    private passwordService: IPasswordService,
-    private sessionsRepository: ISessionsRepository,
     private passwordRecoveryRepository: IPasswordRecoveryRepository,
+    private emailAdapter: IEmailAdapter,
   ) {}
 
-  public async execute(dto: PasswordRecoveryDto): Promise<void> {
-    const user = await this.usersRepository.findByEmail(dto.email);
+  public async execute({ dto }: PasswordRecoveryCommand): Promise<void> {
+    const user: UserEntity | null = await this.usersRepository.findByEmail(dto.email);
     if (!user || !user.id) {
       throw new DomainException({
         code: DomainExceptionCode.BadRequest,
@@ -23,29 +30,29 @@ export class PasswordRecoveryUseCase {
       });
     }
 
-    const recovery = await this.passwordRecoveryRepository.findByUserIdAndCode(
-      user.id,
-      dto.recoveryCode,
-    );
-
-    if (!recovery) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: 'Invalid recovery data',
-      });
-    }
-
-    recovery.markAsUsed();
-
-    const passwordHash = await this.passwordService.hashPassword(dto.newPassword);
-    user.updateCredentials({
-      username: user.username,
-      email: user.email,
-      passwordHash,
+    const passwordRecoveryEntity = new PasswordRecoveryEntity({
+      id: randomUUID(),
+      userId: user.id,
+      recoveryCode: this.generateConfirmationCode(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
     });
 
-    await this.usersRepository.update(user);
-    await this.passwordRecoveryRepository.update(recovery);
-    await this.sessionsRepository.deleteAllByUserId(user.id);
+    try {
+      await this.passwordRecoveryRepository.deleteByUserId(user.id);
+      await this.passwordRecoveryRepository.save(passwordRecoveryEntity);
+
+      await this.emailAdapter.sendPasswordRecoveryCode(
+        user.email,
+        passwordRecoveryEntity.recoveryCode,
+      );
+    } catch (e) {
+      throw new DomainException({ code: DomainExceptionCode.InternalServerError, message: `${e}` });
+    }
+  }
+
+  private generateConfirmationCode(): string {
+    return randomBytes(3).toString('hex').toUpperCase();
   }
 }

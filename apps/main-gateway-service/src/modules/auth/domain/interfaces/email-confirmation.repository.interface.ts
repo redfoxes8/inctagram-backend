@@ -8,4 +8,6 @@ export abstract class IEmailConfirmationRepository {
   abstract deleteByUserId(userId: string): Promise<void>;
 
   abstract update(confirmation: EmailConfirmationEntity): Promise<void>;
+
+  abstract findByCode(code: string): Promise<EmailConfirmationEntity | null>;
 }

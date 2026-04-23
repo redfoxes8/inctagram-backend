@@ -1,12 +1,13 @@
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { randomUUID } from 'crypto';
-import { LoginDto } from '../../api/dto/login.dto';
-import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
-import { IPasswordService } from '../../../users/application/interfaces/password.service.interface';
 import { ISessionsRepository } from '../../../sessions/domain/interfaces/sessions.repository.interface';
 import { SessionEntity } from '../../../sessions/domain/session.entity';
-import { AuthTokens, IJwtService } from '../interfaces/jwt.service.interface';
+import { AuthTokens, IJwtService, TokenPayload } from '../interfaces/jwt.service.interface';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { UserEntity } from '../../../users/domain/user.entity';
+import { CurrentUserInfo } from '../../../../../../../libs/common/types/auth.types';
+import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
 
 export type LoginMetadata = {
   ip: string;
@@ -14,39 +15,28 @@ export type LoginMetadata = {
   deviceId: string;
 };
 
-export class LoginUseCase {
+export class LoginCommand {
   constructor(
-    private usersRepository: IUsersRepository,
-    private passwordService: IPasswordService,
+    public userInfo: CurrentUserInfo,
+    public metadata: LoginMetadata,
+  ) {}
+}
+
+@CommandHandler(LoginCommand)
+export class LoginUseCase implements ICommandHandler<LoginCommand, AuthTokens> {
+  constructor(
     private sessionsRepository: ISessionsRepository,
     private jwtService: IJwtService,
+    private userRepository: IUsersRepository,
   ) {}
 
-  public async execute(dto: LoginDto, metadata: LoginMetadata): Promise<AuthTokens> {
-    const user = await this.usersRepository.findByUsernameOrEmail(dto.usernameOrEmail);
+  public async execute({ userInfo, metadata }: LoginCommand): Promise<AuthTokens> {
+    const user: UserEntity | null = await this.userRepository.findById(userInfo.userId);
     if (!user) {
-      throw new DomainException({
-        code: DomainExceptionCode.Unauthorized,
-        message: 'Invalid credentials',
-      });
+      throw new DomainException({ code: DomainExceptionCode.NotFound, message: 'User not found' });
     }
-
-    user.ensureConfirmed();
-
-    const isPasswordCorrect = await this.passwordService.comparePassword(
-      dto.password,
-      user.passwordHash,
-    );
-
-    if (!isPasswordCorrect) {
-      throw new DomainException({
-        code: DomainExceptionCode.Unauthorized,
-        message: 'Invalid credentials',
-      });
-    }
-
-    const tokens = await this.jwtService.createTokens(user.id, metadata.deviceId);
-    const payload = await this.jwtService.getPayload(tokens.refreshToken);
+    const tokens: AuthTokens = await this.jwtService.createTokens(user.id, metadata.deviceId);
+    const payload: TokenPayload | null = await this.jwtService.getPayload(tokens.refreshToken);
 
     if (!payload) {
       throw new DomainException({
