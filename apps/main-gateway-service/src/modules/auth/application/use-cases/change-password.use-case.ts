@@ -8,7 +8,6 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { ChangePasswordDTO } from '../../api/dto/change-password.dto';
 import { PasswordRecoveryEntity } from '../../domain/password-recovery.entity';
 import { UserEntity } from '../../../users/domain/user.entity';
-import { JwtService } from '@nestjs/jwt';
 
 export class ChangePasswordCommand {
   constructor(public dto: ChangePasswordDTO) {}

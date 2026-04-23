@@ -35,7 +35,7 @@ export class LoginUseCase implements ICommandHandler<LoginCommand, AuthTokens> {
     if (!user) {
       throw new DomainException({ code: DomainExceptionCode.NotFound, message: 'User not found' });
     }
-    const tokens: AuthTokens = await this.jwtService.createTokens(user.id, metadata.deviceId);
+    const tokens: AuthTokens = this.jwtService.createTokens(user.id, metadata.deviceId);
     const payload: TokenPayload | null = await this.jwtService.getPayload(tokens.refreshToken);
 
     if (!payload) {
