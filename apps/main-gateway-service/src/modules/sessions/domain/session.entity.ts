@@ -17,7 +17,7 @@ export class SessionEntity extends BaseDomainEntity<string> {
   deviceId: string;
   deviceName: string;
   ip: string;
-  iat: number;
+  iat: number; // iat = lastActiveDate
   exp: number;
 
   constructor(data: SessionEntityProps) {
