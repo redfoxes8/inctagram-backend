@@ -6,7 +6,8 @@ import {
 } from '../application/interfaces/jwt.service.interface';
 import { JwtService } from '@nestjs/jwt';
 import { GatewayConfig } from '../../../core/gateway.config';
-import { DomainException, DomainExceptionCode } from '@inctagram/common';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 @Injectable()
 export class JwtServiceImplementation implements IJwtService {

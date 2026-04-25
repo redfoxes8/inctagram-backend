@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inctagram Notification</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #f6f8fb;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+      }
+
+      .shell {
+        width: 100%;
+        padding: 32px 16px;
+      }
+
+      .card {
+        max-width: 640px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .header {
+        padding: 24px 32px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .logo {
+        display: inline-block;
+        width: 144px;
+        height: 36px;
+        object-fit: contain;
+      }
+
+      .content {
+        padding: 32px;
+        line-height: 1.6;
+        font-size: 16px;
+      }
+
+      .footer {
+        padding: 20px 32px 28px;
+        border-top: 1px solid #e5e7eb;
+        color: #6b7280;
+        font-size: 12px;
+      }
+
+      a {
+        color: #2563eb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="card">
+        <div class="header">
+          <img
+            class="logo"
+            src="https://placehold.co/288x72?text=Inctagram+Logo"
+            alt="Inctagram"
+          />
+        </div>
+        <div class="content">
+          {{{body}}}
+        </div>
+        <div class="footer">
+          <p>This message was sent automatically by Inctagram.</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

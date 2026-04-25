@@ -25,13 +25,22 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable JWT_SECRET' })
   jwtSecret: string;
 
-  @IsNotEmpty({ message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  @IsNumber({}, { message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   accessTokenExpTime: number;
 
-  @IsNotEmpty({ message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  @IsNumber({}, { message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   refreshTokenExpTime: number;
 
-  accessTokenExpTimeV;
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable RABBITMQ_URL, example: amqp://localhost:5672' })
+  rabbitmqUrl: string;
+
+  @IsString()
+  @IsNotEmpty({
+    message: 'Set Env variable NOTIFICATION_QUEUE_NAME, example: micro-notification-service',
+  })
+  notificationQueueName: string;
+
   constructor(private configService: ConfigService<any, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
@@ -43,6 +52,8 @@ export class GatewayConfig {
     this.jwtSecret = this.configService.get('JWT_SECRET');
     this.accessTokenExpTime = Number(this.configService.get('ACCESS_TOKEN_EXPIRE_TIME'));
     this.refreshTokenExpTime = Number(this.configService.get('REFRESH_TOKEN_EXPIRE_TIME'));
+    this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
+    this.notificationQueueName = this.configService.get('NOTIFICATION_QUEUE_NAME');
 
     configValidationUtility.validateConfig(this);
   }

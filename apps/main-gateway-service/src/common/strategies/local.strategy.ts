@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Strategy } from 'passport-local';
 import { PassportStrategy } from '@nestjs/passport';
-import { DomainException, DomainExceptionCode } from '@inctagram/common';
+import { DomainException } from '../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { IUsersRepository } from '../../modules/users/domain/interfaces/users.repository.interface';
 import { UserEntity } from '../../modules/users/domain/user.entity';
 import { IPasswordService } from '../../modules/users/application/interfaces/password.service.interface';

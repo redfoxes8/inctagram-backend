@@ -16,13 +16,9 @@ export class PasswordRecoveryRepositoryImplementation implements IPasswordRecove
     });
   }
 
-  public async findByUserIdAndCode(
-    userId: string,
-    recoveryCode: string,
-  ): Promise<PasswordRecoveryEntity | null> {
+  public async findByCode(recoveryCode: string): Promise<PasswordRecoveryEntity | null> {
     const recovery = await this.prismaService.passwordRecovery.findFirst({
       where: {
-        userId,
         recoveryCode,
         deletedAt: null,
       },

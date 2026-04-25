@@ -36,6 +36,21 @@
       "compilerOptions": {
         "tsConfigPath": "apps/micro-files-service/tsconfig.app.json"
       }
+    },
+    "micro-notification-service": {
+      "type": "application",
+      "root": "apps/micro-notification-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/micro-notification-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/micro-notification-service/tsconfig.app.json",
+        "assets": [
+          {
+            "include": "infrastructure/templates/**/*",
+            "outDir": "../../dist/apps/micro-notification-service/src"
+          }
+        ]
+      }
     }
   }
 }
