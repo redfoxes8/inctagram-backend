@@ -36,9 +36,12 @@ The service validates these variables on startup:
 
 Current code uses a simple application-level retry policy:
 
-- first and second failures are delayed and requeued to the main queue
+- first and second failures are requeued to the main queue immediately (asynchronous retry without blocking the worker)
 - when retry attempts are exhausted, the payload is sent to the DLQ
 - invalid DTOs are acknowledged immediately and do not retry
+
+> [!IMPORTANT]
+> The artificial `await delay()` was removed to prevent blocking the Node.js Event Loop. Proper delayed retries should be implemented using the broker-managed strategy described below.
 
 If you later move to broker-managed delayed retries, add a retry queue with:
 

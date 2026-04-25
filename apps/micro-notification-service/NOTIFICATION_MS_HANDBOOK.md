@@ -178,8 +178,8 @@ Current policy:
 
 | Attempt | Behavior |
 | --- | --- |
-| 1st failure | Requeue with a small delay |
-| 2nd failure | Requeue with a small delay |
+| 1st failure | Requeue immediately |
+| 2nd failure | Requeue immediately |
 | 3rd failure | Move to DLQ |
 
 The retry counter is tracked using message headers:
@@ -187,11 +187,11 @@ The retry counter is tracked using message headers:
 - `x-retry-count`
 - fallback support for broker metadata like `x-death` if present
 
-### Why the delay exists
+### Note on Delays
 
-Without delay, a failing SMTP provider can be hammered by immediate retries.
+The artificial `await delay()` was removed from the application code to prevent blocking the Node.js Event Loop and worker availability. 
 
-The delay gives the provider time to recover and reduces the chance of hitting rate limits or creating a retry storm.
+While a delay is beneficial to avoid "hammering" an SMTP provider, it must be implemented at the infrastructure level (e.g., using RabbitMQ TTL or Delayed Exchanges) rather than by sleeping the application thread. Current retries are immediate.
 
 ### Dead Letter Queue (DLQ)
 
@@ -304,7 +304,7 @@ Why this matters:
 
 1. The registry picks a template name.
 2. `NotificationsService` builds the template context.
-3. `NodemailerMailAdapter` compiles the body template.
+3. `NodemailerMailAdapter` loads the body template using async I/O.
 4. The body is wrapped with `base-layout.hbs`.
 5. The result is sent through SMTP.
 
