@@ -27,6 +27,17 @@ export class EmailConfirmationRepositoryImplementation implements IEmailConfirma
     return confirmation ? EmailConfirmationMapper.toDomain(confirmation) : null;
   }
 
+  public async findByCode(code: string): Promise<EmailConfirmationEntity | null> {
+    const confirmation = await this.prismaService.emailConfirmation.findFirst({
+      where: {
+        confirmationCode: code,
+        deletedAt: null,
+      },
+    });
+
+    return confirmation ? EmailConfirmationMapper.toDomain(confirmation) : null;
+  }
+
   public async deleteByUserId(userId: string): Promise<void> {
     const deletedRows = await this.prismaService.emailConfirmation.deleteMany({
       where: {

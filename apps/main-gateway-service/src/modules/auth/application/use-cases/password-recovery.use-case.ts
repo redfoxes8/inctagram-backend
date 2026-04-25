@@ -47,8 +47,15 @@ export class PasswordRecoveryUseCase implements ICommandHandler<PasswordRecovery
         user.email,
         passwordRecoveryEntity.recoveryCode,
       );
-    } catch (e) {
-      throw new DomainException({ code: DomainExceptionCode.InternalServerError, message: `${e}` });
+    } catch (error: unknown) {
+      if (error instanceof DomainException) {
+        throw error;
+      }
+
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: error instanceof Error ? error.message : 'Failed to send password recovery email',
+      });
     }
   }
 

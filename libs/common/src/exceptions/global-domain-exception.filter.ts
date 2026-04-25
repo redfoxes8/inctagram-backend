@@ -10,6 +10,7 @@ import { Response } from 'express';
 import { Observable, throwError } from 'rxjs';
 
 import { DomainException } from './domain-exception';
+import { DomainExceptionCode } from './domain-exception-codes';
 
 type RpcExceptionLike = {
   getError(): unknown;
@@ -25,6 +26,19 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
     const hostType = host.getType<'http' | 'rpc'>();
 
     if (hostType === 'rpc') {
+      const rpcContext = host.switchToRpc().getContext();
+
+      if (
+        exception.code === DomainExceptionCode.ValidationError &&
+        this.isAckableRpcContext(rpcContext)
+      ) {
+        this.logger.warn(
+          `DomainException -> RPC validation error; message="${exception.message}"; extensions=${exception.extensions.length}`,
+        );
+        rpcContext.getChannelRef().ack(rpcContext.getMessage());
+        return;
+      }
+
       return throwError(() => this.mapToRpcException(exception));
     }
 
@@ -95,5 +109,19 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
         },
       };
     }
+  }
+
+  private isAckableRpcContext(context: unknown): context is {
+    getChannelRef(): { ack(message: unknown): void };
+    getMessage(): unknown;
+  } {
+    return (
+      typeof context === 'object' &&
+      context !== null &&
+      'getChannelRef' in context &&
+      'getMessage' in context &&
+      typeof (context as { getChannelRef?: unknown }).getChannelRef === 'function' &&
+      typeof (context as { getMessage?: unknown }).getMessage === 'function'
+    );
   }
 }
