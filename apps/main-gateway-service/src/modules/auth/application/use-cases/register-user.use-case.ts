@@ -9,21 +9,23 @@ import { UserEntity } from '../../../users/domain/user.entity';
 import { EmailConfirmationEntity } from '../../domain/email-confirmation.entity';
 import { IEmailConfirmationRepository } from '../../domain/interfaces/email-confirmation.repository.interface';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { CoreConfig } from '../../../../../../../libs/common/src/core.config';
 
 export class RegisterUserCommand {
   constructor(public dto: RegisterUserDto) {}
 }
 
 @CommandHandler(RegisterUserCommand)
-export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand, void> {
+export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand, void | string> {
   constructor(
     private usersRepository: IUsersRepository,
     private passwordService: IPasswordService,
     private emailAdapter: IEmailAdapter,
     private emailConfirmationRepository: IEmailConfirmationRepository,
+    private coreConfig: CoreConfig,
   ) {}
 
-  public async execute({ dto }: RegisterUserCommand): Promise<void> {
+  public async execute({ dto }: RegisterUserCommand): Promise<void | string> {
     const existingUser = await this.usersRepository.findByEmail(dto.email);
     const passwordHash = await this.passwordService.hashPassword(dto.password);
     const confirmationCode = this.generateConfirmationCode();
@@ -64,6 +66,9 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
           deletedAt: null,
         }),
       );
+      if (this.coreConfig.env == 'test') {
+        return confirmationCode;
+      }
       await this.emailAdapter.sendRegistrationCode(updatedUser.email, confirmationCode);
       return;
     }
@@ -91,7 +96,12 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
         deletedAt: null,
       }),
     );
+
+    if (this.coreConfig.env == 'test') {
+      return confirmationCode;
+    }
     await this.emailAdapter.sendRegistrationCode(savedUser.email, confirmationCode);
+    return;
   }
 
   private generateConfirmationCode(): string {

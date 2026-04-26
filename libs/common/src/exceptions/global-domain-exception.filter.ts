@@ -52,16 +52,11 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
       `DomainException -> HTTP ${statusCode}; message="${exception.message}"; extensions=${exception.extensions.length}`,
     );
 
-    if (statusCode === HttpStatus.BAD_REQUEST && typeof responseBody === 'object') {
-      response.status(statusCode).json(responseBody);
-      return;
-    }
-
-    response.sendStatus(statusCode);
+    response.status(statusCode).send(responseBody);
   }
 
   private mapToHttpException(exception: DomainException): HttpException {
-    const statusCode = Number(exception.code);
+    const statusCode: HttpStatus = Number(exception.code);
 
     if (statusCode === HttpStatus.BAD_REQUEST && exception.extensions.length > 0) {
       return new HttpException(
@@ -93,12 +88,13 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
     };
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { RpcException } = require('@nestjs/microservices') as {
         RpcException: RpcExceptionFactory;
       };
 
       return new RpcException(rpcPayload);
-    } catch (error: unknown) {
+    } catch {
       this.logger.warn(
         '@nestjs/microservices is not installed. Falling back to a plain error payload for RPC.',
       );

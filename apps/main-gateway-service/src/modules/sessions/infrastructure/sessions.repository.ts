@@ -84,15 +84,11 @@ export class PrismaSessionsRepository implements ISessionsRepository {
   }
 
   public async deleteAllByUserId(userId: string): Promise<void> {
-    const deletedRows = await this.prismaService.session.deleteMany({
+    await this.prismaService.session.deleteMany({
       where: {
         userId,
       },
     });
-
-    if (deletedRows.count === 0) {
-      throw this.createNotFoundException(userId);
-    }
   }
 
   public async update(session: SessionEntity): Promise<void> {

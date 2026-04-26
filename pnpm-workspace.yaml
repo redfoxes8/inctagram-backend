@@ -2,3 +2,4 @@ allowBuilds:
   '@nestjs/core': false
   '@prisma/engines': true
   bcrypt: false
+  prisma: true

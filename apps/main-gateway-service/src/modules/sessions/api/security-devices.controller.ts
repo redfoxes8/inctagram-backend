@@ -7,6 +7,7 @@ import {
   Request,
   Delete,
   Param,
+  Inject,
 } from '@nestjs/common';
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import {
@@ -22,7 +23,7 @@ import { DeactivateAllCommand } from '../application/use-cases/deactivate-all.us
 export class SessionsController {
   constructor(
     private sessionsQueryRepo: ISessionsQueryRepository,
-    private commandBus: CommandBus,
+    @Inject(CommandBus) private commandBus: CommandBus,
   ) {}
 
   @Get('my-devices')
@@ -37,8 +38,13 @@ export class SessionsController {
   @Delete('deactivate-one/:deviceId')
   @UseGuards(JwtGuard)
   @HttpCode(HttpStatus.OK)
-  async deactivateOne(@Param('deviceId') deviceId: string) {
-    await this.commandBus.execute(new DeactivateOneCommand({ deviceId: deviceId }));
+  async deactivateOne(
+    @Param('deviceId') deviceId: string,
+    @Request() req: Express.Request & { user: CurrentUserInfo },
+  ) {
+    await this.commandBus.execute(
+      new DeactivateOneCommand({ deviceId: deviceId, userInfo: req.user }),
+    );
     return;
   }
 
