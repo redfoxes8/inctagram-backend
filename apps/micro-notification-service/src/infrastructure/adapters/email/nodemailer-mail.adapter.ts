@@ -50,7 +50,10 @@ export class NodemailerMailAdapter implements IMailAdapter {
     }
   }
 
-  private async renderTemplate(templateName: MailTemplates, context: Record<string, unknown>): Promise<string> {
+  private async renderTemplate(
+    templateName: MailTemplates,
+    context: Record<string, unknown>,
+  ): Promise<string> {
     const templatePath = join(__dirname, '../../templates', `${templateName}.hbs`);
 
     const templateSource = await readFile(templatePath, 'utf8');

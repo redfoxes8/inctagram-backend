@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
-import { IMailAdapter, SendEmailParams } from '../../../application/interfaces/mail-adapter.interface';
+import {
+  IMailAdapter,
+  SendEmailParams,
+} from '../../../application/interfaces/mail-adapter.interface';
 
 @Injectable()
 export class NotificationsService {

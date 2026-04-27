@@ -10,6 +10,8 @@ import { PrismaTestController } from './modules/testing/api/prisma-test.controll
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
+import { CoreConfig } from '@inctagram/common/core.config';
 
 @Module({
   imports: [
@@ -20,6 +22,16 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     AuthModule,
     UsersModule,
     SessionsModule,
+    GoogleRecaptchaModule.forRootAsync({
+      inject: [GatewayConfig, CoreConfig],
+      useFactory: (config: GatewayConfig, coreConfig: CoreConfig) => {
+        return {
+          secretKey: config.recaptchaSecret,
+          response: (req) => req.headers.recaptcha,
+          skipIf: coreConfig.env !== 'production',
+        };
+      },
+    }),
   ],
   controllers: [GatewayController, PrismaTestController],
   providers: [FilesHttpClient],

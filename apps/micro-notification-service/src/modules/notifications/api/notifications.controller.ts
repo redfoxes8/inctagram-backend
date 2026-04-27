@@ -37,7 +37,7 @@ export class NotificationsController {
       );
       context.getChannelRef().ack(context.getMessage());
     } catch (error: unknown) {
-      await this.handleProcessingFailure(
+      this.handleProcessingFailure(
         NotificationEvents.RegistrationEmailSent,
         dto.email,
         context,
@@ -57,7 +57,7 @@ export class NotificationsController {
       );
       context.getChannelRef().ack(context.getMessage());
     } catch (error: unknown) {
-      await this.handleProcessingFailure(
+      this.handleProcessingFailure(
         NotificationEvents.PasswordRecoveryEmailSent,
         dto.email,
         context,
@@ -66,12 +66,12 @@ export class NotificationsController {
     }
   }
 
-  private async handleProcessingFailure(
+  private handleProcessingFailure(
     eventName: NotificationEvents,
     email: string,
     context: RmqContext,
     error: unknown,
-  ): Promise<void> {
+  ): void {
     const message = context.getMessage();
 
     if (this.isValidationError(error)) {
@@ -87,7 +87,7 @@ export class NotificationsController {
         `Retrying ${eventName} for ${email}. Attempt ${retryCount + 1} of ${this.maxRetryAttempts}`,
       );
 
-      await this.requeueMessage(context, {
+      this.requeueMessage(context, {
         eventName,
         email,
         nextRetryCount: retryCount + 1,
@@ -100,7 +100,7 @@ export class NotificationsController {
       `Critical failure for ${eventName} and ${email}. Moving message to DLQ after ${this.maxRetryAttempts} attempts.`,
       error instanceof Error ? error.stack : undefined,
     );
-    await this.routeToDeadLetterQueue(context, {
+    this.routeToDeadLetterQueue(context, {
       eventName,
       email,
       reason: 'max_retries_exceeded',
@@ -108,14 +108,14 @@ export class NotificationsController {
     context.getChannelRef().ack(message);
   }
 
-  private async requeueMessage(
+  private requeueMessage(
     context: RmqContext,
     options: {
       eventName: NotificationEvents;
       email: string;
       nextRetryCount: number;
     },
-  ): Promise<void> {
+  ): void {
     const message = context.getMessage();
     const headers = this.getHeaders(message);
     const channel = context.getChannelRef();
@@ -139,14 +139,14 @@ export class NotificationsController {
     );
   }
 
-  private async routeToDeadLetterQueue(
+  private routeToDeadLetterQueue(
     context: RmqContext,
     options: {
       eventName: NotificationEvents;
       email: string;
       reason: string;
     },
-  ): Promise<void> {
+  ): void {
     const message = context.getMessage();
     const headers = this.getHeaders(message);
     const channel = context.getChannelRef();

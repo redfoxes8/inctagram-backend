@@ -57,6 +57,9 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable GOOGLE_REDIRECT_URI' })
   googleRedirectUri: string;
 
+  @IsNotEmpty({ message: 'Set Env variable RECAPTCHA_SECRET' })
+  recaptchaSecret: string;
+
   constructor(private configService: ConfigService<any, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
@@ -73,6 +76,7 @@ export class GatewayConfig {
     this.googleClientId = this.configService.get('GOOGLE_CLIENT_ID');
     this.googleClientSecret = this.configService.get('GOOGLE_CLIENT_SECRET');
     this.googleRedirectUri = this.configService.get('GOOGLE_REDIRECT_URI');
+    this.recaptchaSecret = this.configService.get('RECAPTCHA_SECRET');
 
     configValidationUtility.validateConfig(this);
   }

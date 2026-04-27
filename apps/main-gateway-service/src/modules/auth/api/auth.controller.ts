@@ -31,6 +31,7 @@ import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types'
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
+import { Recaptcha } from '@nestlab/google-recaptcha';
 
 @Controller('auth')
 export class AuthController {
@@ -62,7 +63,6 @@ export class AuthController {
   @Post('login')
   @UseGuards(LocalGuard)
   @HttpCode(HttpStatus.OK)
-
   public async login(
     @Request() req: Express.Request & { user: CurrentUserInfo },
     @SessionInfo() sessionMeta: SessionMetaData,
@@ -80,6 +80,7 @@ export class AuthController {
   }
 
   @Post('password-recovery')
+  @Recaptcha()
   @HttpCode(HttpStatus.OK)
   public async passwordRecovery(
     @Body() dto: PasswordRecoveryDto,
@@ -93,7 +94,6 @@ export class AuthController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-
   public async newPassword(@Body() dto: ChangePasswordDTO): Promise<void> {
     await this.commandBus.execute(new ChangePasswordCommand(dto));
     return;
@@ -102,7 +102,6 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtGuard)
   @HttpCode(HttpStatus.OK)
-
   public async logout(@Request() req: Express.Request): Promise<void> {
     await this.commandBus.execute(new LogoutCommand(req.user as LogoutDTO));
     return;
@@ -110,7 +109,6 @@ export class AuthController {
 
   @Post('google/login')
   @HttpCode(HttpStatus.OK)
-
   public async googleLogin(
     @Body() dto: GoogleLoginDto,
     @SessionInfo() sessionMeta: SessionMetaData,
