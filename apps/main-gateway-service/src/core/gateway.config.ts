@@ -45,6 +45,18 @@ export class GatewayConfig {
   })
   notificationQueueName: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable GOOGLE_CLIENT_ID' })
+  googleClientId: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable GOOGLE_CLIENT_SECRET' })
+  googleClientSecret: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable GOOGLE_REDIRECT_URI' })
+  googleRedirectUri: string;
+
   constructor(private configService: ConfigService<any, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
@@ -58,6 +70,9 @@ export class GatewayConfig {
     this.refreshTokenExpTime = Number(this.configService.get('REFRESH_TOKEN_EXPIRE_TIME'));
     this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
     this.notificationQueueName = this.configService.get('NOTIFICATION_QUEUE_NAME');
+    this.googleClientId = this.configService.get('GOOGLE_CLIENT_ID');
+    this.googleClientSecret = this.configService.get('GOOGLE_CLIENT_SECRET');
+    this.googleRedirectUri = this.configService.get('GOOGLE_REDIRECT_URI');
 
     configValidationUtility.validateConfig(this);
   }

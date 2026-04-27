@@ -21,6 +21,11 @@ import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { JwtModule } from '@nestjs/jwt';
 import { GatewayConfig } from '../../core/gateway.config';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GoogleLoginUseCase } from './application/use-cases/google-login.use-case';
+import { IGoogleAuthAdapter } from './application/interfaces/google-auth.adapter.interface';
+import { GoogleAuthAdapter } from './infrastructure/adapters/google-auth.adapter';
+import { IOAuthAccountsRepository } from './domain/interfaces/oauth-accounts.repository.interface';
+import { PrismaOAuthAccountsRepository } from './infrastructure/oauth-accounts.repository';
 
 const useCases = [
   RegisterUserUseCase,
@@ -29,6 +34,7 @@ const useCases = [
   ChangePasswordUseCase,
   ConfirmEmailUseCase,
   LogoutUseCase,
+  GoogleLoginUseCase,
 ];
 @Module({
   imports: [
@@ -54,6 +60,8 @@ const useCases = [
     { provide: IJwtService, useClass: JwtServiceImplementation },
     { provide: IEmailConfirmationRepository, useClass: EmailConfirmationRepositoryImplementation },
     { provide: IPasswordRecoveryRepository, useClass: PasswordRecoveryRepositoryImplementation },
+    { provide: IGoogleAuthAdapter, useClass: GoogleAuthAdapter },
+    { provide: IOAuthAccountsRepository, useClass: PrismaOAuthAccountsRepository },
   ],
 })
 export class AuthModule {}

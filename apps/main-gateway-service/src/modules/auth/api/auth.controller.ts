@@ -28,6 +28,8 @@ import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { LogoutCommand } from '../application/use-cases/logout.use-case';
 import { LogoutDTO } from './dto/logout.dto';
 import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
+import { GoogleLoginDto } from './dto/google-login.dto';
+import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
 
 @Controller('auth')
@@ -60,6 +62,7 @@ export class AuthController {
   @Post('login')
   @UseGuards(LocalGuard)
   @HttpCode(HttpStatus.OK)
+
   public async login(
     @Request() req: Express.Request & { user: CurrentUserInfo },
     @SessionInfo() sessionMeta: SessionMetaData,
@@ -90,6 +93,7 @@ export class AuthController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
+
   public async newPassword(@Body() dto: ChangePasswordDTO): Promise<void> {
     await this.commandBus.execute(new ChangePasswordCommand(dto));
     return;
@@ -98,8 +102,34 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtGuard)
   @HttpCode(HttpStatus.OK)
+
   public async logout(@Request() req: Express.Request): Promise<void> {
     await this.commandBus.execute(new LogoutCommand(req.user as LogoutDTO));
     return;
+  }
+
+  @Post('google/login')
+  @HttpCode(HttpStatus.OK)
+
+  public async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @SessionInfo() sessionMeta: SessionMetaData,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ accessToken: string }> {
+    const tokens = await this.commandBus.execute(
+      new GoogleLoginCommand(
+        dto.code,
+        dto.username,
+        {
+          ...sessionMeta,
+          deviceId: randomUUID(),
+        },
+        dto.redirectUri,
+      ),
+    );
+
+    res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+
+    return { accessToken: tokens.accessToken };
   }
 }

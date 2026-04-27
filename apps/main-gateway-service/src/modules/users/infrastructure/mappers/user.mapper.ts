@@ -4,7 +4,7 @@ export type UserRecord = {
   id: string;
   email: string;
   username: string;
-  passwordHash: string;
+  passwordHash: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

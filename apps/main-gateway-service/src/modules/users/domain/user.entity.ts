@@ -8,20 +8,20 @@ import { DomainExceptionCode } from '../../../../../../libs/common/src/exception
 export type UpdateUserCredentialsInput = {
   username: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
 };
 
 export type UserEntityProps = BaseDomainEntityProps<string> & {
   username: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   isConfirmed?: boolean;
 };
 
 export class UserEntity extends BaseDomainEntity<string> {
   username: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   isConfirmed: boolean;
 
   constructor(data: UserEntityProps) {

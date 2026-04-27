@@ -11,7 +11,7 @@ model User {
   id               String             @id @default(uuid())
   username         String             @unique
   email            String             @unique
-  passwordHash     String
+  passwordHash     String?
   isConfirmed      Boolean            @default(false)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @default(now())
@@ -19,6 +19,7 @@ model User {
   sessions         Session[]
   emailConfirmation EmailConfirmation?
   passwordRecovery PasswordRecovery?
+  oauthAccounts    OAuthAccount[]
 
   @@index([username])
   @@index([email])
@@ -62,4 +63,18 @@ model PasswordRecovery {
   updatedAt        DateTime @default(now())
   deletedAt        DateTime?
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OAuthAccount {
+  id               String   @id @default(uuid())
+  userId           String
+  provider         String   // "google"
+  providerId       String   // ID пользователя в Google (поле sub)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
 }

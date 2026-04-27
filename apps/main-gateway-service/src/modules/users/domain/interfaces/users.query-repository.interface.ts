@@ -8,4 +8,5 @@ export class UserViewModel {
 
 export abstract class IUsersQueryRepository {
   abstract getUserById(id: string): Promise<UserViewModel | null>;
+  abstract getUserByEmail(email: string): Promise<UserViewModel | null>;
 }

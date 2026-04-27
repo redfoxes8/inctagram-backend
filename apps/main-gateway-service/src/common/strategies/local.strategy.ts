@@ -29,6 +29,13 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       });
     }
 
+    if (user.passwordHash === null) {
+      throw new DomainException({
+        code: DomainExceptionCode.OAuthProviderRequired,
+        message: 'Please login using your OAuth provider (Google)',
+      });
+    }
+
     const isPasswordCorrect: boolean = await this.passwordService.comparePassword(
       password,
       user.passwordHash,

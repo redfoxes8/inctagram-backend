@@ -5,12 +5,13 @@ import { IUsersRepository } from '../domain/interfaces/users.repository.interfac
 import { UserMapper, type UserRecord } from './mappers/user.mapper';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { PrismaClient } from '@prisma/client';
 
 type UserCreateData = {
   id: string;
   username: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   isConfirmed: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -20,7 +21,7 @@ type UserCreateData = {
 type UserUpdateData = {
   username: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   isConfirmed: boolean;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -30,8 +31,9 @@ type UserUpdateData = {
 export class PrismaUsersRepository implements IUsersRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(user: UserEntity): Promise<UserEntity> {
-    const createdUser = await this.prismaService.user.create({
+  public async save(user: UserEntity, tx?: PrismaClient): Promise<UserEntity> {
+    const prisma = tx || this.prismaService;
+    const createdUser = await prisma.user.create({
       data: this.toCreateData(user),
     });
 
@@ -71,9 +73,10 @@ export class PrismaUsersRepository implements IUsersRepository {
     return user ? UserMapper.toDomain(user as UserRecord) : null;
   }
 
-  public async update(user: UserEntity): Promise<UserEntity> {
+  public async update(user: UserEntity, tx?: PrismaClient): Promise<UserEntity> {
+    const prisma = tx || this.prismaService;
     const userId = this.requireUserId(user);
-    const affectedRows = await this.prismaService.user.updateMany({
+    const affectedRows = await prisma.user.updateMany({
       where: {
         id: userId,
         deletedAt: null,
@@ -85,7 +88,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       throw this.createUserNotFoundException(userId);
     }
 
-    const updatedUser = await this.prismaService.user.findFirst({
+    const updatedUser = await prisma.user.findFirst({
       where: {
         id: userId,
         deletedAt: null,
