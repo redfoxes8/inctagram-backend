@@ -4,6 +4,7 @@ import { IEmailConfirmationRepository } from '../../domain/interfaces/email-conf
 import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
 import { EmailConfirmationEntity } from '../../domain/email-confirmation.entity';
 import { UserEntity } from '../../../users/domain/user.entity';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 
 type ConfirmEmailDTO = {
   code: string;
@@ -13,7 +14,8 @@ export class ConfirmEmailCommand {
   constructor(public dto: ConfirmEmailDTO) {}
 }
 
-export class ConfirmEmailUseCase {
+@CommandHandler(ConfirmEmailCommand)
+export class ConfirmEmailUseCase implements ICommandHandler<ConfirmEmailCommand, void> {
   constructor(
     private readonly emailConfirmationRepository: IEmailConfirmationRepository,
     private readonly usersRepository: IUsersRepository,
@@ -49,5 +51,6 @@ export class ConfirmEmailUseCase {
     user.confirmEmail();
     await this.usersRepository.update(user);
     await this.emailConfirmationRepository.update(confirmation);
+    return;
   }
 }

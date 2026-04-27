@@ -28,15 +28,11 @@ export class PasswordRecoveryRepositoryImplementation implements IPasswordRecove
   }
 
   public async deleteByUserId(userId: string): Promise<void> {
-    const deletedRows = await this.prismaService.passwordRecovery.deleteMany({
+    await this.prismaService.passwordRecovery.deleteMany({
       where: {
         userId,
       },
     });
-
-    if (deletedRows.count === 0) {
-      throw this.createNotFoundException(userId);
-    }
   }
 
   public async update(recovery: PasswordRecoveryEntity): Promise<void> {

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { EmailConfirmationEntity } from '../domain/email-confirmation.entity';
 import { IEmailConfirmationRepository } from '../domain/interfaces/email-confirmation.repository.interface';
-import { PrismaService } from '../../../core/prisma/prisma.service';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { EmailConfirmationMapper } from './mappers/email-confirmation.mapper';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 
 @Injectable()
 export class EmailConfirmationRepositoryImplementation implements IEmailConfirmationRepository {
@@ -20,17 +20,6 @@ export class EmailConfirmationRepositoryImplementation implements IEmailConfirma
     const confirmation = await this.prismaService.emailConfirmation.findFirst({
       where: {
         userId,
-        deletedAt: null,
-      },
-    });
-
-    return confirmation ? EmailConfirmationMapper.toDomain(confirmation) : null;
-  }
-
-  public async findByCode(code: string): Promise<EmailConfirmationEntity | null> {
-    const confirmation = await this.prismaService.emailConfirmation.findFirst({
-      where: {
-        confirmationCode: code,
         deletedAt: null,
       },
     });
@@ -62,6 +51,17 @@ export class EmailConfirmationRepositoryImplementation implements IEmailConfirma
     if (affectedRows.count === 0) {
       throw this.createNotFoundException(confirmation.userId);
     }
+  }
+
+  public async findByCode(confirmationCode: string): Promise<EmailConfirmationEntity | null> {
+    const confirmation = await this.prismaService.emailConfirmation.findFirst({
+      where: {
+        confirmationCode,
+        deletedAt: null,
+      },
+    });
+
+    return confirmation ? EmailConfirmationMapper.toDomain(confirmation) : null;
   }
 
   private toCreateData(confirmation: EmailConfirmationEntity): {

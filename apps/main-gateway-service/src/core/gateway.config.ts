@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsNotEmpty, IsNumber, IsBoolean, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsBoolean, IsString, Min } from 'class-validator';
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
 @Injectable()
@@ -25,10 +25,14 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable JWT_SECRET' })
   jwtSecret: string;
 
-  @IsNumber({}, { message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1, { message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   accessTokenExpTime: number;
 
-  @IsNumber({}, { message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1, { message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   refreshTokenExpTime: number;
 
   @IsString()

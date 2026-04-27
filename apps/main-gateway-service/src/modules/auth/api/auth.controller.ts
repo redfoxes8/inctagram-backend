@@ -9,6 +9,7 @@ import {
   Post,
   Res,
   UseGuards,
+  Inject,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { PasswordRecoveryDto } from './dto/password-recovery.dto';
@@ -29,22 +30,27 @@ import { LogoutDTO } from './dto/logout.dto';
 import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
-
-
+import { CoreConfig } from '../../../../../../libs/common/src/core.config';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private commandBus: CommandBus) {}
+  constructor(
+    @Inject(CommandBus) private commandBus: CommandBus,
+    private coreConfig: CoreConfig,
+  ) {}
 
   @Post('registration')
   @HttpCode(HttpStatus.CREATED)
-
-  public async registration(@Body() dto: RegisterUserDto): Promise<void> {
-    await this.commandBus.execute(new RegisterUserCommand(dto));
+  public async registration(@Body() dto: RegisterUserDto): Promise<void | { code: string }> {
+    const code: string | null = await this.commandBus.execute(new RegisterUserCommand(dto));
+    if (this.coreConfig.env == 'test' && code) {
+      return { code: code };
+    }
+    return;
   }
 
   @Post('confirm-email')
-
+  @HttpCode(HttpStatus.OK)
   public async confirmEmail(@Query('code') code: string, @Res() res: Response): Promise<void> {
     await this.commandBus.execute(new ConfirmEmailCommand({ code: code }));
 
@@ -70,15 +76,18 @@ export class AuthController {
     );
 
     res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
-
     return { accessToken: tokens.accessToken };
   }
 
   @Post('password-recovery')
   @HttpCode(HttpStatus.OK)
-
-  public async passwordRecovery(@Body() dto: PasswordRecoveryDto): Promise<void> {
-    await this.commandBus.execute(new PasswordRecoveryCommand(dto));
+  public async passwordRecovery(
+    @Body() dto: PasswordRecoveryDto,
+  ): Promise<void | { code: string | void }> {
+    const code: string | void = await this.commandBus.execute(new PasswordRecoveryCommand(dto));
+    if (this.coreConfig.env == 'test' && code) {
+      return { code: code };
+    }
     return;
   }
 

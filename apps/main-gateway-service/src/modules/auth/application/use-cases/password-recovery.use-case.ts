@@ -8,26 +8,28 @@ import { UserEntity } from '../../../users/domain/user.entity';
 import { randomBytes, randomUUID } from 'crypto';
 import { PasswordRecoveryEntity } from '../../domain/password-recovery.entity';
 import { IEmailAdapter } from '../interfaces/email.adapter.interface';
+import { CoreConfig } from '../../../../../../../libs/common/src/core.config';
 
 export class PasswordRecoveryCommand {
   constructor(public dto: PasswordRecoveryDto) {}
 }
 
 @CommandHandler(PasswordRecoveryCommand)
-export class PasswordRecoveryUseCase implements ICommandHandler<PasswordRecoveryCommand, void> {
+export class PasswordRecoveryUseCase implements ICommandHandler<
+  PasswordRecoveryCommand,
+  void | string
+> {
   constructor(
     private usersRepository: IUsersRepository,
     private passwordRecoveryRepository: IPasswordRecoveryRepository,
     private emailAdapter: IEmailAdapter,
+    private coreConfig: CoreConfig,
   ) {}
 
-  public async execute({ dto }: PasswordRecoveryCommand): Promise<void> {
+  public async execute({ dto }: PasswordRecoveryCommand): Promise<void | string> {
     const user: UserEntity | null = await this.usersRepository.findByEmail(dto.email);
     if (!user || !user.id) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: 'Invalid recovery data',
-      });
+      return;
     }
 
     const passwordRecoveryEntity = new PasswordRecoveryEntity({
@@ -42,21 +44,20 @@ export class PasswordRecoveryUseCase implements ICommandHandler<PasswordRecovery
     try {
       await this.passwordRecoveryRepository.deleteByUserId(user.id);
       await this.passwordRecoveryRepository.save(passwordRecoveryEntity);
-
-      await this.emailAdapter.sendPasswordRecoveryCode(
-        user.email,
-        passwordRecoveryEntity.recoveryCode,
-      );
-    } catch (error: unknown) {
-      if (error instanceof DomainException) {
-        throw error;
-      }
-
+    } catch (error) {
+      console.log(error);
       throw new DomainException({
         code: DomainExceptionCode.InternalServerError,
-        message: error instanceof Error ? error.message : 'Failed to send password recovery email',
+        message: 'Cant rewrite password recovery info',
       });
     }
+    if (this.coreConfig.env == 'test') {
+      return passwordRecoveryEntity.recoveryCode;
+    }
+    await this.emailAdapter.sendPasswordRecoveryCode(
+      user.email,
+      passwordRecoveryEntity.recoveryCode,
+    );
   }
 
   private generateConfirmationCode(): string {
