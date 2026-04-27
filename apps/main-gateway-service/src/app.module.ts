@@ -11,7 +11,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
-import { CoreConfig } from '@inctagram/common/core.config';
+import { CoreConfig } from '../../../libs/common/src/core.config';
+
 
 @Module({
   imports: [

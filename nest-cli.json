@@ -5,7 +5,17 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json"
+    "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json",
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "introspectComments": true,
+          "dtoFileNameSuffix": [".dto.ts", ".view-dto.ts"],
+          "controllerFileNameSuffix": [".controller.ts"]
+        }
+      }
+    ]
   },
   "monorepo": true,
   "root": "apps/main-gateway-service",
