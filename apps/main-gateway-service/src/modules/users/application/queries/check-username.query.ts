@@ -1,6 +1,5 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { IUsersQueryRepository } from '../../domain/interfaces/users.query-repository.interface';
-import { PrismaService } from '../../../core/prisma/prisma.service';
+import { PrismaService } from '../../../../core/prisma/prisma.service';
 
 export class CheckUsernameQuery {
   constructor(public readonly username: string) {}

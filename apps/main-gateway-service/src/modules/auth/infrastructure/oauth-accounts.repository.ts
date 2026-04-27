@@ -3,7 +3,7 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
   IOAuthAccountsRepository,
   OAuthAccountData,
-} from '../../domain/interfaces/oauth-accounts.repository.interface';
+} from '../domain/interfaces/oauth-accounts.repository.interface';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()

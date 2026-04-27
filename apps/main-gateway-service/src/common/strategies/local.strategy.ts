@@ -27,6 +27,8 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
         code: DomainExceptionCode.Unauthorized,
         message: 'Invalid credentials',
       });
+    }
+
     if (user.passwordHash === null) {
       throw new DomainException({
         code: DomainExceptionCode.OAuthProviderRequired,
