@@ -9,4 +9,5 @@ export enum DomainExceptionCode {
   ConfirmationCodeExpired = 401,
   PasswordRecoveryCodeExpired = 401,
   ValidationError = 400,
+  OAuthProviderRequired = 401,
 }

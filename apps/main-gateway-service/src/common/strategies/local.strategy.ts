@@ -27,6 +27,11 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
         code: DomainExceptionCode.Unauthorized,
         message: 'Invalid credentials',
       });
+    if (user.passwordHash === null) {
+      throw new DomainException({
+        code: DomainExceptionCode.OAuthProviderRequired,
+        message: 'Please login using your OAuth provider (Google)',
+      });
     }
 
     const isPasswordCorrect: boolean = await this.passwordService.comparePassword(

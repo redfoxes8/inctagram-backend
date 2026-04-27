@@ -41,6 +41,7 @@
     "@nestjs/microservices": "11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.4.1",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
     "amqp-connection-manager": "^5.0.0",
@@ -50,6 +51,7 @@
     "class-validator": "^0.15.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
+    "google-auth-library": "^10.6.2",
     "handlebars": "4.7.9",
     "nestjs-prisma": "^0.27.0",
     "nodemailer": "8.0.6",
@@ -58,7 +60,8 @@
     "passport-local": "^1.0.0",
     "pg": "^8.20.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

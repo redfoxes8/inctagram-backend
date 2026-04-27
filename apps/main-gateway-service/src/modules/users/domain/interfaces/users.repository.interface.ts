@@ -1,7 +1,7 @@
 import { UserEntity } from '../user.entity';
 
 export abstract class IUsersRepository {
-  abstract save(user: UserEntity): Promise<UserEntity>;
+  abstract save(user: UserEntity, tx?: unknown): Promise<UserEntity>;
 
   abstract findById(id: string): Promise<UserEntity | null>;
 
@@ -9,5 +9,5 @@ export abstract class IUsersRepository {
 
   abstract findByUsernameOrEmail(usernameOrEmail: string): Promise<UserEntity | null>;
 
-  abstract update(user: UserEntity): Promise<UserEntity>;
+  abstract update(user: UserEntity, tx?: unknown): Promise<UserEntity>;
 }
