@@ -7,4 +7,7 @@ export * from './setup/validation-pipe-options';
 export * from './exceptions/domain-exception';
 export * from './exceptions/domain-exception-codes';
 export * from './exceptions/global-domain-exception.filter';
+export * from './api/dto/api-error-response.dto';
+export * from './api/dto/paginated-view.dto';
+export * from './api/decorators/api-domain-error.decorator';
 export * from './domain/base.domain.entity';

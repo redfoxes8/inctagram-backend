@@ -4,6 +4,7 @@ import { Type } from '@nestjs/common';
 import { initAppModule } from './init-app-module';
 import { GLOBAL_PREFIX, appSetup } from '../../../libs/common/src';
 import { GatewayConfig } from './core/gateway.config';
+import { swaggerSetup } from './core/config/swagger.setup';
 
 async function bootstrap() {
   const dynamicAppModule = await initAppModule();
@@ -16,19 +17,17 @@ async function bootstrap() {
       enableGlobalPrefix: true,
       enableCors: true,
       enableCookies: true,
-      enableSwagger: true,
+      enableSwagger: false,
       globalPrefix: GLOBAL_PREFIX,
-      swagger: {
-        description: 'main-gateway-service',
-        title: 'Main Gateway API',
-        version: '1.0.0',
-      },
     },
   });
+
+  swaggerSetup(app);
 
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
 
   await app.listen(gatewayConfig.port);
+
 
   console.log(`Gateway is running on port ${gatewayConfig.port}`);
 }
