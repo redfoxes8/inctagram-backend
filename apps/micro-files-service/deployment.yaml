@@ -16,11 +16,22 @@ spec:
         project: PROJECT
     spec:
       containers:
-        - name: PROJECT
-          image: REGISTRY_HOSTNAME/PROJECT:TAG_VERSION
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true # опционально, но хорошая практика
-            runAsUser: 1000 # опционально
-          ports:
-            - containerPort: PORT_CONTAINER
+         - name: PROJECT
+           image: REGISTRY_HOSTNAME/PROJECT:TAG_VERSION
+           securityContext:
+             allowPrivilegeEscalation: false
+             runAsNonRoot: true      # опционально, но хорошая практика
+             runAsUser: 1000         # опционально
+           ports:
+             - containerPort: PORT_CONTAINER
+           env:
+             - name: INCLUDE_TESTING_MODULE
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: INCLUDE_TESTING_MODULE
+             - name: PORT
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: PORT
