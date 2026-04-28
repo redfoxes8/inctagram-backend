@@ -28,7 +28,6 @@ async function bootstrap() {
 
   await app.listen(gatewayConfig.port);
 
-
   console.log(`Gateway is running on port ${gatewayConfig.port}`);
 }
 bootstrap();
