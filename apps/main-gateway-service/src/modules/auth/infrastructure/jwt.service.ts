@@ -14,7 +14,8 @@ export class JwtServiceImplementation implements IJwtService {
   constructor(
     private jwtService: JwtService,
     private config: GatewayConfig,
-  ) {}
+  ) { }
+  
   public createTokens(userId: string, deviceId: string): AuthTokens {
     const accessToken: string = this.jwtService.sign(
       { userId: userId, deviceId: deviceId },
@@ -22,12 +23,14 @@ export class JwtServiceImplementation implements IJwtService {
         expiresIn: this.config.accessTokenExpTime,
       },
     );
+
     const refreshToken: string = this.jwtService.sign(
       { userId: userId, deviceId: deviceId },
       {
         expiresIn: this.config.refreshTokenExpTime,
       },
     );
+    
     return {
       accessToken: accessToken,
       refreshToken: refreshToken,

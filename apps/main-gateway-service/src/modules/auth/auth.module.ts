@@ -36,6 +36,7 @@ const useCases = [
   LogoutUseCase,
   GoogleLoginUseCase,
 ];
+
 @Module({
   imports: [
     CqrsModule,
