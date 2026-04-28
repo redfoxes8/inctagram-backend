@@ -3,6 +3,7 @@ import { AuthController } from '../../src/modules/auth/api/auth.controller';
 import { CommandBus } from '@nestjs/cqrs';
 import { RegisterUserDto } from '../../src/modules/auth/api/dto/register-user.dto';
 import { CoreConfig } from '../../../../libs/common/src/core.config';
+import { GoogleRecaptchaGuard } from '@nestlab/google-recaptcha';
 
 describe('Auth Module - Integration Tests', () => {
   let controller: AuthController;
@@ -26,7 +27,10 @@ describe('Auth Module - Integration Tests', () => {
           } satisfies Pick<CoreConfig, 'env'>,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(GoogleRecaptchaGuard)
+      .useValue({ canActivate: jest.fn().mockReturnValue(true) })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
     commandBus = module.get<CommandBus>(CommandBus);

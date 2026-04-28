@@ -356,7 +356,6 @@ describe('Auth API (e2e)', () => {
     });
 
     it('должна успешно изменить пароль с валидным кодом восстановления', async () => {
-      console.log(recoveryCode);
       const response = await request(app.getHttpServer())
         .post('/auth/change-password')
         .send({
