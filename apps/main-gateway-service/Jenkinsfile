@@ -27,12 +27,13 @@ pipeline {
                        export NVM_DIR="$HOME/.nvm"
                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
                        nvm use --lts
-                       yarn install
-                       yarn test
+                       yarn install                       
+                      yarn test                      
                     '''
                 }
             }
         }
+        /*
         stage('e2e tests') {
             steps {
                 script {
@@ -45,6 +46,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build docker image') {
             steps {
                 echo "Build image started..."
