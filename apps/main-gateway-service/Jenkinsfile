@@ -32,8 +32,7 @@ pipeline {
                     '''
                 }
             }
-        }
-        /*
+        }        
         stage('e2e tests') {
             steps {
                 script {
@@ -45,8 +44,7 @@ pipeline {
                     '''
                 }
             }
-        }
-        */
+        }        
         stage('Build docker image') {
             steps {
                 echo "Build image started..."
