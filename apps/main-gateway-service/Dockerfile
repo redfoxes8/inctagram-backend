@@ -21,7 +21,9 @@ WORKDIR /home/node/dist/${SERVICE}
 
 COPY --chown=node package*.json ./
 
-RUN npm install
+RUN rm -rf node_modules package-lock.json /tmp/.npm /home/node/.npm \
+&& npm cache clean --force \
+&& npm install --no-audit --no-fund --legacy-peer-deps
 
 # Bundle app source code
 COPY --chown=node . .
