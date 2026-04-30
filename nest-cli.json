@@ -3,7 +3,7 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "apps/main-gateway-service/src",
   "compilerOptions": {
-    "deleteOutDir": true,
+    "deleteOutDir": true,    
     "webpack": true,
     "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json",
     "plugins": [
@@ -57,7 +57,7 @@
         "assets": [
           {
             "include": "infrastructure/templates/**/*",
-            "outDir": "../../dist/apps/micro-notification-service/src"
+            "watchAssets": true
           }
         ]
       }

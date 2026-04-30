@@ -54,7 +54,7 @@ export class NodemailerMailAdapter implements IMailAdapter {
     templateName: MailTemplates,
     context: Record<string, unknown>,
   ): Promise<string> {
-    const templatePath = join(__dirname, '../../templates', `${templateName}.hbs`);
+    const templatePath = join(__dirname, 'infrastructure', 'templates', `${templateName}.hbs`);
 
     const templateSource = await readFile(templatePath, 'utf8');
     const template = Handlebars.compile(templateSource);
@@ -63,7 +63,7 @@ export class NodemailerMailAdapter implements IMailAdapter {
   }
 
   private async renderLayout(body: string, context: Record<string, unknown>): Promise<string> {
-    const layoutPath = join(__dirname, '../../templates', `${MailTemplates.BaseLayout}.hbs`);
+    const layoutPath = join(__dirname, 'infrastructure', 'templates', `${MailTemplates.BaseLayout}.hbs`);
     const layoutSource = await readFile(layoutPath, 'utf8');
     const layoutTemplate = Handlebars.compile(layoutSource);
 
