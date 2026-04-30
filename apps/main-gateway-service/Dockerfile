@@ -26,6 +26,9 @@ RUN npm install
 # Bundle app source code
 COPY --chown=node . .
 
+# ДОБАВЬТЕ ЭТУ СТРОКУ:
+RUN npx prisma generate
+
 RUN npm run build:${SERVICE}
 
 # Bind to all network interfaces so that it can be mapped to the host OS
