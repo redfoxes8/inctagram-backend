@@ -27,7 +27,7 @@ RUN npm install
 COPY --chown=node . .
 
 # ДОБАВЬТЕ ЭТУ СТРОКУ:
-RUN npx prisma generate
+RUN npx prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma
 
 RUN npm run build:${SERVICE}
 
