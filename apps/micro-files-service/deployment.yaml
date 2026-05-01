@@ -30,6 +30,11 @@ spec:
                  secretKeyRef:
                    name: micro-files-service-14-04-2026-production-config-secret
                    key: INCLUDE_TESTING_MODULE
+             - name: NODE_ENV
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: NODE_ENV
              - name: PORT
                valueFrom:
                  secretKeyRef:
