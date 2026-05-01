@@ -27,7 +27,6 @@ async function bootstrap() {
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
 
   await app.listen(gatewayConfig.port);
-
   console.log(`Gateway is running on port ${gatewayConfig.port}`);
 }
 bootstrap();
