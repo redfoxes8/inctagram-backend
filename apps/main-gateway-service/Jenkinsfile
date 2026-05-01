@@ -28,6 +28,9 @@ pipeline {
         //                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
         //                nvm use --lts
         //                yarn install                       
+         
+        //    npx dotenv -e ./main-gateway-service/test/.env.testing -- yarn test
+                   
         //               yarn test                      
         //             '''
         //         }

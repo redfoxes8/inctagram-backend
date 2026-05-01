@@ -90,6 +90,11 @@ spec:
                  secretKeyRef:
                    name: main-gateway-service-14-04-2026-production-config-secret
                    key: RECAPTCHA_SECRET
+             - name: NODE_ENV
+               valueFrom:
+                 secretKeyRef:
+                   name: main-gateway-service-14-04-2026-production-config-secret
+                   key: NODE_ENV
              - name: PORT
                valueFrom:
                  secretKeyRef:
