@@ -75,6 +75,11 @@ spec:
                  secretKeyRef:
                    name: micro-notification-service-28-04-2026-production-config-secret
                    key: SMTP_FROM_NAME
+             - name: NODE_ENV
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: NODE_ENV
              - name: PORT
                valueFrom:
                  secretKeyRef:

@@ -114,7 +114,7 @@ export function swaggerSetup(app: INestApplication) {
     }
   `;
 
-  SwaggerModule.setup('api', app, document, {
+  SwaggerModule.setup('api/v1', app, document, {
     customSiteTitle: 'Inctagram API Documentation',
     customfavIcon: 'https://img.icons8.com/color/48/instagram-new--v1.png',
     customCss: customCss,
