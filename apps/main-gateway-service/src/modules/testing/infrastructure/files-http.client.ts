@@ -32,6 +32,8 @@ export class FilesHttpClient {
     const url = new URL(`/${GLOBAL_PREFIX}/files/log`, filesServiceUrl);
     url.searchParams.set('text', params.text);
 
+    console.log( 'filesServiceUrl', url);    
+
     let response: Response;
     try {
       response = await fetch(url.toString(), { method: 'GET' });
