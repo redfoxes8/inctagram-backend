@@ -32,7 +32,7 @@ export class NotificationsController {
     @Ctx() context: RmqContext,
   ): Promise<void> {
     try {
-      console.log('RegistrationEmailSent ===>', dto);  
+      console.log('RegistrationEmailSent ===>', dto);
 
       await this.notificationsService.sendEmail(
         this.buildRegistrationEmailParams(dto.email, dto.confirmationCode),
