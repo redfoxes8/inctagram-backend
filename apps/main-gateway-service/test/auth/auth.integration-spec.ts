@@ -3,6 +3,7 @@ import { AuthController } from '../../src/modules/auth/api/auth.controller';
 import { CommandBus } from '@nestjs/cqrs';
 import { RegisterUserDto } from '../../src/modules/auth/api/dto/register-user.dto';
 import { CoreConfig } from '../../../../libs/common/src/core.config';
+import { GatewayConfig } from '../../src/core/gateway.config';
 import { GoogleRecaptchaGuard } from '@nestlab/google-recaptcha';
 
 describe('Auth Module - Integration Tests', () => {
@@ -25,6 +26,12 @@ describe('Auth Module - Integration Tests', () => {
           useValue: {
             env: 'test',
           } satisfies Pick<CoreConfig, 'env'>,
+        },
+        {
+          provide: GatewayConfig,
+          useValue: {
+            googleClientId: 'test-client-id',
+          },
         },
       ],
     })
