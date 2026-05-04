@@ -28,7 +28,7 @@ import { CoreConfig } from '../../../libs/common/src/core.config';
         return {
           secretKey: config.recaptchaSecret,
           response: (req) => req.headers.recaptcha,
-          skipIf: coreConfig.env !== 'production',
+          skipIf: coreConfig.env !== 'staging',
         };
       },
     }),
