@@ -61,7 +61,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Registration', description: 'Register a new user.' })
   @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
   @ApiCreatedResponse({ description: 'Registration successful' })
-  @ApiDomainError(400, 'Validation error', 'Validation failed', [{ message: 'Email must be a valid email address', field: 'email' }])
+  @ApiDomainError(400, 'Validation error', 'Validation failed', [
+    { message: 'Email must be a valid email address', field: 'email' },
+  ])
   public async registration(@Body() dto: RegisterUserDto): Promise<void | { code: string }> {
     const code: string | null = await this.commandBus.execute(new RegisterUserCommand(dto));
     if (this.coreConfig.env == 'test' && code) {
@@ -97,9 +99,9 @@ export class AuthController {
       'Login with username/email and password. Returns an access token and sets a refresh token in cookies.',
   })
   @ApiBody({ type: LoginDTO })
-  @ApiOkResponse({ 
-    description: 'Login successful', 
-    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } } 
+  @ApiOkResponse({
+    description: 'Login successful',
+    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
   })
   @ApiDomainError(401, 'Invalid credentials or OAuth provider required', 'Unauthorized')
   public async login(
@@ -124,7 +126,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Password recovery', description: 'Request a password recovery email.' })
   @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
   @ApiOkResponse({ description: 'Recovery email sent' })
-  @ApiDomainError(400, 'Validation error', 'Validation failed', [{ message: 'Email must be a valid email address', field: 'email' }])
+  @ApiDomainError(400, 'Validation error', 'Validation failed', [
+    { message: 'Email must be a valid email address', field: 'email' },
+  ])
   public async passwordRecovery(
     @Body() dto: PasswordRecoveryDto,
   ): Promise<void | { code: string | void }> {
@@ -164,21 +168,28 @@ export class AuthController {
 
   @Get('google/client-id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get Google Client ID', description: 'Returns the Google Client ID for frontend OAuth initialization.' })
-  @ApiOkResponse({ description: 'Client ID returned successfully', schema: { example: { clientId: '123456789-abc.apps.googleusercontent.com' } } })
+  @ApiOperation({
+    summary: 'Get Google Client ID',
+    description: 'Returns the Google Client ID for frontend OAuth initialization.',
+  })
+  @ApiOkResponse({
+    description: 'Client ID returned successfully',
+    schema: { example: { clientId: '123456789-abc.apps.googleusercontent.com' } },
+  })
   public getGoogleClientId(): { clientId: string } {
     return { clientId: this.gatewayConfig.googleClientId };
   }
 
   @Post('google/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: 'Google Login & Registration', 
-    description: 'Universal endpoint for Google OAuth2. If the user does not exist, it registers them automatically. If the user exists, it logs them in. In both cases, it returns an accessToken in the body and sets a refreshToken in HttpOnly cookies. No additional requests are needed after a successful call.' 
+  @ApiOperation({
+    summary: 'Google Login & Registration',
+    description:
+      'Universal endpoint for Google OAuth2. If the user does not exist, it registers them automatically. If the user exists, it logs them in. In both cases, it returns an accessToken in the body and sets a refreshToken in HttpOnly cookies. No additional requests are needed after a successful call.',
   })
-  @ApiOkResponse({ 
+  @ApiOkResponse({
     description: 'Login successful',
-    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } } 
+    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
   })
   @ApiDomainError(401, 'Invalid Google token', 'Unauthorized')
   public async googleLogin(
