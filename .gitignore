@@ -30,13 +30,10 @@ lerna-debug.log*
 
 # IDE - VSCode
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 
 # dotenv environment variable files
 .env
+.env.development
 .env.development.local
 .env.test.local
 .env.production.local
@@ -55,10 +52,13 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+# AI instructions and tasks
 Agents.md
 Tasks.md
-Codexignore.md
+.codexignore
 
 # Prisma
 /prisma/*.db
 /prisma/*.db-journal
+
+/generated/prisma

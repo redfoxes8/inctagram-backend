@@ -1,11 +1,33 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { Type } from '@nestjs/common';
+
+import { initAppModule } from './init-app-module';
+import { GLOBAL_PREFIX, appSetup } from '../../../libs/common/src';
+import { GatewayConfig } from './core/gateway.config';
+import { swaggerSetup } from './core/config/swagger.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const dynamicAppModule = await initAppModule();
 
-  app.setGlobalPrefix('api');
+  const app = await NestFactory.create(dynamicAppModule);
 
-  await app.listen(process.env.PORT ?? 3003);
+  appSetup(app, dynamicAppModule as unknown as Type<any>, {
+    httpConfig: {
+      enabled: true,
+      enableGlobalPrefix: true,
+      enableCors: true,
+      enableCookies: true,
+      enableSwagger: false,
+      globalPrefix: GLOBAL_PREFIX,
+    },
+  });
+
+  swaggerSetup(app);
+
+  const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
+
+  await app.listen(gatewayConfig.port);
+
+  console.log(`Gateway is running on port ${gatewayConfig.port}`);
 }
 bootstrap();

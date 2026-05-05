@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["jest"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,
@@ -19,6 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
+    "strictPropertyInitialization": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@inctagram/common": ["./libs/common/src"],

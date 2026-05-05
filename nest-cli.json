@@ -3,9 +3,19 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "apps/main-gateway-service/src",
   "compilerOptions": {
-    "deleteOutDir": true,
+    "deleteOutDir": true,    
     "webpack": true,
-    "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json"
+    "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json",
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "introspectComments": true,
+          "dtoFileNameSuffix": [".dto.ts", ".view-dto.ts"],
+          "controllerFileNameSuffix": [".controller.ts"]
+        }
+      }
+    ]
   },
   "monorepo": true,
   "root": "apps/main-gateway-service",
@@ -35,6 +45,21 @@
       "sourceRoot": "apps/micro-files-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/micro-files-service/tsconfig.app.json"
+      }
+    },
+    "micro-notification-service": {
+      "type": "application",
+      "root": "apps/micro-notification-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/micro-notification-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/micro-notification-service/tsconfig.app.json",
+        "assets": [
+          {
+            "include": "infrastructure/templates/**/*",
+            "watchAssets": true
+          }
+        ]
       }
     }
   }

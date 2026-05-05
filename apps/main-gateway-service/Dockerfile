@@ -1,5 +1,5 @@
 # Check out https://hub.docker.com/_/node to select a new base image
-FROM node:20.11-alpine
+FROM node:22-alpine
 ARG port
 ARG service
 ENV SERVICE=$service
@@ -21,10 +21,15 @@ WORKDIR /home/node/dist/${SERVICE}
 
 COPY --chown=node package*.json ./
 
-RUN npm install
+RUN rm -rf node_modules package-lock.json /tmp/.npm /home/node/.npm \
+&& npm cache clean --force \
+&& npm install --no-audit --no-fund --legacy-peer-deps
 
 # Bundle app source code
 COPY --chown=node . .
+
+# ДОБАВЬТЕ ЭТУ СТРОКУ:
+RUN npx prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma
 
 RUN npm run build:${SERVICE}
 
