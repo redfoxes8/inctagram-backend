@@ -10,6 +10,7 @@ import {
   Res,
   UseGuards,
   Inject,
+  Get,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { PasswordRecoveryDto } from './dto/password-recovery.dto';
@@ -22,6 +23,7 @@ import { SessionInfo } from '../../sessions/api/decorators/session-info.decorato
 import type { SessionMetaData } from '../../sessions/api/decorators/session-info.decorator';
 import { CommandBus } from '@nestjs/cqrs';
 import { LocalGuard } from '../../../common/guards/local.guard';
+import { LoginDTO } from './dto/login.dto';
 import { ChangePasswordDTO } from './dto/change-password.dto';
 import { ChangePasswordCommand } from '../application/use-cases/change-password.use-case';
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
@@ -31,6 +33,7 @@ import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types'
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
+import { GatewayConfig } from '../../../core/gateway.config';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import {
   ApiTags,
@@ -38,6 +41,8 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 
@@ -47,15 +52,15 @@ export class AuthController {
   constructor(
     @Inject(CommandBus) private commandBus: CommandBus,
     private coreConfig: CoreConfig,
+    private gatewayConfig: GatewayConfig,
   ) {}
 
   @Post('registration')
+  @Recaptcha()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Register a new user',
-    description: 'Create a new user account with email confirmation.',
-  })
-  @ApiCreatedResponse({ description: 'User successfully registered' })
+  @ApiOperation({ summary: 'Registration', description: 'Register a new user.' })
+  @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
+  @ApiCreatedResponse({ description: 'Registration successful' })
   @ApiDomainError(400, 'Validation error', 'Validation failed', [
     { message: 'Email must be a valid email address', field: 'email' },
   ])
@@ -93,7 +98,11 @@ export class AuthController {
     description:
       'Login with username/email and password. Returns an access token and sets a refresh token in cookies.',
   })
-  @ApiOkResponse({ description: 'Login successful' })
+  @ApiBody({ type: LoginDTO })
+  @ApiOkResponse({
+    description: 'Login successful',
+    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
+  })
   @ApiDomainError(401, 'Invalid credentials or OAuth provider required', 'Unauthorized')
   public async login(
     @Request() req: Express.Request & { user: CurrentUserInfo },
@@ -115,6 +124,7 @@ export class AuthController {
   @Recaptcha()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Password recovery', description: 'Request a password recovery email.' })
+  @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
   @ApiOkResponse({ description: 'Recovery email sent' })
   @ApiDomainError(400, 'Validation error', 'Validation failed', [
     { message: 'Email must be a valid email address', field: 'email' },
@@ -156,10 +166,31 @@ export class AuthController {
     return;
   }
 
+  @Get('google/client-id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get Google Client ID',
+    description: 'Returns the Google Client ID for frontend OAuth initialization.',
+  })
+  @ApiOkResponse({
+    description: 'Client ID returned successfully',
+    schema: { example: { clientId: '123456789-abc.apps.googleusercontent.com' } },
+  })
+  public getGoogleClientId(): { clientId: string } {
+    return { clientId: this.gatewayConfig.googleClientId };
+  }
+
   @Post('google/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Google Login', description: 'Login or register via Google OAuth2.' })
-  @ApiOkResponse({ description: 'Login successful' })
+  @ApiOperation({
+    summary: 'Google Login & Registration',
+    description:
+      'Universal endpoint for Google OAuth2. If the user does not exist, it registers them automatically. If the user exists, it logs them in. In both cases, it returns an accessToken in the body and sets a refreshToken in HttpOnly cookies. No additional requests are needed after a successful call.',
+  })
+  @ApiOkResponse({
+    description: 'Login successful',
+    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
+  })
   @ApiDomainError(401, 'Invalid Google token', 'Unauthorized')
   public async googleLogin(
     @Body() dto: GoogleLoginDto,
