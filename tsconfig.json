@@ -24,7 +24,9 @@
     "noFallthroughCasesInSwitch": false,
     "paths": {
       "@inctagram/common": ["./libs/common/src"],
-      "@inctagram/common/*": ["./libs/common/src/*"]
+      "@inctagram/common/*": ["./libs/common/src/*"],
+      "@inctagram/contracts": ["./libs/contracts/src"],
+      "@inctagram/contracts/*": ["./libs/contracts/src/*"]
     }
   }
 }

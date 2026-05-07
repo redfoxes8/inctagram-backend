@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsBoolean, IsNotEmpty, IsNumber } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -13,11 +13,15 @@ export class FilesConfig {
   @IsNotEmpty({ message: 'Set Env variable INCLUDE_TESTING_MODULE, example: false' })
   includeTestingModule: boolean;
 
+  @IsString({ message: 'POST_SERVICE_GRPC_URL must be a string' })
+  postServiceGrpcUrl: string;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );
+    this.postServiceGrpcUrl = this.configService.get('POST_SERVICE_GRPC_URL') || '0.0.0.0:50051';
 
     configValidationUtility.validateConfig(this);
   }

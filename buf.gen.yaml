@@ -1,0 +1,11 @@
+version: v1
+plugins:
+  - name: ts-proto
+    path: .\node_modules\.bin\protoc-gen-ts_proto.cmd
+    out: libs/contracts/src/generated
+    opt:
+      - nestJs=true
+      - addGrpcMetadata=true
+      - addReflection=true
+      - esModuleInterop=true
+      - outputJsonMethods=false
