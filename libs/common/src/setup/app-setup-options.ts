@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipeOptions } from '@nestjs/common';
+import { MicroserviceOptions } from '@nestjs/microservices';
 
 import { SwaggerSetupOptions } from './swagger.setup';
 
@@ -19,6 +20,7 @@ export type RpcSetupConfig = {
   enabled?: boolean;
   tcpPipes?: boolean;
   grpcPipes?: boolean;
+  options?: MicroserviceOptions;
 };
 
 export type AppSetupOptions = {

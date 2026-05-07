@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package inctagram.post.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Post {
+  string id = 1;
+  string owner_id = 2;
+  string description = 3; // строго макс 500 символов
+  repeated string file_ids = 4; // строго макс 10 штук
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message CreatePostRequest {
+  string owner_id = 1;
+  string description = 2;
+  repeated string file_ids = 3;
+}
+
+message CreatePostResponse {
+  Post post = 1;
+}
+
+message UpdatePostRequest {
+  string post_id = 1;
+  string owner_id = 2;
+  string description = 3;
+}
+
+message UpdatePostResponse {
+  Post post = 1;
+}
+
+message DeletePostRequest {
+  string post_id = 1;
+  string owner_id = 2;
+}
+
+message DeletePostResponse {
+  bool success = 1;
+}
+
+message GetPostsByUserIdRequest {
+  string owner_id = 1;
+  int32 page = 2;
+}
+
+message GetPostsByUserIdResponse {
+  repeated Post posts = 1;
+  int32 total_count = 2;
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string reply = 1;
+}
+
+service PostService {
+  rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
+  rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse);
+  rpc DeletePost(DeletePostRequest) returns (DeletePostResponse);
+  rpc GetPostsByUserId(GetPostsByUserIdRequest) returns (GetPostsByUserIdResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+}

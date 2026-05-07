@@ -9,6 +9,8 @@ async function bootstrap() {
   const dynamicAppModule = await initAppModule();
   const app = await NestFactory.create(dynamicAppModule);
 
+  app.enableShutdownHooks();
+
   appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {
       enabled: true,

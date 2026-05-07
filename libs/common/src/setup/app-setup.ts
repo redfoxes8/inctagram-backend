@@ -2,6 +2,7 @@ import { INestApplication, Type, ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 
 import { GlobalDomainExceptionFilter } from '../exceptions/global-domain-exception.filter';
+import { GrpcDomainExceptionFilter } from '../exceptions/grpc-domain-exception.filter';
 import { AppSetupOptions } from './app-setup-options';
 import { GLOBAL_PREFIX, globalPrefixSetup } from './global-prefix.setup';
 import { createCookieParserMiddleware } from './cookie-parser.middleware';
@@ -44,9 +45,11 @@ export function appSetup(
     }
   }
 
-  if (options.rpcConfig?.enabled) {
-    if (options.rpcConfig.tcpPipes || options.rpcConfig.grpcPipes) {
-      // Reserved hook for protocol-specific RPC pipes.
+  if (options.rpcConfig?.enabled && options.rpcConfig.options) {
+    app.connectMicroservice(options.rpcConfig.options);
+
+    if (options.rpcConfig.grpcPipes) {
+      app.useGlobalFilters(new GrpcDomainExceptionFilter());
     }
   }
 }

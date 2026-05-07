@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package inctagram.file.v1;
+
+enum FileStatus {
+  FILE_STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  UPLOADED = 2;
+}
+
+enum FileType {
+  FILE_TYPE_UNSPECIFIED = 0;
+  JPEG = 1;
+  PNG = 2;
+}
+
+message File {
+  string id = 1;
+  string owner_id = 2;
+  FileStatus status = 3;
+  string file_url = 4;
+  FileType file_type = 5;
+  int32 file_size = 6;
+}
+
+message GenerateUploadUrlRequest {
+  string owner_id = 1;
+  FileType file_type = 2;
+  int32 file_size = 3;
+}
+
+message GenerateUploadUrlResponse {
+  string upload_url = 1;
+  string file_id = 2;
+}
+
+message GetFileStatusRequest {
+  string file_id = 1;
+}
+
+message GetFileStatusResponse {
+  File file = 1;
+}
+
+service FileService {
+  rpc GenerateUploadUrl(GenerateUploadUrlRequest) returns (GenerateUploadUrlResponse);
+  rpc GetFileStatus(GetFileStatusRequest) returns (GetFileStatusResponse);
+}
