@@ -35,7 +35,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest",
     "prisma:migrate": "prisma migrate dev --config apps/main-gateway-service/src/core/prisma/prisma.config.ts",
-    "prisma:generate": "prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma",
+    "prisma:post:migrate": "cross-env NODE_ENV=development prisma migrate dev --config apps/micro-post-service/prisma/prisma.config.ts",
+    "prisma:post:generate": "prisma generate --config apps/micro-post-service/prisma/prisma.config.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",

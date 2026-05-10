@@ -19,8 +19,8 @@ export {
 
 export {
   type File,
-  type FileStatus,
-  type FileType,
+  FileStatus,
+  FileType,
   type GenerateUploadUrlRequest,
   type GenerateUploadUrlResponse,
   type GetFileStatusRequest,
