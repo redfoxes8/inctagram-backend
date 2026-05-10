@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model Post {
+  id          String      @id @default(uuid()) @db.Uuid
+  ownerId     String      @db.Uuid
+  description String      @db.VarChar(500)
+  
+  images      PostImage[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@index([ownerId])
+  @@index([createdAt])
+}
+
+model PostImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  fileId    String   @db.Uuid
+  order     Int
+  
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, fileId])
+  @@index([postId])
+}

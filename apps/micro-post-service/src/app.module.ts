@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PostConfigModule } from './core/post-config.module';
 import { getEnvPaths } from '../../../libs/common/src/utils/get-env-paths';
-import { PostsController } from './modules/posts/posts.controller';
+import { PostsModule } from './modules/posts/posts.module';
 
 @Module({
   imports: [
@@ -11,7 +11,8 @@ import { PostsController } from './modules/posts/posts.controller';
       envFilePath: getEnvPaths(),
     }),
     PostConfigModule,
+    PostsModule,
   ],
-  controllers: [PostsController],
+  controllers: [],
 })
 export class AppModule {}
