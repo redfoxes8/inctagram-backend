@@ -1,5 +1,5 @@
 import { Controller, Logger } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GrpcMethod } from '@nestjs/microservices';
 import { 
   type CreatePostRequest, 
@@ -8,16 +8,22 @@ import {
   type UpdatePostResponse, 
   type DeletePostRequest, 
   type DeletePostResponse,
+  type GetPostsByUserIdRequest,
+  type GetPostsByUserIdResponse,
 } from '../../../../../../libs/contracts/src';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
+import { GetUserPostsQuery } from '../application/queries/get-user-posts.query';
 
 @Controller()
 export class PostsController {
   private readonly logger = new Logger(PostsController.name);
 
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
 
   @GrpcMethod('PostService', 'CreatePost')
   async createPost(data: CreatePostRequest): Promise<CreatePostResponse> {
@@ -40,7 +46,7 @@ export class PostsController {
         id: postId,
         ownerId: data.ownerId,
         description: data.description,
-        fileIds: data.fileIds,
+        images: data.fileIds.map((id, index) => ({ id: '', fileId: id, url: '', order: index })),
         createdAt: timestamp as any,
         updatedAt: timestamp as any,
       }
@@ -68,10 +74,40 @@ export class PostsController {
         id: data.postId,
         ownerId: data.ownerId,
         description: data.description,
-        fileIds: [], // В реальности нужно получить актуальные fileIds из БД
+        images: [], // В реальности нужно получить актуальные картинки из БД
         createdAt: timestamp as any,
         updatedAt: timestamp as any,
       }
+    };
+  }
+
+  @GrpcMethod('PostService', 'GetPostsByUserId')
+  async getPostsByUserId(data: GetPostsByUserIdRequest): Promise<GetPostsByUserIdResponse> {
+    this.logger.log(`[Post MS] gRPC GetPostsByUserId received for user: ${data.ownerId}`);
+
+    const result = await this.queryBus.execute(new GetUserPostsQuery(
+      data.ownerId,
+      data.pageSize || 8,
+      data.cursor,
+    ));
+
+    return {
+      posts: result.posts.map(post => ({
+        id: post.id,
+        ownerId: post.ownerId,
+        description: post.description,
+        images: post.images,
+        createdAt: {
+          seconds: Math.floor(post.createdAt.getTime() / 1000),
+          nanos: (post.createdAt.getTime() % 1000) * 1000000,
+        } as any,
+        updatedAt: {
+          seconds: Math.floor(post.updatedAt.getTime() / 1000),
+          nanos: (post.updatedAt.getTime() % 1000) * 1000000,
+        } as any,
+      })),
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
     };
   }
 

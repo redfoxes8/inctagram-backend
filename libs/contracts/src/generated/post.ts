@@ -12,13 +12,19 @@ import { Timestamp } from "./google/protobuf/timestamp";
 
 export const protobufPackage = "inctagram.post.v1";
 
+export interface PostImage {
+  id: string;
+  fileId: string;
+  url: string;
+  order: number;
+}
+
 export interface Post {
   id: string;
   ownerId: string;
   /** строго макс 500 символов */
   description: string;
-  /** строго макс 10 штук */
-  fileIds: string[];
+  images: PostImage[];
   createdAt: Timestamp | undefined;
   updatedAt: Timestamp | undefined;
 }
@@ -54,12 +60,14 @@ export interface DeletePostResponse {
 
 export interface GetPostsByUserIdRequest {
   ownerId: string;
-  page: number;
+  cursor?: string | undefined;
+  pageSize: number;
 }
 
 export interface GetPostsByUserIdResponse {
   posts: Post[];
-  totalCount: number;
+  nextCursor?: string | undefined;
+  hasMore: boolean;
 }
 
 export interface PingRequest {

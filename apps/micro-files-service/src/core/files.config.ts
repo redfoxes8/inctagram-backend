@@ -16,12 +16,20 @@ export class FilesConfig {
   @IsString({ message: 'POST_SERVICE_GRPC_URL must be a string' })
   postServiceGrpcUrl: string;
 
+  @IsString({ message: 'GRPC_HOST must be a string' })
+  grpcHost: string;
+
+  @IsNumber({}, { message: 'GRPC_PORT must be a number' })
+  grpcPort: number;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );
     this.postServiceGrpcUrl = this.configService.get('POST_SERVICE_GRPC_URL') || '0.0.0.0:50051';
+    this.grpcHost = this.configService.get('GRPC_HOST') || '0.0.0.0';
+    this.grpcPort = Number(this.configService.get('GRPC_PORT')) || 50052;
 
     configValidationUtility.validateConfig(this);
   }

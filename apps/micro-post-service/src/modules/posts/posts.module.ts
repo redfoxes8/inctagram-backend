@@ -13,8 +13,9 @@ import { PostConfigModule } from '../../core/post-config.module';
 import { CreatePostHandler } from './application/commands/create-post.handler';
 import { UpdatePostHandler } from './application/commands/update-post.handler';
 import { DeletePostHandler } from './application/commands/delete-post.handler';
+import { GetUserPostsHandler } from './application/queries/get-user-posts.handler';
 
-const Handlers = [CreatePostHandler, UpdatePostHandler, DeletePostHandler];
+const Handlers = [CreatePostHandler, UpdatePostHandler, DeletePostHandler, GetUserPostsHandler];
 const Repositories = [PostCommandRepository];
 
 @Module({
