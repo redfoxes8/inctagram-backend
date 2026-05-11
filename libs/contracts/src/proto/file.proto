@@ -42,7 +42,21 @@ message GetFileStatusResponse {
   File file = 1;
 }
 
+message FileData {
+  string file_id = 1;
+  string file_url = 2;
+}
+
+message GetFilesDataRequest {
+  repeated string file_ids = 1;
+}
+
+message GetFilesDataResponse {
+  map<string, FileData> files = 1; 
+}
+
 service FileService {
   rpc GenerateUploadUrl(GenerateUploadUrlRequest) returns (GenerateUploadUrlResponse);
   rpc GetFileStatus(GetFileStatusRequest) returns (GetFileStatusResponse);
+  rpc GetFilesData(GetFilesDataRequest) returns (GetFilesDataResponse);
 }

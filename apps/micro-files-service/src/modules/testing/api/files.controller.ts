@@ -1,7 +1,12 @@
 import { Controller, Get, Inject, Logger, OnModuleInit, Query } from '@nestjs/common';
+import { GrpcMethod } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 
-import { IPostServiceClient } from '../../../../../../libs/contracts/src';
+import { 
+  type IPostServiceClient, 
+  type GetFilesDataRequest, 
+  type GetFilesDataResponse 
+} from '../../../../../../libs/contracts/src';
 
 @Controller('files')
 export class FilesController implements OnModuleInit {
@@ -12,6 +17,24 @@ export class FilesController implements OnModuleInit {
 
   onModuleInit(): void {
     this.postService = this.client.getService('PostService');
+  }
+
+  @GrpcMethod('FileService', 'GetFilesData')
+  getFilesData(data: GetFilesDataRequest): GetFilesDataResponse {
+    this.logger.log(`[Files MS] gRPC GetFilesData received for ${data.fileIds.length} files`);
+    
+    const files: Record<string, { fileId: string; fileUrl: string }> = {};
+    
+    // Возвращаем пустые URL, чтобы Post-MS подставил свои моки (loremflickr)
+    // согласно RFC Карточки №5.
+    data.fileIds.forEach(id => {
+      files[id] = {
+        fileId: id,
+        fileUrl: '', 
+      };
+    });
+
+    return { files };
   }
 
   @Get('log')
