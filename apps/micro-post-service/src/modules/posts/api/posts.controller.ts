@@ -1,12 +1,12 @@
 import { Controller, Logger } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GrpcMethod } from '@nestjs/microservices';
-import { 
-  type CreatePostRequest, 
-  type CreatePostResponse, 
-  type UpdatePostRequest, 
-  type UpdatePostResponse, 
-  type DeletePostRequest, 
+import {
+  type CreatePostRequest,
+  type CreatePostResponse,
+  type UpdatePostRequest,
+  type UpdatePostResponse,
+  type DeletePostRequest,
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
@@ -28,12 +28,14 @@ export class PostsController {
   @GrpcMethod('PostService', 'CreatePost')
   async createPost(data: CreatePostRequest): Promise<CreatePostResponse> {
     this.logger.log(`[Post MS] gRPC CreatePost received for user: ${data.ownerId}`);
-    
-    const postId = await this.commandBus.execute(new CreatePostCommand({
-      ownerId: data.ownerId,
-      description: data.description,
-      images: data.fileIds.map(fileId => ({ fileId })),
-    }));
+
+    const postId = await this.commandBus.execute(
+      new CreatePostCommand({
+        ownerId: data.ownerId,
+        description: data.description,
+        images: data.fileIds.map((fileId) => ({ fileId })),
+      }),
+    );
 
     const now = new Date();
     const timestamp = {
@@ -49,7 +51,7 @@ export class PostsController {
         images: data.fileIds.map((id, index) => ({ id: '', fileId: id, url: '', order: index })),
         createdAt: timestamp as any,
         updatedAt: timestamp as any,
-      }
+      },
     };
   }
 
@@ -57,11 +59,9 @@ export class PostsController {
   async updatePost(data: UpdatePostRequest): Promise<UpdatePostResponse> {
     this.logger.log(`[Post MS] gRPC UpdatePost received for post: ${data.postId}`);
 
-    await this.commandBus.execute(new UpdatePostCommand(
-      data.postId,
-      data.ownerId,
-      data.description,
-    ));
+    await this.commandBus.execute(
+      new UpdatePostCommand(data.postId, data.ownerId, data.description),
+    );
 
     const now = new Date();
     const timestamp = {
@@ -77,7 +77,7 @@ export class PostsController {
         images: [], // В реальности нужно получить актуальные картинки из БД
         createdAt: timestamp as any,
         updatedAt: timestamp as any,
-      }
+      },
     };
   }
 
@@ -85,14 +85,12 @@ export class PostsController {
   async getPostsByUserId(data: GetPostsByUserIdRequest): Promise<GetPostsByUserIdResponse> {
     this.logger.log(`[Post MS] gRPC GetPostsByUserId received for user: ${data.ownerId}`);
 
-    const result = await this.queryBus.execute(new GetUserPostsQuery(
-      data.ownerId,
-      data.pageSize || 8,
-      data.cursor,
-    ));
+    const result = await this.queryBus.execute(
+      new GetUserPostsQuery(data.ownerId, data.pageSize || 8, data.cursor),
+    );
 
     return {
-      posts: result.posts.map(post => ({
+      posts: result.posts.map((post) => ({
         id: post.id,
         ownerId: post.ownerId,
         description: post.description,
@@ -115,10 +113,7 @@ export class PostsController {
   async deletePost(data: DeletePostRequest): Promise<DeletePostResponse> {
     this.logger.log(`[Post MS] gRPC DeletePost received for post: ${data.postId}`);
 
-    await this.commandBus.execute(new DeletePostCommand(
-      data.postId,
-      data.ownerId,
-    ));
+    await this.commandBus.execute(new DeletePostCommand(data.postId, data.ownerId));
 
     return { success: true };
   }

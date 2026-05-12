@@ -24,6 +24,7 @@ import type { SessionMetaData } from '../../sessions/api/decorators/session-info
 import { CommandBus } from '@nestjs/cqrs';
 import { LocalGuard } from '../../../common/guards/local.guard';
 import { LoginDTO } from './dto/login.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 import { ChangePasswordDTO } from './dto/change-password.dto';
 import { ChangePasswordCommand } from '../application/use-cases/change-password.use-case';
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
@@ -101,14 +102,14 @@ export class AuthController {
   @ApiBody({ type: LoginDTO })
   @ApiOkResponse({
     description: 'Login successful',
-    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
+    type: LoginResponseDto,
   })
   @ApiDomainError(401, 'Invalid credentials or OAuth provider required', 'Unauthorized')
   public async login(
     @Request() req: Express.Request & { user: CurrentUserInfo },
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<LoginResponseDto> {
     const tokens = await this.commandBus.execute(
       new LoginCommand(req.user, {
         ...sessionMeta,

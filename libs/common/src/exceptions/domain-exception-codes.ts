@@ -5,6 +5,8 @@ export enum DomainExceptionCode {
   NotFound = 404,
   TooManyRequests = 429,
   InternalServerError = 500,
+  ServiceUnavailable = 503,
+  GatewayTimeout = 504,
   EmailNotConfirmed = 401,
   ConfirmationCodeExpired = 401,
   PasswordRecoveryCodeExpired = 401,

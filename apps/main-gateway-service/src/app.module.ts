@@ -12,6 +12,8 @@ import { UsersModule } from './modules/users/users.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { CoreConfig } from '../../../libs/common/src/core.config';
+import { PostsModule } from './modules/posts/posts.module';
+import { FilesModule } from './modules/files/files.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { CoreConfig } from '../../../libs/common/src/core.config';
     AuthModule,
     UsersModule,
     SessionsModule,
+    PostsModule,
+    FilesModule,
     GoogleRecaptchaModule.forRootAsync({
       inject: [GatewayConfig, CoreConfig],
       useFactory: (config: GatewayConfig, coreConfig: CoreConfig) => {

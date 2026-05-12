@@ -34,6 +34,10 @@ export class GrpcDomainExceptionFilter implements RpcExceptionFilter<DomainExcep
         return status.NOT_FOUND;
       case DomainExceptionCode.TooManyRequests:
         return status.RESOURCE_EXHAUSTED;
+      case DomainExceptionCode.ServiceUnavailable:
+        return status.UNAVAILABLE;
+      case DomainExceptionCode.GatewayTimeout:
+        return status.DEADLINE_EXCEEDED;
       case DomainExceptionCode.InternalServerError:
       default:
         return status.INTERNAL;
