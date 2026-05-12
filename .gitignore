@@ -62,3 +62,6 @@ Tasks.md
 /prisma/*.db-journal
 
 /generated/prisma
+
+# AI agent plans
+CARD_6_GRPC_CLIENTS_AND_AUTH_GUARDS_PLAN.md

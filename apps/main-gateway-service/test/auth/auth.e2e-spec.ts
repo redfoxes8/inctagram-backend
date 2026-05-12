@@ -43,7 +43,6 @@ describe('Auth API (e2e)', () => {
           username: 'testuser999888',
           email: 'testuser11@example.com',
           password: 'Test@1234',
-          passwordConfirmation: 'Test@1234',
         })
         .expect(201);
 

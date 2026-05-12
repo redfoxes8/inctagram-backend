@@ -9,6 +9,13 @@ export function swaggerSetup(app: INestApplication) {
     .setTitle('Inctagram API')
     .setDescription('The official API documentation for Inctagram social network.')
     .setVersion('1.0')
+    .addTag('Auth')
+    .addTag('Sessions')
+    .addTag('Users')
+    .addTag('Files')
+    .addTag('Posts')
+    .addTag('Gateway')
+    .addTag('Testing')
     .addBearerAuth()
     .addCookieAuth('refreshToken', {
       type: 'apiKey',
@@ -122,17 +129,7 @@ export function swaggerSetup(app: INestApplication) {
       persistAuthorization: true,
       displayRequestDuration: true,
       defaultModelsExpandDepth: -1,
-      tagsSorter: (a: string, b: string) => {
-        const order = ['Auth', 'Sessions', 'Users', 'Gateway', 'Testing'];
-        const indexA = order.indexOf(a);
-        const indexB = order.indexOf(b);
-
-        if (indexA !== -1 || indexB !== -1) {
-          return (indexA === -1 ? order.length : indexA) - (indexB === -1 ? order.length : indexB);
-        }
-
-        return a.localeCompare(b);
-      },
+      tagsSorter: 'none',
     },
   });
 }
