@@ -63,6 +63,9 @@ Tasks.md
 
 /generated/prisma
 
+# Generated Prisma clients
+apps/**/prisma/client/
+
 # AI agent plans
 CARD_6_GRPC_CLIENTS_AND_AUTH_GUARDS_PLAN.md
 

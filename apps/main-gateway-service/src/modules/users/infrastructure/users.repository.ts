@@ -5,7 +5,7 @@ import { IUsersRepository } from '../domain/interfaces/users.repository.interfac
 import { UserMapper, type UserRecord } from './mappers/user.mapper';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../core/prisma/client';
 
 type UserCreateData = {
   id: string;

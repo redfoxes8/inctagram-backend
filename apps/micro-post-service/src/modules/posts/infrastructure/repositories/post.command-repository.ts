@@ -17,7 +17,7 @@ export class PostCommandRepository {
           createdAt: post.createdAt,
           updatedAt: post.updatedAt,
           images: {
-            create: post.images.map(img => ({
+            create: post.images.map((img) => ({
               fileId: img.fileId,
               order: img.order,
             })),
@@ -38,9 +38,9 @@ export class PostCommandRepository {
   }
 
   async deletePost(postId: string): Promise<void> {
-    // Используем мягкое удаление, если это предусмотрено доменной логикой, 
-    // но в ТЗ сказано "DeletePostCommand" и "чистый CRUD". 
-    // Обычно в таких системах удаление физическое или soft-delete. 
+    // Используем мягкое удаление, если это предусмотрено доменной логикой,
+    // но в ТЗ сказано "DeletePostCommand" и "чистый CRUD".
+    // Обычно в таких системах удаление физическое или soft-delete.
     // Реализуем физическое удаление для чистого CRUD, так как images удалятся по Cascade.
     await this.prisma.post.delete({
       where: { id: postId },
