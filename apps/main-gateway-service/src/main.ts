@@ -21,7 +21,6 @@ async function bootstrap() {
       globalPrefix: GLOBAL_PREFIX,
     },
   });
-
   swaggerSetup(app);
 
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
