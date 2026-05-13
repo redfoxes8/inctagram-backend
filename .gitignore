@@ -65,3 +65,6 @@ Tasks.md
 
 # AI agent plans
 CARD_6_GRPC_CLIENTS_AND_AUTH_GUARDS_PLAN.md
+
+# Stakpak session files
+.stakpak/session*

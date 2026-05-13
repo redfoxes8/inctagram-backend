@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { defineConfig } from 'prisma/config';
 
 const env = process.env.NODE_ENV || 'development';
-dotenv.config({ path: `apps/micro-post-service/.env.${env}` });
+dotenv.config({ path: `apps/micro-files-service/.env.${env}` });
 
 // Проверяем, запущены ли мы через Prisma CLI (например, для миграций)
 const isCLI =
