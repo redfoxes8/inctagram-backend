@@ -107,6 +107,28 @@ export class PrismaSessionsRepository implements ISessionsRepository {
     }
   }
 
+  public async updateSessionAtomic(
+    deviceId: string,
+    expectedIat: number,
+    newIat: number,
+    newExp: number,
+  ): Promise<boolean> {
+    const affectedRows = await this.prismaService.session.updateMany({
+      where: {
+        deviceId,
+        iat: expectedIat,
+        deletedAt: null,
+      },
+      data: {
+        iat: newIat,
+        exp: newExp,
+        updatedAt: new Date(),
+      },
+    });
+
+    return affectedRows.count > 0;
+  }
+
   private toCreateData(session: SessionEntity): {
     id: string;
     userId: string;
