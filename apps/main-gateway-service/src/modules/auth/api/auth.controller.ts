@@ -33,6 +33,8 @@ import { LogoutDTO } from './dto/logout.dto';
 import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
+import { AuthEmailResendConfirmationCommand } from '../application/use-cases/auth-email-resend-confirmation.usecase';
+import { EmailResendDto } from './dto/email-resend.dto';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
 import { GatewayConfig } from '../../../core/gateway.config';
 import { Recaptcha } from '@nestlab/google-recaptcha';
@@ -67,6 +69,24 @@ export class AuthController {
   ])
   public async registration(@Body() dto: RegisterUserDto): Promise<void | { code: string }> {
     const code: string | null = await this.commandBus.execute(new RegisterUserCommand(dto));
+    if (this.coreConfig.env == 'test' && code) {
+      return { code: code };
+    }
+    return;
+  }
+
+  @Post('registration-email-resending')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Resend registration confirmation email' })
+  @ApiBody({ type: EmailResendDto })
+  @ApiOkResponse({ description: 'Confirmation email resent' })
+  @ApiDomainError(400, 'Validation error', 'Validation failed', [
+    { message: 'User not found', field: 'email' },
+    { message: 'Email already confirmed', field: 'email' },
+    { message: 'The confirmation code is still valid', field: 'email' },
+  ])
+  public async registrationEmailResending(@Body() dto: EmailResendDto): Promise<void | { code: string }> {
+    const code: string | void = await this.commandBus.execute(new AuthEmailResendConfirmationCommand(dto));
     if (this.coreConfig.env == 'test' && code) {
       return { code: code };
     }
