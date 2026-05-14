@@ -36,4 +36,10 @@ export class SessionEntity extends BaseDomainEntity<string> {
     this.ip = ip;
     this.touch();
   }
+
+  public updateSessionDate(newIat: number, newExp: number): void {
+    this.iat = newIat;
+    this.exp = newExp;
+    this.touch();
+  }
 }
