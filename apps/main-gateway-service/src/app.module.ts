@@ -32,7 +32,7 @@ import { FilesModule } from './modules/files/files.module';
         return {
           secretKey: config.recaptchaSecret,
           response: (req) => req.headers.recaptcha,
-          skipIf: coreConfig.env !== 'staging',
+          skipIf: coreConfig.env !== 'production',
         };
       },
     }),
