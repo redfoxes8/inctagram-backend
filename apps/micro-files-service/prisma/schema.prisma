@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/core/prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model File {
+  id        String     @id @default(uuid()) @db.Uuid
+  s3Key     String     @map("s3_key")
+  bucket    String
+  fileType  String     @map("file_type")  // avatar, post_image, document, media
+  status    FileStatus @default(PENDING)
+  userId    String     @map("user_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([fileType])
+  @@map("files")
+}
+
+enum FileStatus {
+  PENDING
+  UPLOADED
+  FAILED
+}

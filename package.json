@@ -35,11 +35,15 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest",
     "prisma:migrate": "prisma migrate dev --config apps/main-gateway-service/src/core/prisma/prisma.config.ts",
-    "prisma:generate": "prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --config apps/main-gateway-service/src/core/prisma/prisma.config.ts",
     "prisma:post:migrate": "cross-env NODE_ENV=development prisma migrate dev --config apps/micro-post-service/prisma/prisma.config.ts",
-    "prisma:post:generate": "prisma generate --config apps/micro-post-service/prisma/prisma.config.ts"
+    "prisma:post:generate": "prisma generate --config apps/micro-post-service/prisma/prisma.config.ts",
+    "prisma:files:migrate": "cross-env NODE_ENV=development prisma migrate dev --config apps/micro-files-service/prisma/prisma.config.ts",
+    "prisma:files:generate": "prisma generate --config apps/micro-files-service/prisma/prisma.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "@nestjs/common": "^11.0.1",
@@ -54,6 +58,7 @@
     "@nestlab/google-recaptcha": "^3.11.1",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "7.8.0",
+    "@prisma/client-runtime-utils": "7.8.0",
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^1.0.3",
     "bcrypt": "^6.0.0",
