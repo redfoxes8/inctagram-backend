@@ -49,4 +49,10 @@ export class EmailConfirmationEntity extends BaseDomainEntity<string> {
     this.isConfirmed = true;
     this.touch();
   }
+
+  public refreshCode(newCode: string): void {
+    this.confirmationCode = newCode;
+    this.expirationDate = add(new Date(), { hours: 1 });
+    this.touch();
+  }
 }
