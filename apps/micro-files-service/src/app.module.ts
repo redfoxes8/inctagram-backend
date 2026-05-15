@@ -6,11 +6,12 @@ import { CoreModule } from '../../../libs/common/src/core.module';
 
 import { FilesConfig } from './core/files.config';
 import { FilesConfigModule } from './core/files-config.module';
-import { FilesController } from './modules/testing/api/files.controller';
+import { FilesModule } from './modules/files/files.module';
+import { FilesController as TestingFilesController } from './modules/testing/api/files.controller';
 import { INCTAGRAM_POST_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 
 @Module({
-  imports: [CoreModule, FilesConfigModule],
+  imports: [CoreModule, FilesConfigModule, FilesModule],
   controllers: [],
 })
 export class AppModule {
@@ -30,7 +31,7 @@ export class AppModule {
           },
         ]),
       ],
-      controllers: [FilesController],
+      controllers: [TestingFilesController],
     };
   }
 }

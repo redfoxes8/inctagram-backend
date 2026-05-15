@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import * as path from 'path';
 
 import { FilesConfig } from '../../../core/files.config';
 import { FileType, BucketConfig, PresignedUrlResult, CONTENT_TYPE_MAP } from '../domain/file.types';
+import { IStorageAdapter } from '../application/interfaces/storage-adapter.interface';
 
 @Injectable()
-export class AwsStorageAdapter {
+export class AwsStorageAdapter implements IStorageAdapter {
   private readonly s3Client: S3Client;
   private readonly bucketConfigs: Map<FileType, BucketConfig>;
 
@@ -25,11 +26,8 @@ export class AwsStorageAdapter {
 
   /**
    * Генерирует presigned URL для загрузки файла напрямую в S3
-   * @param userId - ID пользователя
-   * @param fileName - Имя файла с расширением (например: photo.jpg)
-   * @param fileType - Тип файла (определяет бакет и лимиты)
    */
-  async getSignedUrlForUpload(
+  async generateUploadUrl(
     userId: string,
     fileName: string,
     fileType: FileType,
@@ -159,5 +157,19 @@ export class AwsStorageAdapter {
         },
       ],
     ]);
+  }
+
+  /**
+   * Удаляет файл из S3
+   */
+  async deleteFile(fileKey: string, fileType: FileType): Promise<void> {
+    const bucketConfig = this.getBucketConfig(fileType);
+
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: bucketConfig.name,
+        Key: fileKey,
+      }),
+    );
   }
 }
