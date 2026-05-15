@@ -63,10 +63,8 @@ export class AuthController {
   ) {}
 
   @Post('registration')
-  @Recaptcha()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Registration', description: 'Register a new user.' })
-  @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
   @ApiCreatedResponse({ description: 'Registration successful' })
   @ApiDomainError(400, 'Validation error', 'Validation failed', [
     { message: 'Email must be a valid email address', field: 'email' },
@@ -89,8 +87,12 @@ export class AuthController {
     { message: 'Email already confirmed', field: 'email' },
     { message: 'The confirmation code is still valid', field: 'email' },
   ])
-  public async registrationEmailResending(@Body() dto: EmailResendDto): Promise<void | { code: string }> {
-    const code: string | void = await this.commandBus.execute(new AuthEmailResendConfirmationCommand(dto));
+  public async registrationEmailResending(
+    @Body() dto: EmailResendDto,
+  ): Promise<void | { code: string }> {
+    const code: string | void = await this.commandBus.execute(
+      new AuthEmailResendConfirmationCommand(dto),
+    );
     if (this.coreConfig.env == 'test' && code) {
       return { code: code };
     }
@@ -164,7 +166,7 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken: string = req.cookies?.refreshToken;
     if (!refreshToken) throw new UnauthorizedException();
 
     const tokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
