@@ -11,11 +11,13 @@ import {
   UseGuards,
   Inject,
   Get,
+  UnauthorizedException,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request as ExpressRequest, Response } from 'express';
 import { PasswordRecoveryDto } from './dto/password-recovery.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginCommand } from '../application/use-cases/login.use-case';
+import { RefreshTokenCommand } from '../application/use-cases/refresh-token.use-case';
 import { PasswordRecoveryCommand } from '../application/use-cases/password-recovery.use-case';
 import { RegisterUserCommand } from '../application/use-cases/register-user.use-case';
 import { ConfirmEmailCommand } from '../application/use-cases/confirm-email.use-case';
@@ -33,6 +35,8 @@ import { LogoutDTO } from './dto/logout.dto';
 import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
+import { AuthEmailResendConfirmationCommand } from '../application/use-cases/auth-email-resend-confirmation.usecase';
+import { EmailResendDto } from './dto/email-resend.dto';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
 import { GatewayConfig } from '../../../core/gateway.config';
 import { Recaptcha } from '@nestlab/google-recaptcha';
@@ -40,10 +44,12 @@ import {
   ApiTags,
   ApiOperation,
   ApiOkResponse,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiBearerAuth,
   ApiBody,
   ApiHeader,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 
@@ -67,6 +73,24 @@ export class AuthController {
   ])
   public async registration(@Body() dto: RegisterUserDto): Promise<void | { code: string }> {
     const code: string | null = await this.commandBus.execute(new RegisterUserCommand(dto));
+    if (this.coreConfig.env == 'test' && code) {
+      return { code: code };
+    }
+    return;
+  }
+
+  @Post('registration-email-resending')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Resend registration confirmation email' })
+  @ApiBody({ type: EmailResendDto })
+  @ApiOkResponse({ description: 'Confirmation email resent' })
+  @ApiDomainError(400, 'Validation error', 'Validation failed', [
+    { message: 'User not found', field: 'email' },
+    { message: 'Email already confirmed', field: 'email' },
+    { message: 'The confirmation code is still valid', field: 'email' },
+  ])
+  public async registrationEmailResending(@Body() dto: EmailResendDto): Promise<void | { code: string }> {
+    const code: string | void = await this.commandBus.execute(new AuthEmailResendConfirmationCommand(dto));
     if (this.coreConfig.env == 'test' && code) {
       return { code: code };
     }
@@ -118,6 +142,39 @@ export class AuthController {
     );
 
     res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+    return { accessToken: tokens.accessToken };
+  }
+
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('refreshToken')
+  @ApiOperation({
+    summary: 'Refresh access and refresh tokens',
+    description: 'Uses a valid refresh token from cookies to generate a new token pair.',
+  })
+  @ApiOkResponse({
+    description: 'Tokens successfully refreshed',
+    type: LoginResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized: Invalid token, session not found, or token reuse detected',
+  })
+  public async refreshToken(
+    @Request() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) throw new UnauthorizedException();
+
+    const tokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      maxAge: this.gatewayConfig.refreshTokenExpTime * 1000,
+    });
+
     return { accessToken: tokens.accessToken };
   }
 

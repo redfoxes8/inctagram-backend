@@ -6,6 +6,8 @@ import { RegisterUserUseCase } from './application/use-cases/register-user.use-c
 import { LoginUseCase } from './application/use-cases/login.use-case';
 import { PasswordRecoveryUseCase } from './application/use-cases/password-recovery.use-case';
 import { ConfirmEmailUseCase } from './application/use-cases/confirm-email.use-case';
+import { AuthEmailResendConfirmationUseCase } from './application/use-cases/auth-email-resend-confirmation.usecase';
+import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-case';
 import { AuthController } from './api/auth.controller';
 import { IJwtService } from './application/interfaces/jwt.service.interface';
 import { JwtServiceImplementation } from './infrastructure/jwt.service';
@@ -35,6 +37,8 @@ const useCases = [
   ConfirmEmailUseCase,
   LogoutUseCase,
   GoogleLoginUseCase,
+  AuthEmailResendConfirmationUseCase,
+  RefreshTokenUseCase,
 ];
 
 @Module({
