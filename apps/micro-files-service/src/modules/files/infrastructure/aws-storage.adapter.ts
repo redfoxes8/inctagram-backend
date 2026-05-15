@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Client } from '@aws-sdk/client-s3';
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import * as path from 'path';
 
 import { FilesConfig } from '../../../core/files.config';
@@ -47,19 +47,22 @@ export class AwsStorageAdapter {
 
     const s3Key = this.generateS3Key(userId, fileName, fileType);
 
-    const command = new PutObjectCommand({
+    const { url, fields } = await createPresignedPost(this.s3Client, {
       Bucket: bucketConfig.name,
       Key: s3Key,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: bucketConfig.urlExpiration,
-      signableHeaders: new Set(['content-type']),
+      Expires: bucketConfig.urlExpiration,
+      Fields: {
+        'Content-Type': contentType,
+      },
+      Conditions: [
+        ['content-length-range', 1, bucketConfig.maxFileSize],
+        ['eq', '$Content-Type', contentType],
+      ],
     });
 
     return {
-      uploadUrl,
+      uploadUrl: url,
+      uploadFields: fields,
       s3Key,
       bucket: bucketConfig.name,
       expiresIn: bucketConfig.urlExpiration,

@@ -7,6 +7,9 @@ export class FileResponseMapper {
   ): GenerateUploadUrlResponseDto {
     return {
       uploadUrl: response.uploadUrl,
+      uploadFields: Object.fromEntries(
+        response.uploadFields.map((field) => [field.name, field.value]),
+      ),
       fileId: response.fileId,
     };
   }

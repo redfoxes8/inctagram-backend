@@ -22,6 +22,7 @@ export {
   FileStatus,
   FileType,
   type GenerateUploadUrlRequest,
+  type UploadField,
   type GenerateUploadUrlResponse,
   type GetFileStatusRequest,
   type GetFileStatusResponse,

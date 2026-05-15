@@ -38,11 +38,12 @@
     "prisma:generate": "prisma generate --config apps/main-gateway-service/src/core/prisma/prisma.config.ts",
     "prisma:post:migrate": "cross-env NODE_ENV=development prisma migrate dev --config apps/micro-post-service/prisma/prisma.config.ts",
     "prisma:post:generate": "prisma generate --config apps/micro-post-service/prisma/prisma.config.ts",
-    "prisma:files:migrate": "cross-env NODE_ENV=development prisma migrate dev --config apps/micro-files-service/prisma/prisma.config.ts",
-    "prisma:files:generate": "prisma generate --config apps/micro-files-service/prisma/prisma.config.ts"
+    "prisma:files:migrate": "prisma migrate dev --config apps/micro-files-service/src/core/prisma/prisma.config.ts",
+    "prisma:files:generate": "prisma generate --config apps/micro-files-service/src/core/prisma/prisma.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-presigned-post": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",

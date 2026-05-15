@@ -47,6 +47,7 @@ export interface BucketConfig {
  */
 export interface PresignedUrlResult {
   uploadUrl: string;
+  uploadFields: Record<string, string>;
   s3Key: string;
   bucket: string;
   expiresIn: number;

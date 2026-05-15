@@ -40,9 +40,15 @@ export interface GenerateUploadUrlRequest {
   fileSize: number;
 }
 
+export interface UploadField {
+  name: string;
+  value: string;
+}
+
 export interface GenerateUploadUrlResponse {
   uploadUrl: string;
   fileId: string;
+  uploadFields: UploadField[];
 }
 
 export interface GetFileStatusRequest {

@@ -29,9 +29,15 @@ message GenerateUploadUrlRequest {
   int32 file_size = 3;
 }
 
+message UploadField {
+  string name = 1;
+  string value = 2;
+}
+
 message GenerateUploadUrlResponse {
   string upload_url = 1;
   string file_id = 2;
+  repeated UploadField upload_fields = 3;
 }
 
 message GetFileStatusRequest {
