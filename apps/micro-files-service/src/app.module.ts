@@ -8,12 +8,13 @@ import { FilesConfig } from './core/files.config';
 import { FilesConfigModule } from './core/files-config.module';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { FilesModule } from './modules/files/files.module';
+import { CronModule } from './modules/cron/cron.module';
 import { FilesController as TestingFilesController } from './modules/testing/api/files.controller';
 import { INCTAGRAM_POST_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 import { FILES_EVENT_CLIENT } from './modules/files/file-event.constants';
 
 @Module({
-  imports: [CoreModule, FilesConfigModule, PrismaModule, FilesModule],
+  imports: [CoreModule, FilesConfigModule, PrismaModule, FilesModule, CronModule],
   controllers: [],
 })
 export class AppModule {

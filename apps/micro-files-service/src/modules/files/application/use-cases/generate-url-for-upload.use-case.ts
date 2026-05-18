@@ -23,16 +23,21 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
     fileType,
   }: GenerateUrlForUploadCommand): Promise<GenerateUploadUrlResponse> {
     const fileId: string = randomUUID();
+    const fileExtension = dto.fileExtension;
+
     const result: PresignedUrlResult = await this.awsStorageAdapter.generateUploadUrl(
       dto.ownerId,
       fileType,
-      dto.fileExtension,
+      fileExtension,
       fileId,
     );
     return {
       uploadUrl: result.uploadUrl,
       fileId: fileId,
-      uploadFields: result.uploadFields,
+      uploadFields: Object.entries(result.uploadFields).map(([name, value]) => ({
+        name,
+        value: String(value),
+      })),
     };
   }
 }

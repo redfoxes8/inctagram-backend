@@ -1,4 +1,4 @@
-import { type GenerateUploadUrlRequest } from '../../../../../../../libs/contracts/src';
+import { FileType, type GenerateUploadUrlRequest } from '../../../../../../../libs/contracts/src';
 import { GenerateUploadUrlDto } from '../dto/generate-upload-url.dto';
 
 type ToGenerateUploadUrlRequestParams = {
@@ -14,6 +14,7 @@ export class FileRequestMapper {
       ownerId: params.ownerId,
       fileExtension: params.dto.fileExtension,
       fileSize: params.dto.fileSize,
+      fileType: FileType.FILE_TYPE_UNSPECIFIED,
     };
   }
 }

@@ -19,15 +19,26 @@ export class FilesController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Generate signed upload URL',
-    description: 'Requests a signed upload URL from File-MS. The ownerId is taken from JWT only.',
+    summary: 'Generate signed upload URL (Generic / Post Image)',
+    description: `
+      Requests a signed upload URL from File-MS.
+      
+      **Business Context:** This generic endpoint implicitly maps the upload to the \`POST_IMAGE\` domain type. 
+      For other domain types (e.g., AVATAR), dedicated endpoints (like \`/users/avatar/upload-url\`) should be used to automatically enforce the correct business context.
+      
+      The \`ownerId\` is securely extracted from the JWT token.
+    `,
   })
   @ApiBody({ type: GenerateUploadUrlDto })
   @ApiOkResponse({
     description: 'Signed upload URL generated successfully',
     type: GenerateUploadUrlResponseDto,
   })
-  @ApiDomainError(400, 'Validation error', 'Validation failed')
+  @ApiDomainError(
+    400,
+    'Validation error',
+    'Validation failed: Invalid file extension (must be one of the supported formats like .jpeg, .pdf, .mp4) OR file size exceeds the allowed limits.',
+  )
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
   @ApiDomainError(503, 'File service unavailable', 'Service unavailable')
   async generateUploadUrl(

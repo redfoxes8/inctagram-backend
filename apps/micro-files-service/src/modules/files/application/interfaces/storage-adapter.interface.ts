@@ -9,4 +9,6 @@ export abstract class IStorageAdapter {
   ): Promise<PresignedUrlResult>;
 
   abstract deleteFile(fileKey: string, fileType: FileType): Promise<void>;
+
+  abstract deleteFiles(fileKeys: string[], fileType: FileType): Promise<void>;
 }

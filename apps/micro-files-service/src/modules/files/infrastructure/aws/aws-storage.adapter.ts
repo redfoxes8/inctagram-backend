@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, DeleteObjectsCommand, S3Client } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { FilesConfig } from '../../../../core/files.config';
 import {
@@ -153,5 +153,27 @@ export class AwsStorageAdapter implements IStorageAdapter {
         Key: fileKey,
       }),
     );
+  }
+
+  /**
+   * Удаляет массив файлов из S3
+   */
+  async deleteFiles(fileKeys: string[], fileType: FileType): Promise<void> {
+    if (fileKeys.length === 0) return;
+    const bucketConfig = this.getBucketConfig(fileType);
+
+    const chunkSize = 1000;
+    for (let i = 0; i < fileKeys.length; i += chunkSize) {
+      const chunk = fileKeys.slice(i, i + chunkSize);
+      await this.s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucketConfig.name,
+          Delete: {
+            Objects: chunk.map((key) => ({ Key: key })),
+            Quiet: true,
+          },
+        }),
+      );
+    }
   }
 }

@@ -15,6 +15,8 @@ export enum FileStatus {
   PENDING = 'PENDING',
   UPLOADED = 'UPLOADED',
   FAILED = 'FAILED',
+  DELETING = 'DELETING',
+  FAILED_DELETE = 'FAILED_DELETE',
 }
 
 /**
