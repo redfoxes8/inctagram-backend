@@ -44,6 +44,9 @@ export class FilesConfig {
   @IsOptional()
   s3BucketMedia?: string;
 
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
+  prismaDbUrl: string;
+
   // SQS Configuration
   @IsString({ message: 'SQS_QUEUE_URL must be a string' })
   sqsQueueUrl: string;
@@ -61,6 +64,7 @@ export class FilesConfig {
 
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
+    this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );

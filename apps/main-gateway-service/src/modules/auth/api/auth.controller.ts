@@ -13,11 +13,12 @@ import {
   Get,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Request as ExpressRequest, Response } from 'express';
+import type { CookieOptions, Request as ExpressRequest, Response } from 'express';
 import { PasswordRecoveryDto } from './dto/password-recovery.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginCommand } from '../application/use-cases/login.use-case';
 import { RefreshTokenCommand } from '../application/use-cases/refresh-token.use-case';
+import type { AuthTokens } from '../application/interfaces/jwt.service.interface';
 import { PasswordRecoveryCommand } from '../application/use-cases/password-recovery.use-case';
 import { RegisterUserCommand } from '../application/use-cases/register-user.use-case';
 import { ConfirmEmailCommand } from '../application/use-cases/confirm-email.use-case';
@@ -136,14 +137,15 @@ export class AuthController {
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    const tokens = await this.commandBus.execute(
+    const tokens: AuthTokens = await this.commandBus.execute(
       new LoginCommand(req.user, {
         ...sessionMeta,
         deviceId: randomUUID(),
       }),
     );
 
-    res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+    this.setRefreshTokenCookie(res, tokens.refreshToken);
+
     return { accessToken: tokens.accessToken };
   }
 
@@ -169,11 +171,9 @@ export class AuthController {
     const refreshToken: string = req.cookies?.refreshToken;
     if (!refreshToken) throw new UnauthorizedException();
 
-    const tokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
+    const tokens: AuthTokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
 
-    res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: true,
+    this.setRefreshTokenCookie(res, tokens.refreshToken, {
       maxAge: this.gatewayConfig.refreshTokenExpTime * 1000,
     });
 
@@ -257,7 +257,7 @@ export class AuthController {
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string }> {
-    const tokens = await this.commandBus.execute(
+    const tokens: AuthTokens = await this.commandBus.execute(
       new GoogleLoginCommand(
         dto.code,
         dto.username,
@@ -269,8 +269,27 @@ export class AuthController {
       ),
     );
 
-    res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+    this.setRefreshTokenCookie(res, tokens.refreshToken);
 
     return { accessToken: tokens.accessToken };
+  }
+
+  private setRefreshTokenCookie(
+    res: Response,
+    refreshToken: string,
+    options: Pick<CookieOptions, 'maxAge'> = {},
+  ): void {
+    // WARNING: If authentication tests suddenly start failing locally or in CI/CD (deploy),
+    // check this cookie configuration first!
+    // Modern browsers (including headless ones like Playwright) strict-drop cookies with
+    // `sameSite: 'none'` + `secure: true` if they are sent over plain HTTP.
+    // - Local dev/testing: Works fine on `http://localhost` due to browser exceptions.
+    // - CI/CD / Deploy: Will FAIL over plain HTTP on non-localhost domains or custom IPs.
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      ...options,
+    });
   }
 }

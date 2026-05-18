@@ -8,7 +8,7 @@ import { FilesConfig } from './core/files.config';
 import { FilesConfigModule } from './core/files-config.module';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { FilesModule } from './modules/files/files.module';
-import { FilesController } from './modules/testing/api/files.controller';
+import { FilesController as TestingFilesController } from './modules/testing/api/files.controller';
 import { INCTAGRAM_POST_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 import { FILES_EVENT_CLIENT } from './modules/files/file-event.constants';
 
@@ -44,7 +44,7 @@ export class AppModule {
           } as ClientProviderOptions,
         ]),
       ],
-      controllers: [FilesController],
+      controllers: [TestingFilesController],
     };
   }
 }

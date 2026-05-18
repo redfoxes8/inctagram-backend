@@ -1,4 +1,4 @@
-import { Controller, Inject } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import type { GenerateUploadUrlRequest, GenerateUploadUrlResponse } from '@inctagram/contracts';
 import { CommandBus } from '@nestjs/cqrs';
@@ -7,7 +7,7 @@ import { FileType } from '../domain/file.types';
 
 @Controller()
 export class FilesController {
-  constructor(@Inject(CommandBus) private commandBus: CommandBus) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @GrpcMethod('FileService', 'GenerateUploadUrl')
   async generateUploadUrl(data: GenerateUploadUrlRequest): Promise<GenerateUploadUrlResponse> {
