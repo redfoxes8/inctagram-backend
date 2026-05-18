@@ -1,5 +1,5 @@
-import { FileType, type GenerateUploadUrlRequest } from '../../../../../../../libs/contracts/src';
-import { GenerateUploadUrlDto, UploadFileType } from '../dto/generate-upload-url.dto';
+import { type GenerateUploadUrlRequest } from '../../../../../../../libs/contracts/src';
+import { GenerateUploadUrlDto } from '../dto/generate-upload-url.dto';
 
 type ToGenerateUploadUrlRequestParams = {
   dto: GenerateUploadUrlDto;
@@ -12,18 +12,8 @@ export class FileRequestMapper {
   ): GenerateUploadUrlRequest {
     return {
       ownerId: params.ownerId,
-      fileType: this.toGrpcFileType(params.dto.fileType),
+      fileExtension: params.dto.fileExtension,
       fileSize: params.dto.fileSize,
     };
-  }
-
-  private static toGrpcFileType(fileType: UploadFileType): FileType {
-    switch (fileType) {
-      case UploadFileType.PNG:
-        return FileType.PNG;
-      case UploadFileType.JPEG:
-      default:
-        return FileType.JPEG;
-    }
   }
 }

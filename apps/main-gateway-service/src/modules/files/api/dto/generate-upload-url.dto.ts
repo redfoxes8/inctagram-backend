@@ -4,18 +4,25 @@ import { IsEnum, IsInt, Max, Min } from 'class-validator';
 
 const MAX_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
-export enum UploadFileType {
-  JPEG = 'JPEG',
-  PNG = 'PNG',
+export enum UploadFileExtension {
+  JPEG = '.jpeg',
+  JPG = '.jpg',
+  PNG = '.png',
+  GIF = '.gif',
+  WEBP = '.webp',
+  PDF = '.pdf',
+  MP4 = '.mp4',
+  MP3 = '.mp3',
+  WEBM = '.webm',
 }
 
 export class GenerateUploadUrlDto {
   @ApiProperty({
-    enum: UploadFileType,
-    example: UploadFileType.JPEG,
+    enum: UploadFileExtension,
+    example: UploadFileExtension.JPEG,
   })
-  @IsEnum(UploadFileType)
-  fileType: UploadFileType;
+  @IsEnum(UploadFileExtension)
+  fileExtension: UploadFileExtension;
 
   @ApiProperty({
     description: 'File size in bytes',

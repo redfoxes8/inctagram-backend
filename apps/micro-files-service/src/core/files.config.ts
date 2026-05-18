@@ -44,6 +44,21 @@ export class FilesConfig {
   @IsOptional()
   s3BucketMedia?: string;
 
+  // SQS Configuration
+  @IsString({ message: 'SQS_QUEUE_URL must be a string' })
+  sqsQueueUrl: string;
+
+  // RabbitMQ Configuration
+  @IsString({ message: 'RABBITMQ_URL must be a string' })
+  rabbitmqUrl: string;
+
+  @IsString({ message: 'FILES_EVENTS_QUEUE must be a string' })
+  filesEventsQueue: string;
+
+  // Database Configuration
+  @IsString({ message: 'DATABASE_URL must be a string' })
+  databaseUrl: string;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
     this.includeTestingModule = configValidationUtility.convertToBoolean(
@@ -62,6 +77,16 @@ export class FilesConfig {
     this.s3BucketImages = this.configService.get('S3_BUCKET_IMAGES');
     this.s3BucketDocuments = this.configService.get('S3_BUCKET_DOCUMENTS');
     this.s3BucketMedia = this.configService.get('S3_BUCKET_MEDIA');
+
+    // SQS Configuration
+    this.sqsQueueUrl = this.configService.get('SQS_QUEUE_URL');
+
+    // RabbitMQ Configuration
+    this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
+    this.filesEventsQueue = this.configService.get('FILES_EVENTS_QUEUE');
+
+    // Database Configuration
+    this.databaseUrl = this.configService.get('DATABASE_URL');
 
     configValidationUtility.validateConfig(this);
   }

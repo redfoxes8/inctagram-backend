@@ -7,3 +7,4 @@ allowBuilds:
   grpc-tools: true
   prisma: true
   protobufjs: true
+  unrs-resolver: true

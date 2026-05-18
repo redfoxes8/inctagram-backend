@@ -18,25 +18,18 @@ export enum FileStatus {
   UNRECOGNIZED = -1,
 }
 
-export enum FileType {
-  FILE_TYPE_UNSPECIFIED = 0,
-  JPEG = 1,
-  PNG = 2,
-  UNRECOGNIZED = -1,
-}
-
 export interface File {
   id: string;
   ownerId: string;
   status: FileStatus;
   fileUrl: string;
-  fileType: FileType;
+  fileType: string;
   fileSize: number;
 }
 
 export interface GenerateUploadUrlRequest {
   ownerId: string;
-  fileType: FileType;
+  fileExtension: string;
   fileSize: number;
 }
 
@@ -48,7 +41,7 @@ export interface UploadField {
 export interface GenerateUploadUrlResponse {
   uploadUrl: string;
   fileId: string;
-  uploadFields: UploadField[];
+  uploadFields: Record<string, string>;
 }
 
 export interface GetFileStatusRequest {

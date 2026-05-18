@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
-import * as path from 'path';
 
-import { FilesConfig } from '../../../core/files.config';
-import { FileType, BucketConfig, PresignedUrlResult, CONTENT_TYPE_MAP } from '../domain/file.types';
+import { FilesConfig } from '../../../../core/files.config';
+import {
+  FileType,
+  BucketConfig,
+  PresignedUrlResult,
+  CONTENT_TYPE_MAP,
+} from '../../domain/file.types';
 
 @Injectable()
 export class AwsStorageAdapter {
@@ -26,26 +30,28 @@ export class AwsStorageAdapter {
   /**
    * Генерирует presigned URL для загрузки файла напрямую в S3
    * @param userId - ID пользователя
-   * @param fileName - Имя файла с расширением (например: photo.jpg)
    * @param fileType - Тип файла (определяет бакет и лимиты)
+   * @param fileExtension - Расширение файла (например: .jpg, .png)
+   * @param fileId - ID файла
    */
   async getSignedUrlForUpload(
     userId: string,
-    fileName: string,
     fileType: FileType,
+    fileExtension: string,
+    fileId: string,
   ): Promise<PresignedUrlResult> {
     const bucketConfig = this.getBucketConfig(fileType);
-    const contentType = this.getContentTypeFromFileName(fileName);
 
-    // Валидация: разрешён ли этот content-type для данного типа файла
-    if (!bucketConfig.allowedContentTypes.includes(contentType)) {
+    const contentType = CONTENT_TYPE_MAP[fileExtension];
+
+    if (!contentType) {
       throw new BadRequestException(
-        `File type "${path.extname(fileName)}" is not allowed for ${fileType}. ` +
-          `Allowed types: ${bucketConfig.allowedContentTypes.join(', ')}`,
+        `Unsupported file extension: ${fileExtension}. ` +
+          `Supported extensions: ${Object.keys(CONTENT_TYPE_MAP).join(', ')}`,
       );
     }
 
-    const s3Key = this.generateS3Key(userId, fileName, fileType);
+    const s3Key = this.generateS3Key(userId, fileId, fileType);
 
     const { url, fields } = await createPresignedPost(this.s3Client, {
       Bucket: bucketConfig.name,
@@ -63,9 +69,10 @@ export class AwsStorageAdapter {
     return {
       uploadUrl: url,
       uploadFields: fields,
-      s3Key,
+      s3Key: s3Key,
       bucket: bucketConfig.name,
       expiresIn: bucketConfig.urlExpiration,
+      fileId: fileId,
     };
   }
 
@@ -83,38 +90,11 @@ export class AwsStorageAdapter {
   }
 
   /**
-   * Определяет content-type по расширению файла
-   */
-  private getContentTypeFromFileName(fileName: string): string {
-    const ext = path.extname(fileName).toLowerCase();
-    const contentType = CONTENT_TYPE_MAP[ext];
-
-    if (!contentType) {
-      throw new BadRequestException(
-        `Unsupported file extension: ${ext}. ` +
-          `Supported extensions: ${Object.keys(CONTENT_TYPE_MAP).join(', ')}`,
-      );
-    }
-
-    return contentType;
-  }
-
-  /**
    * Генерирует уникальный путь в S3
    * Формат: {fileType}/{userId}/{timestamp}_{sanitizedFileName}
    */
   private generateS3Key(userId: string, fileName: string, fileType: FileType): string {
-    const timestamp = Date.now();
-    const sanitizedFileName = this.sanitizeFileName(fileName);
-
-    return `${fileType}/${userId}/${timestamp}_${sanitizedFileName}`;
-  }
-
-  /**
-   * Очищает имя файла от потенциально опасных символов
-   */
-  private sanitizeFileName(fileName: string): string {
-    return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 100);
+    return `${fileType}/${userId}/${fileName}`;
   }
 
   /**
