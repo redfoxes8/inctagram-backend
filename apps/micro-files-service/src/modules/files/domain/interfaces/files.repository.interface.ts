@@ -14,4 +14,6 @@ export abstract class IFilesRepository {
   abstract delete(id: string): Promise<void>;
 
   abstract updateStatus(id: string, status: string): Promise<void>;
+
+  abstract findFileByKey(key: string): Promise<File>;
 }

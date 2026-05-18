@@ -51,4 +51,5 @@ export interface PresignedUrlResult {
   s3Key: string;
   bucket: string;
   expiresIn: number;
+  fileId: string;
 }

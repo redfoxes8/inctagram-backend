@@ -6,12 +6,13 @@ import { RabbitFileEventAdapter } from './infrastructure/rabbit-file-event.adapt
 import { GenerateUrlForUploadUseCase } from './application/use-cases/generate-url-for-upload.use-case';
 import { FileUploadedUseCase } from './application/use-cases/file-uploaded.use-case';
 import { AwsSqsAdapter } from './infrastructure/aws/aws-sqs.adapter';
-import { AwsStorageAdapter } from '../files/infrastructure/aws-storage.adapter';
 import { IStorageAdapter } from './application/interfaces/storage-adapter.interface';
 import { FilesRepository } from './infrastructure/files.repository';
 import { IFilesRepository } from './domain/interfaces/files.repository.interface';
 import { FilesController } from './api/files.controller';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { IAsyncEventPublisher } from './application/interfaces/event-publisher.interface';
+import { AwsStorageAdapter } from './infrastructure/aws/aws-storage.adapter';
 
 const repositories = [
   {
@@ -23,6 +24,10 @@ const adapters = [
   {
     provide: IStorageAdapter,
     useClass: AwsStorageAdapter,
+  },
+  {
+    provide: IAsyncEventPublisher,
+    useClass: RabbitFileEventAdapter,
   },
 ];
 

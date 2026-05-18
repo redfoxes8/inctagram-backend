@@ -5,7 +5,7 @@ import { DomainException } from '../../../../../../libs/common/src/exceptions/do
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 import { FILES_EVENT_CLIENT, FileEvents, FileUploadedPayload } from '../file-event.constants';
-import { IAsyncEventPublisher } from '../domain/interfaces/event-publisher.interface';
+import { IAsyncEventPublisher } from '../application/interfaces/event-publisher.interface';
 
 @Injectable()
 export class RabbitFileEventAdapter implements IAsyncEventPublisher {

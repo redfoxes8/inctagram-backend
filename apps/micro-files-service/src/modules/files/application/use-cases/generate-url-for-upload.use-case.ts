@@ -23,7 +23,7 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
     fileType,
   }: GenerateUrlForUploadCommand): Promise<GenerateUploadUrlResponse> {
     const fileId: string = randomUUID();
-    const result: PresignedUrlResult = await this.awsStorageAdapter.getSignedUrlForUpload(
+    const result: PresignedUrlResult = await this.awsStorageAdapter.generateUploadUrl(
       dto.ownerId,
       fileType,
       dto.fileExtension,

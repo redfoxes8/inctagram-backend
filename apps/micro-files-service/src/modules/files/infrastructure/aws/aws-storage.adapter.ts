@@ -8,7 +8,7 @@ import {
   PresignedUrlResult,
   CONTENT_TYPE_MAP,
 } from '../../domain/file.types';
-import { IStorageAdapter } from '../application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../../application/interfaces/storage-adapter.interface';
 
 @Injectable()
 export class AwsStorageAdapter implements IStorageAdapter {
