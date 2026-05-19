@@ -5,11 +5,13 @@ import { FilesConfigModule } from '../../core/files-config.module';
 import { RabbitFileEventAdapter } from './infrastructure/rabbit-file-event.adapter';
 import { GenerateUrlForUploadUseCase } from './application/use-cases/generate-url-for-upload.use-case';
 import { FileUploadedUseCase } from './application/use-cases/file-uploaded.use-case';
+import { DeleteFilesUseCase } from './application/use-cases/delete-files.use-case';
 import { AwsSqsAdapter } from './infrastructure/aws/aws-sqs.adapter';
 import { IStorageAdapter } from './application/interfaces/storage-adapter.interface';
 import { FilesRepository } from './infrastructure/files.repository';
 import { IFilesRepository } from './domain/interfaces/files.repository.interface';
 import { FilesController } from './api/files.controller';
+import { FilesMessageController } from './api/files.message.controller';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { IAsyncEventPublisher } from './application/interfaces/event-publisher.interface';
 import { AwsStorageAdapter } from './infrastructure/aws/aws-storage.adapter';
@@ -31,10 +33,10 @@ const adapters = [
   },
 ];
 
-const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase];
+const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesUseCase];
 @Module({
   imports: [CqrsModule, FilesConfigModule],
-  controllers: [FilesController],
+  controllers: [FilesController, FilesMessageController],
   providers: [
     PrismaService,
     ...useCases,

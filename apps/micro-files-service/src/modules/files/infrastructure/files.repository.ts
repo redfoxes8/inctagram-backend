@@ -19,7 +19,7 @@ export class FilesRepository implements IFilesRepository {
     return;
   }
 
-  async findPendingOlderThan(date: Date): Promise<File[]> {
+  async findPendingOlderThan(date: Date, limit?: number): Promise<File[]> {
     return this.prisma.file.findMany({
       where: {
         status: FileStatus.PENDING,
@@ -27,6 +27,16 @@ export class FilesRepository implements IFilesRepository {
           lt: date,
         },
       },
+      take: limit,
+    });
+  }
+
+  async findFailedDeleteFiles(limit?: number): Promise<File[]> {
+    return this.prisma.file.findMany({
+      where: {
+        status: FileStatus.FAILED_DELETE,
+      },
+      take: limit,
     });
   }
 
@@ -44,4 +54,37 @@ export class FilesRepository implements IFilesRepository {
       return FileMapper.toDomain(prismaFileRecord);
     } else return null;
   }
+
+  async deleteMany(ids: string[]): Promise<void> {
+    await this.prisma.file.deleteMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+    });
+  }
+
+  async updateStatusMany(ids: string[], status: FileStatus): Promise<void> {
+    await this.prisma.file.updateMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+      data: { status },
+    });
+  }
+
+  async findByIds(ids: string[]): Promise<File[]> {
+    return this.prisma.file.findMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+    });
+  }
 }
+
+

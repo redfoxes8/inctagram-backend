@@ -19,7 +19,8 @@ export enum UploadFileExtension {
 export class GenerateUploadUrlDto {
   @ApiProperty({
     enum: UploadFileExtension,
-    example: UploadFileExtension.JPEG,
+    example: UploadFileExtension.WEBP,
+    description: 'Physical file extension required for S3 bucket routing and Content-Type generation. MUST include the leading dot.',
   })
   @IsEnum(UploadFileExtension)
   fileExtension: UploadFileExtension;

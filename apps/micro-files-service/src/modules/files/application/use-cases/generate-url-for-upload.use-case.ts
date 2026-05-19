@@ -45,7 +45,10 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
     return {
       uploadUrl: result.uploadUrl,
       fileId: fileEntity.id,
-      uploadFields: result.uploadFields,
+      uploadFields: Object.entries(result.uploadFields).map(([name, value]) => ({
+        name,
+        value: String(value),
+      })),
     };
   }
 }

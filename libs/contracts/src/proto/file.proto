@@ -10,8 +10,10 @@ enum FileStatus {
 
 enum FileType {
   FILE_TYPE_UNSPECIFIED = 0;
-  JPEG = 1;
-  PNG = 2;
+  AVATAR = 1;
+  POST_IMAGE = 2;
+  DOCUMENT = 3;
+  MEDIA = 4;
 }
 
 message File {
@@ -27,6 +29,7 @@ message GenerateUploadUrlRequest {
   string owner_id = 1;
   FileType file_type = 2;
   int32 file_size = 3;
+  string file_extension = 4;
 }
 
 message UploadField {
