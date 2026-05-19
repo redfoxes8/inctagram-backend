@@ -14,7 +14,7 @@ export abstract class IFilesRepository {
 
   abstract deleteMany(ids: string[]): Promise<void>;
 
-  abstract updateStatus(id: string, status: FileStatus): Promise<void>;
+  abstract updateStatus(fileEntity: FileEntity): Promise<void>;
 
   abstract updateStatusMany(ids: string[], status: FileStatus): Promise<void>;
 

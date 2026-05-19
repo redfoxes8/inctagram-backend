@@ -22,6 +22,7 @@ export class FileUploadedUseCase implements ICommandHandler<FileUploadedCommand,
       throw new DomainException({ message: 'File not found', code: DomainExceptionCode.NotFound });
     }
     fileEntity.updateStatus(FileStatus.UPLOADED);
+    await this.fileRepository.updateStatus(fileEntity);
     await this.eventPublisher.sendFileUploadedEvent({
       fileId: fileEntity.id,
       userId: fileEntity.getUserId(),

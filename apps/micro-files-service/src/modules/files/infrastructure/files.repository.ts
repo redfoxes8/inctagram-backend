@@ -65,6 +65,15 @@ export class FilesRepository implements IFilesRepository {
     });
   }
 
+  async updateStatus(fileEntity: FileEntity): Promise<void> {
+    const fileStatus = fileEntity.getStatus() as unknown as FileStatus;
+    await this.prisma.file.update({
+      where: { id: fileEntity.id },
+      data: { status: fileStatus },
+    });
+    return;
+  }
+
   async updateStatusMany(ids: string[], status: FileStatus): Promise<void> {
     await this.prisma.file.updateMany({
       where: {
@@ -86,5 +95,3 @@ export class FilesRepository implements IFilesRepository {
     });
   }
 }
-
-
