@@ -29,8 +29,11 @@ import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorat
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetFeedQueryDto } from './dto/get-feed-query.dto';
 import { CreatePostResponseDto, GetFeedResponseDto } from './dto/post-response.dto';
+import { GeneratePostImageUploadUrlDto } from './dto/generate-post-image-upload-url.dto';
+import { GeneratePostImageUploadUrlResponseDto } from './dto/generate-post-image-upload-url-response.dto';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
+import { GeneratePostImageUploadUrlCommand } from '../application/commands/generate-post-image-upload-url.command';
 import { GetFeedQuery } from '../application/queries/get-feed.query';
 
 @ApiTags('Posts')
@@ -59,6 +62,36 @@ export class PostsController {
     @CurrentUserId() ownerId: string,
   ): Promise<CreatePostResponseDto> {
     return this.commandBus.execute(new CreatePostCommand({ dto, ownerId }));
+  }
+
+  @Post('images/upload-url')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Generate signed upload URL for Post Image',
+    description: `
+      Requests a signed upload URL from File-MS explicitly for the \`POST_IMAGE\` domain type.
+      The \`ownerId\` is securely extracted from the JWT token.
+    `,
+  })
+  @ApiBody({ type: GeneratePostImageUploadUrlDto })
+  @ApiOkResponse({
+    description: 'Signed upload URL generated successfully',
+    type: GeneratePostImageUploadUrlResponseDto,
+  })
+  @ApiDomainError(
+    400,
+    'Validation error',
+    'Validation failed: Invalid file extension (must be one of the supported image formats like .jpeg, .png, .webp) OR file size exceeds the allowed limits.',
+  )
+  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
+  @ApiDomainError(503, 'File service unavailable', 'Service unavailable')
+  async generateUploadUrl(
+    @Body() dto: GeneratePostImageUploadUrlDto,
+    @CurrentUserId() ownerId: string,
+  ): Promise<GeneratePostImageUploadUrlResponseDto> {
+    return this.commandBus.execute(new GeneratePostImageUploadUrlCommand({ dto, ownerId }));
   }
 
   @Get('feed')
