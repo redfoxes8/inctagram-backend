@@ -1,10 +1,9 @@
 import { type GenerateUploadUrlResponse } from '../../../../../../../libs/contracts/src';
-import { GenerateUploadUrlResponseDto } from '../dto/generate-upload-url-response.dto';
 
 export class FileResponseMapper {
   static toGenerateUploadUrlResponse(
     response: GenerateUploadUrlResponse,
-  ): GenerateUploadUrlResponseDto {
+  ): { uploadUrl: string; uploadFields: Record<string, string>; fileId: string } {
     return {
       uploadUrl: response.uploadUrl,
       uploadFields: Object.fromEntries(

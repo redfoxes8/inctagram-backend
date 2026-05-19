@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GenerateUploadUrlResponseDto {
+export class GeneratePostImageUploadUrlResponseDto {
   @ApiProperty({
     example: 'https://storage.nymbi.org/signed-upload-url',
     description: 'The exact URL where the frontend should make the multipart/form-data POST request.',
@@ -22,7 +22,7 @@ export class GenerateUploadUrlResponseDto {
 
   @ApiProperty({
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    description: 'The internal ID of the file created in the database. Use this ID when attaching the file to a Post or Profile.',
+    description: 'The internal ID of the file created in the database. Use this ID when attaching the file to a Post.',
   })
   fileId: string;
 }

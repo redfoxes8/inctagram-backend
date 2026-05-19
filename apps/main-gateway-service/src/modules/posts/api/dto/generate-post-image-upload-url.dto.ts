@@ -2,28 +2,23 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, Max, Min } from 'class-validator';
 
-const MAX_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
-export enum UploadFileExtension {
+export enum PostImageExtension {
   JPEG = '.jpeg',
   JPG = '.jpg',
   PNG = '.png',
-  GIF = '.gif',
   WEBP = '.webp',
-  PDF = '.pdf',
-  MP4 = '.mp4',
-  MP3 = '.mp3',
-  WEBM = '.webm',
 }
 
-export class GenerateUploadUrlDto {
+export class GeneratePostImageUploadUrlDto {
   @ApiProperty({
-    enum: UploadFileExtension,
-    example: UploadFileExtension.WEBP,
+    enum: PostImageExtension,
+    example: PostImageExtension.WEBP,
     description: 'Physical file extension required for S3 bucket routing and Content-Type generation. MUST include the leading dot.',
   })
-  @IsEnum(UploadFileExtension)
-  fileExtension: UploadFileExtension;
+  @IsEnum(PostImageExtension)
+  fileExtension: PostImageExtension;
 
   @ApiProperty({
     description: 'File size in bytes',
