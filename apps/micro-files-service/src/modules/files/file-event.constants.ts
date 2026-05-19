@@ -1,3 +1,5 @@
+import { FileType } from './domain/file.types';
+
 export const FILES_EVENT_CLIENT = 'FILES_EVENT_CLIENT';
 
 export enum FileEvents {
@@ -9,6 +11,6 @@ export type FileUploadedPayload = {
   userId: string;
   s3Key: string;
   bucket: string;
-  fileType: string;
-  fileUrl: string;
+  fileType: FileType;
+  fileExtension: string;
 };

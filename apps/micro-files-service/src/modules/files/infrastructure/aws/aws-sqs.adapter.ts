@@ -25,7 +25,7 @@ export class AwsSqsAdapter {
         if (message && message.Body) {
           const event = JSON.parse(message.Body);
           for (const record of event.Records) {
-            if (record.eventName.startWith('ObjectCreated')) {
+            if (record.eventName.startsWith('ObjectCreated')) {
               const fileKey: string = record.s3.object.key;
               await this.commandBus.execute(new FileUploadedCommand(fileKey));
             }

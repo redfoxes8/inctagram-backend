@@ -41,7 +41,7 @@ export class EmailConfirmationEntity extends BaseDomainEntity<string> {
 
     if (this.isExpired()) {
       throw new DomainException({
-        code: DomainExceptionCode.ConfirmationCodeExpired,
+        code: DomainExceptionCode.Unauthorized,
         message: 'Confirmation code is expired',
       });
     }

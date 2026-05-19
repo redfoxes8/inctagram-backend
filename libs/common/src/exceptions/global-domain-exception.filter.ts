@@ -29,7 +29,7 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
       const rpcContext = host.switchToRpc().getContext();
 
       if (
-        exception.code === DomainExceptionCode.ValidationError &&
+        exception.code === DomainExceptionCode.BadRequest &&
         this.isAckableRpcContext(rpcContext)
       ) {
         this.logger.warn(

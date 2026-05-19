@@ -41,7 +41,7 @@ export class PasswordRecoveryEntity extends BaseDomainEntity<string> {
 
     if (this.isExpired()) {
       throw new DomainException({
-        code: DomainExceptionCode.PasswordRecoveryCodeExpired,
+        code: DomainExceptionCode.Unauthorized,
         message: 'Recovery code is expired',
       });
     }

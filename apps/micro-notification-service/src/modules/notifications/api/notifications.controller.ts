@@ -206,7 +206,7 @@ export class NotificationsController {
   }
 
   private isValidationError(error: unknown): boolean {
-    return error instanceof DomainException && error.code === DomainExceptionCode.ValidationError;
+    return error instanceof DomainException && error.code === DomainExceptionCode.BadRequest;
   }
 
   private buildRegistrationEmailParams(email: string, confirmationCode: string): SendEmailParams {

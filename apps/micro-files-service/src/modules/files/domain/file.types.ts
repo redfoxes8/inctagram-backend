@@ -2,19 +2,19 @@
  * Типы файлов для разных бакетов
  */
 export enum FileType {
-  AVATAR = 'avatar',
-  POST_IMAGE = 'post_image',
-  DOCUMENT = 'document',
-  MEDIA = 'media',
+  AVATAR,
+  POST_IMAGE,
+  DOCUMENT,
+  MEDIA,
 }
 
 /**
  * Статусы загрузки файла
  */
 export enum FileStatus {
-  PENDING = 'PENDING',
-  UPLOADED = 'UPLOADED',
-  FAILED = 'FAILED',
+  PENDING,
+  UPLOADED,
+  FAILED,
 }
 
 /**

@@ -1,19 +1,12 @@
 import { File } from '../../../../core/prisma/client';
-import { FileType } from '../file.types';
+import { FileEntity } from '../file.entity';
 
 export abstract class IFilesRepository {
-  abstract create(data: {
-    s3Key: string;
-    bucket: string;
-    fileType: FileType;
-    userId: string;
-  }): Promise<File>;
+  abstract save(file: FileEntity): Promise<void>;
 
   abstract findPendingOlderThan(date: Date): Promise<File[]>;
 
   abstract delete(id: string): Promise<void>;
 
-  abstract updateStatus(id: string, status: string): Promise<void>;
-
-  abstract findFileByKey(key: string): Promise<File>;
+  abstract findFileByKey(key: string): Promise<FileEntity | null>;
 }

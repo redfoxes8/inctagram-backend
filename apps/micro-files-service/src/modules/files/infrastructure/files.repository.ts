@@ -2,27 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { IFilesRepository } from '../domain/interfaces/files.repository.interface';
 import { File, FileStatus } from '../../../core/prisma/client';
-import { FileType } from '../domain/file.types';
+import { FileEntity } from '../domain/file.entity';
+import { FileMapper, PrismaFileRecord } from './mappers/file.mapper';
 
 @Injectable()
 export class FilesRepository implements IFilesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: {
-    s3Key: string;
-    bucket: string;
-    fileType: FileType;
-    userId: string;
-  }): Promise<File> {
-    return this.prisma.file.create({
-      data: {
-        s3Key: data.s3Key,
-        bucket: data.bucket,
-        fileType: data.fileType,
-        userId: data.userId,
-        status: FileStatus.PENDING,
-      },
+  async save(file: FileEntity): Promise<void> {
+    const prismaFileRecord: PrismaFileRecord = FileMapper.toPrismaRecord(file);
+    await this.prisma.file.upsert({
+      where: { id: prismaFileRecord.id },
+      update: prismaFileRecord,
+      create: prismaFileRecord,
     });
+    return;
   }
 
   async findPendingOlderThan(date: Date): Promise<File[]> {
@@ -42,10 +36,12 @@ export class FilesRepository implements IFilesRepository {
     });
   }
 
-  async updateStatus(id: string, status: FileStatus): Promise<void> {
-    await this.prisma.file.update({
-      where: { id },
-      data: { status },
+  async findFileByKey(key: string): Promise<FileEntity | null> {
+    const prismaFileRecord: File | null = await this.prisma.file.findFirst({
+      where: { s3Key: key },
     });
+    if (prismaFileRecord) {
+      return FileMapper.toDomain(prismaFileRecord);
+    } else return null;
   }
 }
