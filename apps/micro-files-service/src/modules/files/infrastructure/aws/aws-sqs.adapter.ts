@@ -1,6 +1,6 @@
 import { Consumer } from 'sqs-consumer';
 import { FilesConfig } from '../../../../core/files.config';
-import { SQSClient } from '@aws-sdk/client-sqs';
+import { Message, SQSClient } from '@aws-sdk/client-sqs';
 import { CommandBus } from '@nestjs/cqrs';
 import { FileUploadedCommand } from '../../application/use-cases/file-uploaded.use-case';
 
@@ -21,13 +21,20 @@ export class AwsSqsAdapter {
           secretAccessKey: this.config.awsSecretAccessKey,
         },
       }),
-      handleMessage: async (message) => {
+      handleMessage: async (message: Message): Promise<Message | undefined> => {
         if (message && message.Body) {
           const event = JSON.parse(message.Body);
-          for (const record of event.Records) {
-            if (record.eventName.startsWith('ObjectCreated')) {
-              const fileKey: string = record.s3.object.key;
+          const fileKey: string = event.s3.object.key;
+          if (event.eventName.startsWith('ObjectCreated')) {
+            try {
               await this.commandBus.execute(new FileUploadedCommand(fileKey));
+            } catch (e) {
+              if (e.message == 'File not found') {
+                console.warn(`[SQS] File record with key ${fileKey} not found in DB. Skipping.`);
+                return message;
+              } else {
+                return undefined;
+              }
             }
           }
           return message;

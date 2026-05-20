@@ -21,16 +21,28 @@ export class FileUploadedUseCase implements ICommandHandler<FileUploadedCommand,
     if (!fileEntity) {
       throw new DomainException({ message: 'File not found', code: DomainExceptionCode.NotFound });
     }
-    fileEntity.updateStatus(FileStatus.UPLOADED);
-    await this.fileRepository.updateStatus(fileEntity);
-    await this.eventPublisher.sendFileUploadedEvent({
-      fileId: fileEntity.id,
-      userId: fileEntity.getUserId(),
-      s3Key: fileEntity.getS3Key(),
-      bucket: fileEntity.getBucket(),
-      fileType: fileEntity.getFileType(),
-      fileExtension: fileEntity.getFileExtension(),
-    });
-    return;
+    if (fileEntity.getStatus() == FileStatus.UPLOADED) {
+      await this.eventPublisher.sendFileUploadedEvent({
+        fileId: fileEntity.id,
+        userId: fileEntity.getUserId(),
+        s3Key: fileEntity.getS3Key(),
+        bucket: fileEntity.getBucket(),
+        fileType: fileEntity.getFileType(),
+        fileExtension: fileEntity.getFileExtension(),
+      });
+      return;
+    } else {
+      fileEntity.updateStatus(FileStatus.UPLOADED);
+      await this.fileRepository.updateStatus(fileEntity);
+      await this.eventPublisher.sendFileUploadedEvent({
+        fileId: fileEntity.id,
+        userId: fileEntity.getUserId(),
+        s3Key: fileEntity.getS3Key(),
+        bucket: fileEntity.getBucket(),
+        fileType: fileEntity.getFileType(),
+        fileExtension: fileEntity.getFileExtension(),
+      });
+      return;
+    }
   }
 }

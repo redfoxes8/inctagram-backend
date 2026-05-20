@@ -37,10 +37,7 @@ export class AppModule {
             transport: Transport.RMQ,
             options: {
               urls: [config.rabbitmqUrl],
-              queue: config.filesEventsQueue,
-              queueOptions: {
-                durable: true,
-              },
+              exchange: config.filesEventsExchange,
             },
           } as ClientProviderOptions,
         ]),

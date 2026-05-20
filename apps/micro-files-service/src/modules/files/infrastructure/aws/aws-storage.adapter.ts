@@ -91,10 +91,10 @@ export class AwsStorageAdapter implements IStorageAdapter {
 
   /**
    * Генерирует уникальный путь в S3
-   * Формат: {fileType}/{userId}/{timestamp}_{sanitizedFileName}
+   * Формат: {fileType}/{userId}/{fileId}
    */
-  private generateS3Key(userId: string, fileName: string, fileType: FileType): string {
-    return `${fileType}/${userId}/${fileName}`;
+  private generateS3Key(userId: string, fileId: string, fileType: FileType): string {
+    return `${fileType}/${userId}/${fileId}`;
   }
 
   /**

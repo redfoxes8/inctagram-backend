@@ -55,8 +55,8 @@ export class FilesConfig {
   @IsString({ message: 'RABBITMQ_URL must be a string' })
   rabbitmqUrl: string;
 
-  @IsString({ message: 'FILES_EVENTS_QUEUE must be a string' })
-  filesEventsQueue: string;
+  @IsString({ message: 'FILES_EVENTS_EXCHANGE must be a string' })
+  filesEventsExchange: string;
 
   // Database Configuration
   @IsString({ message: 'DATABASE_URL must be a string' })
@@ -87,7 +87,7 @@ export class FilesConfig {
 
     // RabbitMQ Configuration
     this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
-    this.filesEventsQueue = this.configService.get('FILES_EVENTS_QUEUE');
+    this.filesEventsExchange = this.configService.get('FILES_EVENTS_EXCHANGE');
 
     // Database Configuration
     this.databaseUrl = this.configService.get('DATABASE_URL');
