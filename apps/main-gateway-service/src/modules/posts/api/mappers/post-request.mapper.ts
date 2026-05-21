@@ -4,6 +4,7 @@ import {
   type GetPostsByUserIdRequest,
 } from '../../../../../../../libs/contracts/src';
 import { CreatePostDto } from '../dto/create-post.dto';
+import { UpdatePostDto } from '../dto/update-post.dto';
 import { GetFeedQueryDto } from '../dto/get-feed-query.dto';
 
 type ToCreatePostRequestParams = {
@@ -44,6 +45,14 @@ export class PostRequestMapper {
     return {
       postId: params.postId,
       ownerId: params.ownerId,
+    };
+  }
+
+  static toUpdatePostRequest(params: { postId: string; dto: UpdatePostDto; ownerId: string }) {
+    return {
+      postId: params.postId,
+      ownerId: params.ownerId,
+      description: params.dto.description,
     };
   }
 }
