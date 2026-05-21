@@ -33,3 +33,20 @@ model PostImage {
   @@unique([postId, fileId])
   @@index([postId])
 }
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model OutboxEvent {
+  id         String      @id @default(uuid()) @db.Uuid
+  type       String
+  payload    Json
+  status     OutboxStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  processedAt DateTime?
+
+  @@index([status, createdAt])
+}
