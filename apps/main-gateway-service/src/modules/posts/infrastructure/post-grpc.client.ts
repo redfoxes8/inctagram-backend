@@ -41,6 +41,16 @@ export class PostGrpcClient implements OnModuleInit {
     }
   }
 
+  async updatePost(
+    request: import('../../../../../../libs/contracts/src').UpdatePostRequest,
+  ): Promise<import('../../../../../../libs/contracts/src').UpdatePostResponse> {
+    try {
+      return await firstValueFrom(this.postService.updatePost(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
   async getPostsByUserId(request: GetPostsByUserIdRequest): Promise<GetPostsByUserIdResponse> {
     try {
       return await firstValueFrom(this.postService.getPostsByUserId(request));
