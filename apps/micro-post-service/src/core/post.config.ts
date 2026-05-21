@@ -19,6 +19,9 @@ export class PostConfig {
   @IsString({ message: 'DATABASE_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable DATABASE_URL' })
   databaseUrl: string;
+  @IsString()
+  @IsNotEmpty({ message: 'RABBITMQ_URL must be set' })
+  rabbitUrl: string;
 
   @IsString({ message: 'FILE_SERVICE_GRPC_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable FILE_SERVICE_GRPC_URL' })
@@ -30,6 +33,7 @@ export class PostConfig {
     this.grpcPort = Number(this.configService.get('GRPC_PORT'));
     this.databaseUrl = this.configService.get('DATABASE_URL');
     this.fileServiceGrpcUrl = this.configService.get('FILE_SERVICE_GRPC_URL') || 'localhost:50052';
+    this.rabbitUrl = this.configService.get('RABBITMQ_URL') || '';
 
     configValidationUtility.validateConfig(this);
   }
