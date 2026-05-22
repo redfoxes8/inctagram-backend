@@ -8,12 +8,14 @@ import { PrismaUsersQueryRepository } from './infrastructure/users.query-reposit
 import { CheckUsernameHandler } from './application/queries/check-username.query';
 import { CqrsModule } from '@nestjs/cqrs';
 import { UsersController } from './api/users.controller';
+import { CountUsersHandler } from './application/queries/count-users.query';
 
 @Module({
   imports: [CqrsModule],
   controllers: [UsersController],
   providers: [
     CheckUsernameHandler,
+    CountUsersHandler,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
     { provide: IPasswordService, useClass: BcryptService },

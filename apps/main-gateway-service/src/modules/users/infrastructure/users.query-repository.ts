@@ -64,4 +64,12 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       isConfirmed: user.isConfirmed,
     };
   }
+
+  public async countActiveUsers(): Promise<number> {
+    return this.prismaService.user.count({
+      where: {
+        deletedAt: null,
+      },
+    });
+  }
 }
