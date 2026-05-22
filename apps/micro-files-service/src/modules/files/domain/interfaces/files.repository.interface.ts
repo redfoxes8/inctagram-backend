@@ -1,4 +1,5 @@
 import { FileEntity } from '../file.entity';
+import { FileStatusDomain } from '../file.types';
 import { File, FileStatus } from '../../../../core/prisma/client';
 
 export abstract class IFilesRepository {
@@ -14,7 +15,7 @@ export abstract class IFilesRepository {
 
   abstract deleteMany(ids: string[]): Promise<void>;
 
-  abstract updateStatus(fileEntity: FileEntity): Promise<void>;
+  abstract updateStatus(fileId: string, fileStatus: FileStatusDomain): Promise<void>;
 
   abstract updateStatusMany(ids: string[], status: FileStatus): Promise<void>;
 

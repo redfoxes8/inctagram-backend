@@ -1,17 +1,18 @@
 import {
   BaseDomainEntity,
   BaseDomainEntityProps,
-  DomainException,
-  DomainExceptionCode,
-} from '@inctagram/common';
-import { FileStatus, FileType } from './file.types';
+} from '../../../../../../libs/common/src/domain/base.domain.entity';
+
+import { FileStatusDomain, FileType } from './file.types';
 import { randomUUID } from 'crypto';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 type FileEntityProps = BaseDomainEntityProps & {
   s3Key: string | null;
   bucket: string | null;
   fileExtension: string;
-  status: FileStatus;
+  status: FileStatusDomain;
   userId: string;
   fileType: FileType;
 };
@@ -26,7 +27,7 @@ export class FileEntity extends BaseDomainEntity {
   private s3Key: string | null;
   private bucket: string | null;
   private readonly fileExtension: string;
-  private status: FileStatus;
+  private status: FileStatusDomain;
   private readonly userId: string;
   private readonly fileType: FileType;
 
@@ -48,7 +49,7 @@ export class FileEntity extends BaseDomainEntity {
       s3Key: null,
       bucket: null,
       fileExtension: dto.fileExtension,
-      status: FileStatus.PENDING,
+      status: FileStatusDomain.PENDING,
       userId: dto.userId,
       fileType: dto.fileType,
     });
@@ -59,8 +60,8 @@ export class FileEntity extends BaseDomainEntity {
     this.bucket = bucket;
   }
 
-  public updateStatus(status: FileStatus): void {
-    if (status == FileStatus.PENDING && this.status == FileStatus.UPLOADED) {
+  public updateStatus(status: FileStatusDomain): void {
+    if (status == FileStatusDomain.PENDING && this.status == FileStatusDomain.UPLOADED) {
       throw new DomainException({
         message: 'Trying to update file status to PENDING when it is already UPLOADED',
         code: DomainExceptionCode.Conflict,
@@ -93,7 +94,7 @@ export class FileEntity extends BaseDomainEntity {
     return this.fileExtension;
   }
 
-  public getStatus(): FileStatus {
+  public getStatus(): FileStatusDomain {
     return this.status;
   }
 

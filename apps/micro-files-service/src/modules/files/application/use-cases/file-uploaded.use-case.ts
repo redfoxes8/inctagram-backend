@@ -2,8 +2,9 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import type { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
 import type { IAsyncEventPublisher } from '../interfaces/event-publisher.interface';
 import { FileEntity } from '../../domain/file.entity';
-import { DomainException, DomainExceptionCode } from '@inctagram/common';
-import { FileStatus } from '../../domain/file.types';
+import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { FileStatusDomain } from '../../domain/file.types';
 
 export class FileUploadedCommand {
   constructor(public fileKey: string) {}
@@ -21,7 +22,7 @@ export class FileUploadedUseCase implements ICommandHandler<FileUploadedCommand,
     if (!fileEntity) {
       throw new DomainException({ message: 'File not found', code: DomainExceptionCode.NotFound });
     }
-    if (fileEntity.getStatus() == FileStatus.UPLOADED) {
+    if (fileEntity.getStatus() == FileStatusDomain.UPLOADED) {
       await this.eventPublisher.sendFileUploadedEvent({
         fileId: fileEntity.id,
         userId: fileEntity.getUserId(),
@@ -32,8 +33,8 @@ export class FileUploadedUseCase implements ICommandHandler<FileUploadedCommand,
       });
       return;
     } else {
-      fileEntity.updateStatus(FileStatus.UPLOADED);
-      await this.fileRepository.updateStatus(fileEntity);
+      fileEntity.updateStatus(FileStatusDomain.UPLOADED);
+      await this.fileRepository.updateStatus(fileEntity.id, fileEntity.getStatus());
       await this.eventPublisher.sendFileUploadedEvent({
         fileId: fileEntity.id,
         userId: fileEntity.getUserId(),

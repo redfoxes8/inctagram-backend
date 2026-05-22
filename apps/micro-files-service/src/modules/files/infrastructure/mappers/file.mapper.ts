@@ -1,4 +1,4 @@
-import { FileStatus, FileType } from '../../domain/file.types';
+import { FileStatusDomain, FileType } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
 import { File as PrismaFile } from '../../../../core/prisma/client';
 
@@ -14,7 +14,7 @@ export class FileMapper {
       s3Key: prismaFileRecord.s3Key,
       bucket: prismaFileRecord.bucket,
       fileExtension: prismaFileRecord.fileExtension,
-      status: prismaFileRecord.status as unknown as FileStatus,
+      status: prismaFileRecord.status as unknown as FileStatusDomain,
       userId: prismaFileRecord.userId,
       fileType: prismaFileRecord.fileType as unknown as FileType,
     });
