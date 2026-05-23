@@ -1,8 +1,8 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../interfaces/storage-adapter.interface';
-import { FileStatus } from '../../../../core/prisma/client';
-import { FileType } from '../../domain/file.types';
+import { IStorageAdapter } from '../../infrastructure/interfaces/storage-adapter.interface';
+
+import { FileStatusDomain, FileType } from '../../domain/file.types';
 
 export class DeleteFilesCommand {
   constructor(public readonly fileIds: string[]) {}
@@ -26,7 +26,7 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
     const idsToUpdate = files.map((f) => f.id);
 
     // 2. Временный статус DELETING для предотвращения гонок
-    await this.filesRepository.updateStatusMany(idsToUpdate, FileStatus.DELETING);
+    await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.DELETING);
 
     // 3. Группируем файлы по типам для удаления из соответствующих бакетов
     const filesByType: Record<FileType, typeof files> = {} as any;
@@ -49,7 +49,7 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
       } catch (error) {
         console.error(`[DeleteFilesUseCase] Failed to delete S3 files for type ${type}:`, error);
         // Сбой S3: Меняем статус в БД на FAILED_DELETE для повторной обработки в Cron
-        await this.filesRepository.updateStatusMany(typeFileIds, FileStatus.FAILED_DELETE);
+        await this.filesRepository.updateStatusMany(typeFileIds, FileStatusDomain.FAILED_DELETE);
       }
     });
 

@@ -87,4 +87,12 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       email: user.email,
     };
   }
+
+  public async countActiveUsers(): Promise<number> {
+    return this.prismaService.user.count({
+      where: {
+        deletedAt: null,
+      },
+    });
+  }
 }

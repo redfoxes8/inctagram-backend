@@ -11,6 +11,7 @@ model File {
   id            String     @id @default(uuid()) @db.Uuid
   s3Key         String     @map("s3_key")
   bucket        String
+  region        String
   fileExtension String     @map("file_extension") // avatar, post_image, document, media
   fileType      FileType   @map("file_type")
   status        FileStatus @default(PENDING)

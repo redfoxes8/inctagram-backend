@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { IFilesRepository } from '../files/domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../files/application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../files/infrastructure/interfaces/storage-adapter.interface';
 import { FileType } from '../files/domain/file.types';
 import { FileStatus } from '../../core/prisma/client';
 

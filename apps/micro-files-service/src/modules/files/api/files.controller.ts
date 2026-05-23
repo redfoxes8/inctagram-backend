@@ -1,22 +1,36 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import type { GenerateUploadUrlRequest, GenerateUploadUrlResponse } from '@inctagram/contracts';
-import { CommandBus } from '@nestjs/cqrs';
+import type {
+  GenerateUploadUrlRequest,
+  GenerateUploadUrlResponse,
+  GetFilesDataRequest,
+  GetFilesDataResponse,
+} from '../../../../../../libs/contracts/src/';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GenerateUrlForUploadCommand } from '../application/use-cases/generate-url-for-upload.use-case';
 import { FileType } from '../domain/file.types';
+import { GetFilesDataQuery } from '../application/queries/get-files-data.query';
+import { FileEntity } from '../domain/file.entity';
+import { GrpcResponseMapper } from './mappers/grpc-response.mapper';
 
 @Controller()
 export class FilesController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
 
   @GrpcMethod('FileService', 'GenerateUploadUrl')
   async generateUploadUrl(data: GenerateUploadUrlRequest): Promise<GenerateUploadUrlResponse> {
     const domainFileType = this.mapGrpcFileTypeToDomain(data.fileType);
-    return await this.commandBus.execute(
-      new GenerateUrlForUploadCommand(data, domainFileType),
-    );
+    return await this.commandBus.execute(new GenerateUrlForUploadCommand(data, domainFileType));
   }
 
+  @GrpcMethod('FileService', 'GetFilesData')
+  async getFilesData(data: GetFilesDataRequest): Promise<GetFilesDataResponse> {
+    const result: FileEntity[] = await this.queryBus.execute(new GetFilesDataQuery(data));
+    return GrpcResponseMapper.getFilesDataResponse(result);
+  }
   private mapGrpcFileTypeToDomain(grpcType: number): FileType {
     switch (grpcType) {
       case 1: // AVATAR
@@ -32,4 +46,3 @@ export class FilesController {
     }
   }
 }
-

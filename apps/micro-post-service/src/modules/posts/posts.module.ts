@@ -13,10 +13,22 @@ import { CreatePostHandler } from './application/commands/create-post.handler';
 import { UpdatePostHandler } from './application/commands/update-post.handler';
 import { DeletePostHandler } from './application/commands/delete-post.handler';
 import { GetUserPostsHandler } from './application/queries/get-user-posts.handler';
+import { GetLatestPostsHandler } from './application/queries/get-latest-posts.query';
+import { PostQueryRepository } from './infrastructure/repositories/post.query-repository';
+import { IPostQueryRepository } from './domain/interfaces/post-query-repository.interface';
 import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
 
-const Handlers = [CreatePostHandler, UpdatePostHandler, DeletePostHandler, GetUserPostsHandler];
-const Repositories = [PostCommandRepository];
+const Handlers = [
+  CreatePostHandler,
+  UpdatePostHandler,
+  DeletePostHandler,
+  GetUserPostsHandler,
+  GetLatestPostsHandler,
+];
+const Repositories = [
+  PostCommandRepository,
+  { provide: IPostQueryRepository, useClass: PostQueryRepository },
+];
 
 @Module({
   imports: [

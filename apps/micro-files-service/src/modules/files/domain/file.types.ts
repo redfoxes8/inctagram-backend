@@ -11,7 +11,7 @@ export enum FileType {
 /**
  * Статусы загрузки файла
  */
-export enum FileStatus {
+export enum FileStatusDomain {
   PENDING,
   UPLOADED,
   FAILED,

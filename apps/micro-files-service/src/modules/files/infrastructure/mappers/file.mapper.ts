@@ -1,4 +1,4 @@
-import { FileStatus, FileType } from '../../domain/file.types';
+import { FileStatusDomain, FileType } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
 import { File as PrismaFile } from '../../../../core/prisma/client';
 
@@ -14,9 +14,10 @@ export class FileMapper {
       s3Key: prismaFileRecord.s3Key,
       bucket: prismaFileRecord.bucket,
       fileExtension: prismaFileRecord.fileExtension,
-      status: prismaFileRecord.status as unknown as FileStatus,
+      status: prismaFileRecord.status as unknown as FileStatusDomain,
       userId: prismaFileRecord.userId,
       fileType: prismaFileRecord.fileType as unknown as FileType,
+      region: prismaFileRecord.region,
     });
   }
 
@@ -25,6 +26,7 @@ export class FileMapper {
       id: fileEntity.id,
       s3Key: fileEntity.getS3Key(),
       bucket: fileEntity.getBucket(),
+      region: fileEntity.getRegion(),
       fileExtension: fileEntity.getFileExtension(),
       status: fileEntity.getStatus() as any,
       userId: fileEntity.getUserId(),
@@ -33,5 +35,9 @@ export class FileMapper {
       deletedAt: fileEntity.deletedAt,
       fileType: fileEntity.getFileType() as any,
     };
+  }
+
+  public static toDomainMany(prismaFileRecords: PrismaFileRecord[]): FileEntity[] {
+    return prismaFileRecords.map((record) => this.toDomain(record));
   }
 }

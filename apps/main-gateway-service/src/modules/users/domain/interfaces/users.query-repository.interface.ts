@@ -17,4 +17,5 @@ export abstract class IUsersQueryRepository {
   abstract getUserByEmail(email: string): Promise<UserViewModel | null>;
 
   abstract getProfileById(id: string): Promise<UserMeViewModel | null>;
+  abstract countActiveUsers(): Promise<number>;
 }

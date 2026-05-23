@@ -61,6 +61,14 @@ message GetPostsByUserIdResponse {
   bool has_more = 3;
 }
 
+message GetLatestPostsRequest {
+  int32 limit = 1;
+}
+
+message GetLatestPostsResponse {
+  repeated Post posts = 1;
+}
+
 message PingRequest {
   string message = 1;
 }
@@ -74,5 +82,6 @@ service PostService {
   rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse);
   rpc DeletePost(DeletePostRequest) returns (DeletePostResponse);
   rpc GetPostsByUserId(GetPostsByUserIdRequest) returns (GetPostsByUserIdResponse);
+  rpc GetLatestPosts(GetLatestPostsRequest) returns (GetLatestPostsResponse);
   rpc Ping(PingRequest) returns (PingResponse);
 }

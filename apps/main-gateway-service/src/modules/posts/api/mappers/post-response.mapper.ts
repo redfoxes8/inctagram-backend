@@ -10,6 +10,7 @@ import {
   GetFeedResponseDto,
   PostResponseDto,
 } from '../dto/post-response.dto';
+import { PostViewType } from '../../domain/post.types';
 
 type TimestampLike = {
   seconds: number;
@@ -52,6 +53,29 @@ export class PostResponseMapper {
       createdAt: this.timestampToIso(post.createdAt),
       updatedAt: this.timestampToIso(post.updatedAt),
     };
+  }
+
+  static toViewType(posts: Post[]): PostViewType[] {
+    return posts.map((post) => {
+      return {
+        id: post.id,
+        ownerId: post.ownerId,
+        description: post.description,
+        images: post.images,
+        createdAt: this.timestampToDate(post.createdAt),
+        updatedAt: this.timestampToDate(post.updatedAt),
+      };
+    });
+  }
+
+  private static timestampToDate(timestamp: TimestampLike | undefined): Date {
+    if (!timestamp) {
+      return new Date(0);
+    }
+
+    const milliseconds = timestamp.seconds * 1000 + Math.floor(timestamp.nanos / 1000000);
+
+    return new Date(milliseconds);
   }
 
   private static timestampToIso(timestamp: TimestampLike | undefined): string {

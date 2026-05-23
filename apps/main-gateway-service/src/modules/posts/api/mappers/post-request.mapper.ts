@@ -6,6 +6,8 @@ import {
 import { CreatePostDto } from '../dto/create-post.dto';
 import { UpdatePostDto } from '../dto/update-post.dto';
 import { GetFeedQueryDto } from '../dto/get-feed-query.dto';
+import { GetLatestPostsQueryDto } from '../dto/get-latest.query.dto';
+import { GetLatestPostsRequest } from '@inctagram/contracts/generated/post';
 
 type ToCreatePostRequestParams = {
   dto: CreatePostDto;
@@ -20,6 +22,10 @@ type ToGetPostsByUserIdRequestParams = {
 type ToDeletePostRequestParams = {
   postId: string;
   ownerId: string;
+};
+
+type ToGetLatestPostsRequestParams = {
+  query: GetLatestPostsQueryDto;
 };
 
 export class PostRequestMapper {
@@ -53,6 +59,12 @@ export class PostRequestMapper {
       postId: params.postId,
       ownerId: params.ownerId,
       description: params.dto.description,
+    };
+  }
+
+  static toGetLatestPostsRequest(params: ToGetLatestPostsRequestParams): GetLatestPostsRequest {
+    return {
+      limit: params.query.limit ?? 4,
     };
   }
 }

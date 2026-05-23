@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/prisma/prisma.service';
-import { IFilesRepository } from '../domain/interfaces/files.repository.interface';
-import { File, FileStatus } from '../../../core/prisma/client';
-import { FileEntity } from '../domain/file.entity';
-import { FileMapper, PrismaFileRecord } from './mappers/file.mapper';
+import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
+import { File, FileStatus } from '../../../../core/prisma/client';
+import { FileEntity } from '../../domain/file.entity';
+import { FileMapper, PrismaFileRecord } from '../mappers/file.mapper';
+import { FileStatusDomain } from '../../domain/file.types';
 
 @Injectable()
 export class FilesRepository implements IFilesRepository {
@@ -65,11 +66,10 @@ export class FilesRepository implements IFilesRepository {
     });
   }
 
-  async updateStatus(fileEntity: FileEntity): Promise<void> {
-    const fileStatus = fileEntity.getStatus() as unknown as FileStatus;
+  async updateStatus(fileId: string, fileStatus: FileStatusDomain): Promise<void> {
     await this.prisma.file.update({
-      where: { id: fileEntity.id },
-      data: { status: fileStatus },
+      where: { id: fileId },
+      data: { status: fileStatus as unknown as FileStatus },
     });
     return;
   }

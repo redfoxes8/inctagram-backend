@@ -8,6 +8,7 @@ import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorat
 import { CheckUsernameQuery } from '../application/queries/check-username.query';
 import { GetMeQuery } from '../application/queries/get-me.query';
 import { UserMeResponseDto } from './dto/user-me-response.dto';
+import { CountUsersQuery } from '../application/queries/count-users.query';
 
 @ApiTags('Users')
 @Controller('users')
@@ -48,5 +49,21 @@ export class UsersController {
   ])
   public async checkUsername(@Query('username') username: string): Promise<{ available: boolean }> {
     return this.queryBus.execute(new CheckUsernameQuery(username));
+  }
+
+  @Get('count')
+  @ApiOperation({
+    summary: 'Return count of active users',
+    description: 'Count users in DB who are not banned and returns this value',
+  })
+  @ApiOkResponse({
+    description: 'Count of active users',
+    schema: {
+      example: { totalCount: 100 },
+      properties: { totalCount: { type: 'number' } },
+    },
+  })
+  async count(): Promise<{ totalCount: number }> {
+    return this.queryBus.execute(new CountUsersQuery());
   }
 }

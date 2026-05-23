@@ -38,6 +38,9 @@ import { DeletePostCommand } from '../application/commands/delete-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { GeneratePostImageUploadUrlCommand } from '../application/commands/generate-post-image-upload-url.command';
 import { GetFeedQuery } from '../application/queries/get-feed.query';
+import { GetLatestPostsQueryDto } from './dto/get-latest.query.dto';
+import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
+import { PostViewType } from '../domain/post.types';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -141,6 +144,19 @@ export class PostsController {
     @CurrentUserId() ownerId: string,
   ): Promise<void> {
     await this.commandBus.execute(new DeletePostCommand({ postId, ownerId }));
+  }
+
+  @Get('latest')
+  @ApiOperation({
+    summary: 'Get latest posts',
+    description: 'Returns latest posts through Post-MS.',
+  })
+  @ApiOkResponse({
+    description: 'Return posts with images urls succsessfully',
+  })
+  @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
+  async getLatestPosts(@Query() query: GetLatestPostsQueryDto): Promise<PostViewType[]> {
+    return this.queryBus.execute(new GetLatestPostsQuery(query));
   }
 
   @Patch(':postId')
