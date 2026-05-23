@@ -6,6 +6,7 @@ import { BcryptService } from './infrastructure/password.service';
 import { IUsersQueryRepository } from './domain/interfaces/users.query-repository.interface';
 import { PrismaUsersQueryRepository } from './infrastructure/users.query-repository';
 import { CheckUsernameHandler } from './application/queries/check-username.query';
+import { GetMeHandler } from './application/queries/get-me.query';
 import { CqrsModule } from '@nestjs/cqrs';
 import { UsersController } from './api/users.controller';
 
@@ -14,6 +15,7 @@ import { UsersController } from './api/users.controller';
   controllers: [UsersController],
   providers: [
     CheckUsernameHandler,
+    GetMeHandler,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
     { provide: IPasswordService, useClass: BcryptService },
