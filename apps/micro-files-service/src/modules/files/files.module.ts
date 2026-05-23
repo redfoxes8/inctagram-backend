@@ -7,19 +7,26 @@ import { GenerateUrlForUploadUseCase } from './application/use-cases/generate-ur
 import { FileUploadedUseCase } from './application/use-cases/file-uploaded.use-case';
 import { DeleteFilesUseCase } from './application/use-cases/delete-files.use-case';
 import { AwsSqsAdapter } from './infrastructure/aws/aws-sqs.adapter';
-import { IStorageAdapter } from './application/interfaces/storage-adapter.interface';
-import { FilesRepository } from './infrastructure/files.repository';
+import { IStorageAdapter } from './infrastructure/interfaces/storage-adapter.interface';
+import { FilesRepository } from './infrastructure/repositories/files.repository';
 import { IFilesRepository } from './domain/interfaces/files.repository.interface';
 import { FilesController } from './api/files.controller';
 import { FilesMessageController } from './api/files.message.controller';
 import { PrismaService } from '../../core/prisma/prisma.service';
-import { IAsyncEventPublisher } from './application/interfaces/event-publisher.interface';
+import { IAsyncEventPublisher } from './infrastructure/interfaces/event-publisher.interface';
 import { AwsStorageAdapter } from './infrastructure/aws/aws-storage.adapter';
+import { IFilesQueryRepository } from './domain/interfaces/files.query-repository.interface';
+import { FilesQueryRepository } from './infrastructure/repositories/files.query-repository';
+import { GetFilesDataHandler } from './application/queries/get-files-data.query';
 
 const repositories = [
   {
     provide: IFilesRepository,
     useClass: FilesRepository,
+  },
+  {
+    provide: IFilesQueryRepository,
+    useClass: FilesQueryRepository,
   },
 ];
 const adapters = [
@@ -33,6 +40,8 @@ const adapters = [
   },
 ];
 
+const queryHandlers = [GetFilesDataHandler];
+
 const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesUseCase];
 @Module({
   imports: [CqrsModule, FilesConfigModule],
@@ -42,6 +51,7 @@ const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesU
     ...useCases,
     ...repositories,
     ...adapters,
+    ...queryHandlers,
     RabbitFileEventAdapter,
     AwsSqsAdapter,
   ],

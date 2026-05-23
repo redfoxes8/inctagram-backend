@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DeleteFilesUseCase, DeleteFilesCommand } from '../../src/modules/files/application/use-cases/delete-files.use-case';
+import {
+  DeleteFilesUseCase,
+  DeleteFilesCommand,
+} from '../../src/modules/files/application/use-cases/delete-files.use-case';
 import { IFilesRepository } from '../../src/modules/files/domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../../src/modules/files/application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
 import { FileStatus, FileType } from '../../src/core/prisma/client';
 
 describe('DeleteFilesUseCase - Unit Tests', () => {
@@ -61,10 +64,7 @@ describe('DeleteFilesUseCase - Unit Tests', () => {
       await useCase.execute(new DeleteFilesCommand(fileIds));
 
       expect(filesRepository.findByIds).toHaveBeenCalledWith(fileIds);
-      expect(filesRepository.updateStatusMany).toHaveBeenCalledWith(
-        fileIds,
-        FileStatus.DELETING,
-      );
+      expect(filesRepository.updateStatusMany).toHaveBeenCalledWith(fileIds, FileStatus.DELETING);
       expect(storageAdapter.deleteFiles).toHaveBeenCalledTimes(2);
       expect(filesRepository.deleteMany).toHaveBeenCalledTimes(2);
     });
@@ -98,10 +98,7 @@ describe('DeleteFilesUseCase - Unit Tests', () => {
         ['key1.jpg', 'key2.jpg'],
         FileType.AVATAR,
       );
-      expect(storageAdapter.deleteFiles).toHaveBeenCalledWith(
-        ['key3.jpg'],
-        FileType.POST_IMAGE,
-      );
+      expect(storageAdapter.deleteFiles).toHaveBeenCalledWith(['key3.jpg'], FileType.POST_IMAGE);
     });
 
     it('должен ничего не делать если список файлов пуст', async () => {
@@ -219,10 +216,7 @@ describe('DeleteFilesUseCase - Unit Tests', () => {
 
       await useCase.execute(new DeleteFilesCommand(fileIds));
 
-      expect(filesRepository.updateStatusMany).toHaveBeenCalledWith(
-        fileIds,
-        FileStatus.DELETING,
-      );
+      expect(filesRepository.updateStatusMany).toHaveBeenCalledWith(fileIds, FileStatus.DELETING);
     });
   });
 });

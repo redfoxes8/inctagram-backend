@@ -15,12 +15,14 @@ type FileEntityProps = BaseDomainEntityProps & {
   status: FileStatusDomain;
   userId: string;
   fileType: FileType;
+  region: string;
 };
 
 export type CreateNewFileDTO = {
   fileExtension: string;
   userId: string;
   fileType: FileType;
+  region: string;
 };
 
 export class FileEntity extends BaseDomainEntity {
@@ -30,6 +32,7 @@ export class FileEntity extends BaseDomainEntity {
   private status: FileStatusDomain;
   private readonly userId: string;
   private readonly fileType: FileType;
+  private readonly region: string;
 
   constructor(data: FileEntityProps) {
     super(data);
@@ -38,6 +41,7 @@ export class FileEntity extends BaseDomainEntity {
     this.fileExtension = data.fileExtension;
     this.status = data.status;
     this.userId = data.userId;
+    this.region = data.region;
   }
 
   public static createNew(dto: CreateNewFileDTO) {
@@ -52,6 +56,7 @@ export class FileEntity extends BaseDomainEntity {
       status: FileStatusDomain.PENDING,
       userId: dto.userId,
       fileType: dto.fileType,
+      region: dto.region,
     });
   }
 
@@ -104,5 +109,9 @@ export class FileEntity extends BaseDomainEntity {
 
   public getFileType(): FileType {
     return this.fileType;
+  }
+
+  public getRegion(): string {
+    return this.region;
   }
 }

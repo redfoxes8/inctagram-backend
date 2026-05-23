@@ -17,6 +17,7 @@ export class FileMapper {
       status: prismaFileRecord.status as unknown as FileStatusDomain,
       userId: prismaFileRecord.userId,
       fileType: prismaFileRecord.fileType as unknown as FileType,
+      region: prismaFileRecord.region,
     });
   }
 
@@ -25,6 +26,7 @@ export class FileMapper {
       id: fileEntity.id,
       s3Key: fileEntity.getS3Key(),
       bucket: fileEntity.getBucket(),
+      region: fileEntity.getRegion(),
       fileExtension: fileEntity.getFileExtension(),
       status: fileEntity.getStatus() as any,
       userId: fileEntity.getUserId(),
@@ -33,5 +35,9 @@ export class FileMapper {
       deletedAt: fileEntity.deletedAt,
       fileType: fileEntity.getFileType() as any,
     };
+  }
+
+  public static toDomainMany(prismaFileRecords: PrismaFileRecord[]): FileEntity[] {
+    return prismaFileRecords.map((record) => this.toDomain(record));
   }
 }

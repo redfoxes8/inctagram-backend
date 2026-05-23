@@ -14,6 +14,7 @@ import {
 } from '../../../../../../libs/contracts/src';
 import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
 import { POST_SERVICE_GRPC_CLIENT } from './post-grpc.constants';
+import { GetLatestPostsRequest, GetLatestPostsResponse } from '@inctagram/contracts/generated/post';
 
 @Injectable()
 export class PostGrpcClient implements OnModuleInit {
@@ -44,6 +45,14 @@ export class PostGrpcClient implements OnModuleInit {
   async getPostsByUserId(request: GetPostsByUserIdRequest): Promise<GetPostsByUserIdResponse> {
     try {
       return await firstValueFrom(this.postService.getPostsByUserId(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getLatestPosts(request: GetLatestPostsRequest): Promise<GetLatestPostsResponse> {
+    try {
+      return await firstValueFrom(this.postService.getLatestPosts(request));
     } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
     }

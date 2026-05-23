@@ -4,7 +4,7 @@ import { FilesController } from '../../src/modules/files/api/files.controller';
 import { CommandBus } from '@nestjs/cqrs';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
-import { IStorageAdapter } from '../../src/modules/files/application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
 import { PresignedUrlResult } from '../../src/modules/files/domain/file.types';
 import { resetDb } from '../../../../libs/common/src/testing/reset-db';
 import { FilesConfig } from '../../src/core/files.config';

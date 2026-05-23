@@ -70,6 +70,14 @@ export interface GetPostsByUserIdResponse {
   hasMore: boolean;
 }
 
+export interface GetLatestPostsRequest {
+  limit: number;
+}
+
+export interface GetLatestPostsResponse {
+  posts: Post[];
+}
+
 export interface PingRequest {
   message: string;
 }
@@ -88,6 +96,8 @@ export interface PostServiceClient {
   deletePost(request: DeletePostRequest, metadata?: Metadata): Observable<DeletePostResponse>;
 
   getPostsByUserId(request: GetPostsByUserIdRequest, metadata?: Metadata): Observable<GetPostsByUserIdResponse>;
+
+  getLatestPosts(request: GetLatestPostsRequest, metadata?: Metadata): Observable<GetLatestPostsResponse>;
 
   ping(request: PingRequest, metadata?: Metadata): Observable<PingResponse>;
 }
@@ -113,12 +123,24 @@ export interface PostServiceController {
     metadata?: Metadata,
   ): Promise<GetPostsByUserIdResponse> | Observable<GetPostsByUserIdResponse> | GetPostsByUserIdResponse;
 
+  getLatestPosts(
+    request: GetLatestPostsRequest,
+    metadata?: Metadata,
+  ): Promise<GetLatestPostsResponse> | Observable<GetLatestPostsResponse> | GetLatestPostsResponse;
+
   ping(request: PingRequest, metadata?: Metadata): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
 }
 
 export function PostServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["createPost", "updatePost", "deletePost", "getPostsByUserId", "ping"];
+    const grpcMethods: string[] = [
+      "createPost",
+      "updatePost",
+      "deletePost",
+      "getPostsByUserId",
+      "getLatestPosts",
+      "ping",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("PostService", method)(constructor.prototype[method], method, descriptor);

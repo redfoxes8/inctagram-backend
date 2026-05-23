@@ -4,7 +4,7 @@ import {
   DeleteFilesCommand,
 } from '../../src/modules/files/application/use-cases/delete-files.use-case';
 import { IFilesRepository } from '../../src/modules/files/domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../../src/modules/files/application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
 import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
 
 describe('Files RabbitMQ Events - E2E Tests', () => {

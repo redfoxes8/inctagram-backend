@@ -1,12 +1,14 @@
+import { randomUUID } from 'crypto';
+
 export type PostImageProps = {
-  id?: string;
+  id: string;
   postId: string;
   fileId: string;
   order: number;
 };
 
 export class PostImageEntity {
-  public readonly id?: string;
+  public readonly id: string;
   public readonly postId: string;
   public readonly fileId: string;
   public readonly order: number;
@@ -19,6 +21,8 @@ export class PostImageEntity {
   }
 
   static create(props: PostImageProps): PostImageEntity {
-    return new PostImageEntity(props);
+    const id = randomUUID();
+
+    return new PostImageEntity({ ...props, id });
   }
 }

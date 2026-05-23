@@ -1,5 +1,5 @@
 ﻿import { Test, TestingModule } from '@nestjs/testing';
-import { FilesRepository } from '../../src/modules/files/infrastructure/files.repository';
+import { FilesRepository } from '../../src/modules/files/infrastructure/repositories/files.repository';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
 import { FileEntity } from '../../src/modules/files/domain/file.entity';

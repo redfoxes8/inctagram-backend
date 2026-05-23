@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/prisma/prisma.service';
-import { IFilesRepository } from '../domain/interfaces/files.repository.interface';
-import { File, FileStatus } from '../../../core/prisma/client';
-import { FileEntity } from '../domain/file.entity';
-import { FileMapper, PrismaFileRecord } from './mappers/file.mapper';
-import { FileStatusDomain } from '../domain/file.types';
+import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
+import {
+  File,
+  FileStatus,
+} from 'prisma-client-c9ea7ac4dae25d90f941f49fb3a88e26350f93ac627e54aa0ca88e765f18cbc2';
+import { FileEntity } from '../../domain/file.entity';
+import { FileMapper, PrismaFileRecord } from '../mappers/file.mapper';
+import { FileStatusDomain } from '../../domain/file.types';
 
 @Injectable()
 export class FilesRepository implements IFilesRepository {

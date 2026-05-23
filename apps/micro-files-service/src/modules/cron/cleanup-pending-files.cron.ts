@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { IFilesRepository } from '../files/domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../files/application/interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../files/infrastructure/interfaces/storage-adapter.interface';
 import { FileType } from '../files/domain/file.types';
 import { FileStatus } from '../../core/prisma/client';
 
@@ -64,7 +64,9 @@ export class CleanupPendingFilesCron {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
-      this.logger.log(`Cleanup of orphaned PENDING files complete. Cleaned up ${processedCount} files.`);
+      this.logger.log(
+        `Cleanup of orphaned PENDING files complete. Cleaned up ${processedCount} files.`,
+      );
     } catch (error) {
       this.logger.error('Error occurred during cleanup of orphaned PENDING files:', error);
     }

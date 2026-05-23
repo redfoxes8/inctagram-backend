@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import type { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
-import type { IAsyncEventPublisher } from '../interfaces/event-publisher.interface';
+import type { IAsyncEventPublisher } from '../../infrastructure/interfaces/event-publisher.interface';
 import { FileEntity } from '../../domain/file.entity';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';

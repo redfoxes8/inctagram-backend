@@ -15,6 +15,13 @@ import { CreatePostCommand } from '../application/commands/create-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
 import { GetUserPostsQuery } from '../application/queries/get-user-posts.query';
+import type {
+  GetLatestPostsRequest,
+  GetLatestPostsResponse,
+} from '../../../../../../libs/contracts/src/generated/post';
+import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
+import { PostViewType } from '../domain/post.types';
+import { GrpcResponseMapper } from './mappers/grpc-response.mapper';
 
 @Controller()
 export class PostsController {
@@ -125,5 +132,12 @@ export class PostsController {
     return {
       reply: `Pong from Post-MS! Received: [${data.message}]`,
     };
+  }
+
+  @GrpcMethod('PostService', 'GetLatestPosts')
+  async getLatestPosts(data: GetLatestPostsRequest): Promise<GetLatestPostsResponse> {
+    this.logger.log(`[Post MS] gRPC GetLatestPosts received`);
+    const result: PostViewType[] = await this.queryBus.execute(new GetLatestPostsQuery(data));
+    return GrpcResponseMapper.getLatestPostsResponse(result);
   }
 }

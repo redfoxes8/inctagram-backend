@@ -28,13 +28,21 @@ import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetFeedQueryDto } from './dto/get-feed-query.dto';
-import { CreatePostResponseDto, GetFeedResponseDto } from './dto/post-response.dto';
+import {
+  CreatePostResponseDto,
+  GetFeedResponseDto,
+  GetLatestPostsResponseDto,
+} from './dto/post-response.dto';
 import { GeneratePostImageUploadUrlDto } from './dto/generate-post-image-upload-url.dto';
 import { GeneratePostImageUploadUrlResponseDto } from './dto/generate-post-image-upload-url-response.dto';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
 import { GeneratePostImageUploadUrlCommand } from '../application/commands/generate-post-image-upload-url.command';
 import { GetFeedQuery } from '../application/queries/get-feed.query';
+import { GetLatestPostsQueryDto } from './dto/get-latest.query.dto';
+import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
+import { GetLatestPostsResponse } from '@inctagram/contracts/generated/post';
+import { PostViewType } from '../domain/post.types';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -138,5 +146,18 @@ export class PostsController {
     @CurrentUserId() ownerId: string,
   ): Promise<void> {
     await this.commandBus.execute(new DeletePostCommand({ postId, ownerId }));
+  }
+
+  @Get('latest')
+  @ApiOperation({
+    summary: 'Get latest posts',
+    description: 'Returns latest posts through Post-MS.',
+  })
+  @ApiOkResponse({
+    description: 'Return posts with images urls succsessfully',
+  })
+  @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
+  async getLatestPosts(@Query() query: GetLatestPostsQueryDto): Promise<PostViewType[]> {
+    return this.queryBus.execute(new GetLatestPostsQuery(query));
   }
 }

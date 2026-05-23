@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
-import { IStorageAdapter } from '../interfaces/storage-adapter.interface';
+import { IStorageAdapter } from '../../infrastructure/interfaces/storage-adapter.interface';
 
 import { FileStatusDomain, FileType } from '../../domain/file.types';
 
