@@ -6,7 +6,10 @@ export class CheckUsernameQuery {
 }
 
 @QueryHandler(CheckUsernameQuery)
-export class CheckUsernameHandler implements IQueryHandler<CheckUsernameQuery, { available: boolean }> {
+export class CheckUsernameHandler implements IQueryHandler<
+  CheckUsernameQuery,
+  { available: boolean }
+> {
   constructor(private readonly prismaService: PrismaService) {}
 
   async execute(query: CheckUsernameQuery): Promise<{ available: boolean }> {

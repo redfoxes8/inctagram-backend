@@ -64,6 +64,7 @@ Tasks.md
 /generated/prisma
 
 # Generated Prisma clients
+apps/**/src/core/prisma/client/
 apps/**/prisma/client/
 
 # AI agent plans
