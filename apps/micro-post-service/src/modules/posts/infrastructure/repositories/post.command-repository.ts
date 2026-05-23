@@ -1,7 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../core/prisma/prisma.service';
 import { PostEntity } from '../../domain/post.entity';
 import { PostMapper } from '../mappers/post.mapper';
+import { randomUUID } from 'crypto';
+
+const logger = new Logger('PostCommandRepository');
 
 @Injectable()
 export class PostCommandRepository {
@@ -38,12 +41,35 @@ export class PostCommandRepository {
   }
 
   async deletePost(postId: string): Promise<void> {
-    // Используем мягкое удаление, если это предусмотрено доменной логикой,
-    // но в ТЗ сказано "DeletePostCommand" и "чистый CRUD".
-    // Обычно в таких системах удаление физическое или soft-delete.
-    // Реализуем физическое удаление для чистого CRUD, так как images удалятся по Cascade.
-    await this.prisma.post.delete({
-      where: { id: postId },
+    // Read fileIds, delete post and create outbox event in a single transaction
+    await this.prisma.$transaction(async (tx) => {
+      const post = await tx.post.findUnique({ where: { id: postId }, include: { images: true } });
+      if (!post) {
+        // Let higher layer handle NotFound
+        logger.warn(`Post not found during delete: ${postId}`);
+        return;
+      }
+
+      const fileIds = post.images?.map((i) => i.fileId) ?? [];
+
+      await tx.post.delete({ where: { id: postId } });
+
+      // create outbox event
+      const event = {
+        eventId: randomUUID(),
+        postId,
+        ownerId: post.ownerId,
+        fileIds,
+        occurredOn: new Date().toISOString(),
+      };
+
+      await tx.outboxEvent.create({
+        data: {
+          type: 'POST_DELETED',
+          payload: event,
+          status: 'PENDING',
+        },
+      });
     });
   }
 

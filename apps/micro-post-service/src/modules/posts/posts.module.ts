@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { INCTAGRAM_FILE_V1_PACKAGE_NAME } from '../../../../../libs/contracts/src';
 import { PostsController } from './api/posts.controller';
@@ -15,6 +16,7 @@ import { GetUserPostsHandler } from './application/queries/get-user-posts.handle
 import { GetLatestPostsHandler } from './application/queries/get-latest-posts.query';
 import { PostQueryRepository } from './infrastructure/repositories/post.query-repository';
 import { IPostQueryRepository } from './domain/interfaces/post-query-repository.interface';
+import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
 
 const Handlers = [
   CreatePostHandler,
@@ -30,6 +32,8 @@ const Repositories = [
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
+    PostConfigModule,
     CqrsModule,
     ClientsModule.registerAsync([
       {
@@ -48,7 +52,13 @@ const Repositories = [
     ]),
   ],
   controllers: [PostsController],
-  providers: [PrismaService, ...Repositories, ...Handlers],
+  providers: [
+    PrismaService,
+    ...Repositories,
+    ...Handlers,
+    // Outbox relay
+    OutboxRelayCron,
+  ],
   exports: [...Repositories],
 })
 export class PostsModule {}

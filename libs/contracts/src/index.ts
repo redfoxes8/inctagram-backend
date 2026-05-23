@@ -38,3 +38,4 @@ export {
 
 export * from './post/interfaces/post.service.interface';
 export * from './file/interfaces/file.service.interface';
+export * from './events/post-deleted.event';

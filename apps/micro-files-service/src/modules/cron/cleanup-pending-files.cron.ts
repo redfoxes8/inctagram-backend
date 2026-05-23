@@ -54,7 +54,9 @@ export class CleanupPendingFilesCron {
             await this.filesRepository.deleteMany(typeIds);
             processedCount += typeIds.length;
           } catch (err) {
-            this.logger.error(`Failed to delete S3 pending files for type ${type}:`, err);
+            this.logger.error(
+              `Failed to delete S3 pending files for type ${type}: ${err instanceof Error ? err.message : String(err)}`,
+            );
             // Если упало, переводим в FAILED_DELETE для повторной попытки
             await this.filesRepository.updateStatusMany(typeIds, FileStatus.FAILED_DELETE);
           }
@@ -68,7 +70,9 @@ export class CleanupPendingFilesCron {
         `Cleanup of orphaned PENDING files complete. Cleaned up ${processedCount} files.`,
       );
     } catch (error) {
-      this.logger.error('Error occurred during cleanup of orphaned PENDING files:', error);
+      this.logger.error(
+        `Error occurred during cleanup of orphaned PENDING files: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -110,7 +114,9 @@ export class CleanupPendingFilesCron {
             await this.filesRepository.deleteMany(typeIds);
             processedCount += typeIds.length;
           } catch (err) {
-            this.logger.error(`Retry failed to delete S3 files for type ${type}:`, err);
+            this.logger.error(
+              `Retry failed to delete S3 files for type ${type}: ${err instanceof Error ? err.message : String(err)}`,
+            );
             await this.filesRepository.updateStatusMany(typeIds, FileStatus.FAILED_DELETE);
           }
         }
@@ -120,7 +126,9 @@ export class CleanupPendingFilesCron {
 
       this.logger.log(`Retry of FAILED_DELETE files complete. Cleaned up ${processedCount} files.`);
     } catch (error) {
-      this.logger.error('Error occurred during retry of FAILED_DELETE files:', error);
+      this.logger.error(
+        `Error occurred during retry of FAILED_DELETE files: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Patch,
   HttpCode,
   HttpStatus,
   Inject,
@@ -29,10 +30,12 @@ import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorat
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetFeedQueryDto } from './dto/get-feed-query.dto';
 import { CreatePostResponseDto, GetFeedResponseDto } from './dto/post-response.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { GeneratePostImageUploadUrlDto } from './dto/generate-post-image-upload-url.dto';
 import { GeneratePostImageUploadUrlResponseDto } from './dto/generate-post-image-upload-url-response.dto';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
+import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { GeneratePostImageUploadUrlCommand } from '../application/commands/generate-post-image-upload-url.command';
 import { GetFeedQuery } from '../application/queries/get-feed.query';
 import { GetLatestPostsQueryDto } from './dto/get-latest.query.dto';
@@ -154,5 +157,29 @@ export class PostsController {
   @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
   async getLatestPosts(@Query() query: GetLatestPostsQueryDto): Promise<PostViewType[]> {
     return this.queryBus.execute(new GetLatestPostsQuery(query));
+  }
+
+  @Patch(':postId')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update post description',
+    description:
+      'Updates post description through Post-MS. Post-MS makes the final ownership decision using ownerId from JWT.',
+  })
+  @ApiBody({ type: UpdatePostDto })
+  @ApiParam({ name: 'postId', description: 'Post identifier', example: 'post-id' })
+  @ApiOkResponse({ description: 'Post updated successfully', type: CreatePostResponseDto })
+  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
+  @ApiDomainError(403, 'Forbidden to edit another user post', 'Forbidden')
+  @ApiDomainError(404, 'Post not found', 'Not Found')
+  @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
+  async updatePost(
+    @Param('postId') postId: string,
+    @Body() dto: UpdatePostDto,
+    @CurrentUserId() ownerId: string,
+  ): Promise<CreatePostResponseDto> {
+    return this.commandBus.execute(new UpdatePostCommand({ postId, dto, ownerId }));
   }
 }
