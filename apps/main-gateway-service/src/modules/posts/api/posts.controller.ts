@@ -28,11 +28,7 @@ import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetFeedQueryDto } from './dto/get-feed-query.dto';
-import {
-  CreatePostResponseDto,
-  GetFeedResponseDto,
-  GetLatestPostsResponseDto,
-} from './dto/post-response.dto';
+import { CreatePostResponseDto, GetFeedResponseDto } from './dto/post-response.dto';
 import { GeneratePostImageUploadUrlDto } from './dto/generate-post-image-upload-url.dto';
 import { GeneratePostImageUploadUrlResponseDto } from './dto/generate-post-image-upload-url-response.dto';
 import { CreatePostCommand } from '../application/commands/create-post.command';
@@ -41,7 +37,6 @@ import { GeneratePostImageUploadUrlCommand } from '../application/commands/gener
 import { GetFeedQuery } from '../application/queries/get-feed.query';
 import { GetLatestPostsQueryDto } from './dto/get-latest.query.dto';
 import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
-import { GetLatestPostsResponse } from '@inctagram/contracts/generated/post';
 import { PostViewType } from '../domain/post.types';
 
 @ApiTags('Posts')

@@ -52,8 +52,3 @@ export class GetFeedResponseDto {
   @ApiProperty({ example: true })
   hasMore: boolean;
 }
-
-export class GetLatestPostsResponseDto {
-  @ApiProperty({ type: [PostResponseDto] })
-  posts: PostResponseDto[];
-}

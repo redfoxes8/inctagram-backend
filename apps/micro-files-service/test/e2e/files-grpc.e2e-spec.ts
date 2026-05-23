@@ -1,13 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { FilesController } from '../../src/modules/files/api/files.controller';
 import { CommandBus } from '@nestjs/cqrs';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
 import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
 import { PresignedUrlResult } from '../../src/modules/files/domain/file.types';
 import { resetDb } from '../../../../libs/common/src/testing/reset-db';
-import { FilesConfig } from '../../src/core/files.config';
 import { AppModule } from '../../src/app.module';
 
 describe('Files gRPC Endpoint - E2E Tests', () => {
