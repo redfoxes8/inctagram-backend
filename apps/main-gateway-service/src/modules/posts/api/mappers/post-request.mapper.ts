@@ -6,7 +6,7 @@ import {
 import { CreatePostDto } from '../dto/create-post.dto';
 import { UpdatePostDto } from '../dto/update-post.dto';
 import { GetFeedQueryDto } from '../dto/get-feed-query.dto';
-import { GetLatestPostsQueryDto } from '../dto/get-latest.query.dto';
+import { GetLatestPostsQueryDto } from '../dto/get-latest.dto';
 import { GetLatestPostsRequest } from '@inctagram/contracts/generated/post';
 
 type ToCreatePostRequestParams = {

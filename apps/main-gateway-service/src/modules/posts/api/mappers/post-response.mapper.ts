@@ -10,7 +10,8 @@ import {
   GetFeedResponseDto,
   PostResponseDto,
 } from '../dto/post-response.dto';
-import { PostViewType } from '../../domain/post.types';
+
+import { PostViewType } from '../dto/get-latest.dto';
 
 type TimestampLike = {
   seconds: number;

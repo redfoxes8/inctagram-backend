@@ -1,6 +1,5 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { GetLatestPostsQueryDto } from '../../api/dto/get-latest.query.dto';
-import { PostViewType } from '../../domain/post.types';
+import { GetLatestPostsQueryDto, PostViewType } from '../../api/dto/get-latest.dto';
 import { IPostGrpcAdapter } from '../../infrastructure/interfaces/post-grpc-adapter.interface';
 
 export class GetLatestPostsQuery {

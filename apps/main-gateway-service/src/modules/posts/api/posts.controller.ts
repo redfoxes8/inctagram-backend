@@ -38,9 +38,8 @@ import { DeletePostCommand } from '../application/commands/delete-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { GeneratePostImageUploadUrlCommand } from '../application/commands/generate-post-image-upload-url.command';
 import { GetFeedQuery } from '../application/queries/get-feed.query';
-import { GetLatestPostsQueryDto } from './dto/get-latest.query.dto';
+import { GetLatestPostsQueryDto, PostViewType } from './dto/get-latest.dto';
 import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
-import { PostViewType } from '../domain/post.types';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -153,6 +152,8 @@ export class PostsController {
   })
   @ApiOkResponse({
     description: 'Return posts with images urls succsessfully',
+    type: PostViewType,
+    isArray: true,
   })
   @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
   async getLatestPosts(@Query() query: GetLatestPostsQueryDto): Promise<PostViewType[]> {
