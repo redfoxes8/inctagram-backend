@@ -27,7 +27,7 @@ async function bootstrap() {
     transport: Transport.RMQ,
     options: {
       urls: [filesConfig.rabbitmqUrl],
-      queue: filesConfig.filesEventsExchange,
+      queue: filesConfig.filesEventsQueue,
       queueOptions: {
         durable: true,
       },

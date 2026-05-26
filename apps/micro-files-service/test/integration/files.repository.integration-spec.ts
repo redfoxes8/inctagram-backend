@@ -299,7 +299,7 @@ describe('FilesRepository - Integration Tests', () => {
         },
       });
 
-      await repository.deleteMany(['file1', 'file2']);
+      await repository.deleteManyById(['file1', 'file2']);
 
       const files = await prisma.file.findMany({
         where: { id: { in: ['file1', 'file2'] } },
@@ -335,7 +335,7 @@ describe('FilesRepository - Integration Tests', () => {
         },
       });
 
-      await repository.updateStatusMany(['file1', 'file2'], FileStatusDomain.DELETING as any);
+      await repository.updateStatusMany(['file1', 'file2'], FileStatusDomain.DELETING);
 
       const files = await prisma.file.findMany({
         where: { id: { in: ['file1', 'file2'] } },

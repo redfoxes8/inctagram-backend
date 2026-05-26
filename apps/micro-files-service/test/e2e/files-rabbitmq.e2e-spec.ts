@@ -60,7 +60,7 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
       const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
       const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
       const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteMany');
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
       findByIdsSpy.mockResolvedValue(mockFiles as any);
       deleteFilesSpy.mockResolvedValue(undefined);
 
@@ -105,7 +105,7 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
 
       const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
       const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteMany');
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
       findByIdsSpy.mockResolvedValue(mockFiles as any);
       deleteFilesSpy.mockResolvedValue(undefined);
 
@@ -177,7 +177,7 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
       const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
       const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
       const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteMany');
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
       findByIdsSpy.mockResolvedValue(mockFiles as any);
       deleteFilesSpy
         .mockRejectedValueOnce(new Error('S3 error for AVATAR'))

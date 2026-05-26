@@ -12,6 +12,7 @@ import { CronModule } from './modules/cron/cron.module';
 import { FilesController as TestingFilesController } from './modules/testing/api/files.controller';
 import { INCTAGRAM_POST_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 import { FILES_EVENT_CLIENT } from './modules/files/file-event.constants';
+import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 
 @Module({
   imports: [CoreModule, FilesConfigModule, PrismaModule, FilesModule, CronModule],
@@ -37,10 +38,35 @@ export class AppModule {
             transport: Transport.RMQ,
             options: {
               urls: [config.rabbitmqUrl],
-              exchange: config.filesEventsExchange,
+              queue: config.filesEventsQueue,
+              noAck: false,
+              queueOptions: {
+                durable: true,
+              },
             },
           } as ClientProviderOptions,
         ]),
+        RabbitMQModule.forRoot({
+          exchanges: [
+            {
+              name: 'common_exchange',
+              type: 'topic',
+            },
+          ],
+          uri: config.rabbitmqUrl,
+          connectionInitOptions: { wait: false },
+          queues: [
+            {
+              name: 'files_queue',
+              options: {
+                durable: true,
+                arguments: {
+                  'x-dead-letter-exchange': 'dlx.common_exchange',
+                },
+              },
+            },
+          ],
+        }),
       ],
       controllers: [TestingFilesController],
     };

@@ -1,11 +1,13 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
 import { IStorageAdapter } from '../../infrastructure/interfaces/storage-adapter.interface';
-
-import { FileStatusDomain, FileType } from '../../domain/file.types';
+import { PostDeletedMessageDto } from '../../api/dto/post-deleted-message.dto';
+import { DomainException, DomainExceptionCode } from '../../../../../../../libs/common/src';
+import { FileStatusDomain } from '../../domain/file.types';
+import { FileEntity } from '../../domain/file.entity';
 
 export class DeleteFilesCommand {
-  constructor(public readonly fileIds: string[]) {}
+  constructor(public readonly dto: PostDeletedMessageDto) {}
 }
 
 @CommandHandler(DeleteFilesCommand)
@@ -15,44 +17,49 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
     private readonly storageAdapter: IStorageAdapter,
   ) {}
 
-  async execute(command: DeleteFilesCommand): Promise<void> {
-    const { fileIds } = command;
-    if (!fileIds || fileIds.length === 0) return;
-
-    // 1. Получаем информацию о файлах из БД
-    const files = await this.filesRepository.findByIds(fileIds);
-    if (files.length === 0) return;
-
-    const idsToUpdate = files.map((f) => f.id);
-
-    // 2. Временный статус DELETING для предотвращения гонок
-    await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.DELETING);
-
-    // 3. Группируем файлы по типам для удаления из соответствующих бакетов
-    const filesByType: Record<FileType, typeof files> = {} as any;
-    for (const file of files) {
-      const type = file.fileType as FileType;
-      if (!filesByType[type]) {
-        filesByType[type] = [];
-      }
-      filesByType[type].push(file);
+  async execute({ dto }: DeleteFilesCommand): Promise<void> {
+    if (!dto.fileIds) {
+      throw new DomainException({
+        message: '[POST_DELETED_MESSAGE] fileIds property is required',
+        code: DomainExceptionCode.BadRequest,
+      });
+    }
+    if (dto.fileIds.length == 0) {
+      return;
     }
 
-    // 4. Запускаем параллельное удаление для каждого бакета (типа файла)
-    const deletionPromises = Object.entries(filesByType).map(async ([type, typeFiles]) => {
-      const keys = typeFiles.map((f) => f.s3Key);
-      const typeFileIds = typeFiles.map((f) => f.id);
+    const files: FileEntity[] | null = await this.filesRepository.findByIds(dto.fileIds);
+    if (!files) return;
+
+    const idsToUpdate: string[] = files.map((f) => f.id);
+
+    await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.DELETING);
+
+    const filesToDelete: Record<string, string[]> = files.reduce(
+      (acc, file) => {
+        const bucket: string = file.getBucket();
+        acc[bucket] = acc[bucket] || [];
+        acc[bucket].push(file.getS3Key());
+        return acc;
+      },
+      {} as Record<string, string[]>,
+    );
+
+    const buckets: string[] = Object.keys(filesToDelete);
+    const deletionPromises: Promise<void>[] = buckets.map(async (bucket) => {
       try {
-        await this.storageAdapter.deleteFiles(keys, type as FileType);
-        // Успех: Жесткое удаление записей из БД
-        await this.filesRepository.deleteMany(typeFileIds);
+        await this.storageAdapter.deleteFiles(bucket, filesToDelete[bucket]);
+        await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
       } catch (error) {
-        console.error(`[DeleteFilesUseCase] Failed to delete S3 files for type ${type}:`, error);
-        // Сбой S3: Меняем статус в БД на FAILED_DELETE для повторной обработки в Cron
-        await this.filesRepository.updateStatusMany(typeFileIds, FileStatusDomain.FAILED_DELETE);
+        console.error(`[DeleteFilesUseCase] Failed to delete S3 files:`, error);
+        await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.FAILED_DELETE);
+        throw new DomainException({
+          message: '[DeleteFilesUseCase] Failed to delete S3 files',
+          code: DomainExceptionCode.ServiceUnavailable,
+        });
       }
     });
-
     await Promise.allSettled(deletionPromises);
+    return;
   }
 }

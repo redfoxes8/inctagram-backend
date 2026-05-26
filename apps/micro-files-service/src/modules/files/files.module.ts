@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
 import { FilesConfigModule } from '../../core/files-config.module';
-import { RabbitFileEventAdapter } from './infrastructure/rabbit-file-event.adapter';
+import { RabbitFileEventAdapter } from './infrastructure/event-publishers/rabbit-file-event.adapter';
 import { GenerateUrlForUploadUseCase } from './application/use-cases/generate-url-for-upload.use-case';
 import { FileUploadedUseCase } from './application/use-cases/file-uploaded.use-case';
 import { DeleteFilesUseCase } from './application/use-cases/delete-files.use-case';
@@ -18,6 +18,7 @@ import { AwsStorageAdapter } from './infrastructure/aws/aws-storage.adapter';
 import { IFilesQueryRepository } from './domain/interfaces/files.query-repository.interface';
 import { FilesQueryRepository } from './infrastructure/repositories/files.query-repository';
 import { GetFilesDataHandler } from './application/queries/get-files-data.query';
+import { GolevelupFileEventAdapter } from './infrastructure/event-publishers/golevelup-file-event.adapter';
 
 const repositories = [
   {
@@ -36,7 +37,7 @@ const adapters = [
   },
   {
     provide: IAsyncEventPublisher,
-    useClass: RabbitFileEventAdapter,
+    useClass: GolevelupFileEventAdapter,
   },
 ];
 

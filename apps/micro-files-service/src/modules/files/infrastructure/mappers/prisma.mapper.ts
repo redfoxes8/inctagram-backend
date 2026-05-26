@@ -1,10 +1,10 @@
 import { FileStatusDomain, FileType } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
-import { File as PrismaFile } from '../../../../core/prisma/client';
+import { File as PrismaFile, FileStatus } from '../../../../core/prisma/client';
 
 export type PrismaFileRecord = PrismaFile;
 
-export class FileMapper {
+export class PrismaMapper {
   public static toDomain(prismaFileRecord: PrismaFileRecord): FileEntity {
     return new FileEntity({
       id: prismaFileRecord.id,
@@ -39,5 +39,9 @@ export class FileMapper {
 
   public static toDomainMany(prismaFileRecords: PrismaFileRecord[]): FileEntity[] {
     return prismaFileRecords.map((record) => this.toDomain(record));
+  }
+
+  public static statusToPrismaRecord(fileStatus: FileStatusDomain): FileStatus {
+    return FileStatus[fileStatus];
   }
 }

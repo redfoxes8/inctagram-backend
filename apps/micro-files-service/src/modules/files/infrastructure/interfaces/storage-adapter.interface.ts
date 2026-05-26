@@ -10,5 +10,5 @@ export abstract class IStorageAdapter {
 
   abstract deleteFile(fileKey: string, fileType: FileType): Promise<void>;
 
-  abstract deleteFiles(fileKeys: string[], fileType: FileType): Promise<void>;
+  abstract deleteFiles(bucket: string, fileKeys: string[]): Promise<void>;
 }

@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { IFilesQueryRepository } from '../../domain/interfaces/files.query-repository.interface';
 import { FileEntity } from '../../domain/file.entity';
 import { File as PrismaFile } from '../../../../core/prisma/client';
-import { FileMapper } from '../mappers/file.mapper';
+import { PrismaMapper } from '../mappers/prisma.mapper';
 
 export type PrismaFileRecord = PrismaFile;
 
@@ -11,7 +11,7 @@ export type PrismaFileRecord = PrismaFile;
 export class FilesQueryRepository implements IFilesQueryRepository {
   constructor(private readonly prisma: PrismaService) {}
   async getFilesByIds(ids: string[]): Promise<FileEntity[] | null> {
-    const result: PrismaFileRecord[] | null = await this.prisma.file.findMany({
+    const result: PrismaFileRecord[] | [] = await this.prisma.file.findMany({
       where: {
         id: {
           in: ids,
@@ -21,6 +21,6 @@ export class FilesQueryRepository implements IFilesQueryRepository {
     if (!result) {
       return null;
     }
-    return FileMapper.toDomainMany(result);
+    return PrismaMapper.toDomainMany(result);
   }
 }

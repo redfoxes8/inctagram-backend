@@ -51,7 +51,7 @@ export class CleanupPendingFilesCron {
 
           try {
             await this.storageAdapter.deleteFiles(keys, type as FileType);
-            await this.filesRepository.deleteMany(typeIds);
+            await this.filesRepository.deleteManyById(typeIds);
             processedCount += typeIds.length;
           } catch (err) {
             this.logger.error(
@@ -111,7 +111,7 @@ export class CleanupPendingFilesCron {
 
           try {
             await this.storageAdapter.deleteFiles(keys, type as FileType);
-            await this.filesRepository.deleteMany(typeIds);
+            await this.filesRepository.deleteManyById(typeIds);
             processedCount += typeIds.length;
           } catch (err) {
             this.logger.error(

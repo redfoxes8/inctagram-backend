@@ -158,22 +158,21 @@ export class AwsStorageAdapter implements IStorageAdapter {
   /**
    * Удаляет массив файлов из S3
    */
-  async deleteFiles(fileKeys: string[], fileType: FileType): Promise<void> {
+  async deleteFiles(bucket: string, fileKeys: string[]): Promise<void> {
     if (fileKeys.length === 0) return;
-    const bucketConfig = this.getBucketConfig(fileType);
-
-    const chunkSize = 1000;
-    for (let i = 0; i < fileKeys.length; i += chunkSize) {
-      const chunk = fileKeys.slice(i, i + chunkSize);
-      await this.s3Client.send(
-        new DeleteObjectsCommand({
-          Bucket: bucketConfig.name,
-          Delete: {
-            Objects: chunk.map((key) => ({ Key: key })),
-            Quiet: true,
-          },
-        }),
-      );
-    }
+    const s3Keys: { Key: string }[] = fileKeys.map((s3Key) => {
+      return {
+        Key: s3Key,
+      };
+    });
+    await this.s3Client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: {
+          Objects: s3Keys,
+          Quiet: true,
+        },
+      }),
+    );
   }
 }

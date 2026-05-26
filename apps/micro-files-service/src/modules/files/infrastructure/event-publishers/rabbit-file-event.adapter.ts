@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { defaultIfEmpty, lastValueFrom } from 'rxjs';
-import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { DomainException } from '@inctagram/common/exceptions/domain-exception';
+import { DomainExceptionCode } from '@inctagram/common/exceptions/domain-exception-codes';
 
-import { FILES_EVENT_CLIENT, FileEvents, FileUploadedPayload } from '../file-event.constants';
-import { IAsyncEventPublisher } from './interfaces/event-publisher.interface';
+import { FILES_EVENT_CLIENT, FileEvents, FileUploadedPayload } from '../../file-event.constants';
+import { IAsyncEventPublisher } from '../interfaces/event-publisher.interface';
 
 @Injectable()
 export class RabbitFileEventAdapter implements IAsyncEventPublisher {
