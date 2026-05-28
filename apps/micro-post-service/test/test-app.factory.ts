@@ -3,7 +3,10 @@ import path from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { PostConfigModule } from '../src/core/post-config.module';
 
-export async function createTestApp(moduleMetadata: any, envOverrides?: Record<string, string>): Promise<TestingModule> {
+export async function createTestApp(
+  moduleMetadata: any,
+  envOverrides?: Record<string, string>,
+): Promise<TestingModule> {
   // If explicit env overrides are provided, apply them temporarily for module compilation.
   const previous: Record<string, string | undefined> = {};
   if (envOverrides) {
