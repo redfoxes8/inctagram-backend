@@ -20,8 +20,8 @@ export class PostImageEntity {
     this.order = props.order;
   }
 
-  static create(props: PostImageProps): PostImageEntity {
-    const id = randomUUID();
+  static create(props: Omit<PostImageProps, 'id'> | PostImageProps): PostImageEntity {
+    const id = 'id' in props ? props.id : randomUUID();
 
     return new PostImageEntity({ ...props, id });
   }
