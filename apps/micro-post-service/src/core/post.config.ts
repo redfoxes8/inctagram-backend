@@ -19,6 +19,7 @@ export class PostConfig {
   @IsString({ message: 'DATABASE_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable DATABASE_URL' })
   databaseUrl: string;
+
   @IsString()
   @IsNotEmpty({ message: 'RABBITMQ_URL must be set' })
   rabbitUrl: string;
