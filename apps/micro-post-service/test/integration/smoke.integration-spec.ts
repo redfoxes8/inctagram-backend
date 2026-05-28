@@ -15,8 +15,12 @@ describe('Infrastructure smoke test', () => {
     // validate DB environment before starting application (test-only validation)
     validateTestDatabaseEnvironment(process.env.DATABASE_URL);
 
-    module = await createTestApp({ providers: [PrismaService] });
-    prisma = module.get(PrismaService);
+    module = await createTestApp({ includePostConfig: false });
+    // Create PrismaService directly for infra smoke tests to avoid requiring
+    // full PostConfig wiring.
+    prisma = new (require('../../src/core/prisma/prisma.service').PrismaService)({
+      databaseUrl: process.env.DATABASE_URL,
+    } as any);
 
     // ensure prisma connect (onModuleInit triggers automatic connect)
     await prisma.$connect();
@@ -50,8 +54,10 @@ describe('Infrastructure smoke test', () => {
     }
 
     // verify we can bootstrap again (reconnect)
-    const module2 = await createTestApp({ providers: [PrismaService] });
-    const prisma2 = module2.get(PrismaService);
+    const module2 = await createTestApp({ includePostConfig: false });
+    const prisma2 = new (require('../../src/core/prisma/prisma.service').PrismaService)({
+      databaseUrl: process.env.DATABASE_URL,
+    } as any);
     await prisma2.$connect();
     await prisma2.$disconnect();
     await module2.close();

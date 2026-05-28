@@ -60,4 +60,3 @@ export async function resetTestDatabase() {
     await client.end();
   }
 }
-*** End Patch

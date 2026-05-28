@@ -24,7 +24,9 @@ export async function createTestApp(
           envFilePath: [path.resolve(process.cwd(), 'apps/micro-post-service/.env.test')],
           ignoreEnvFile: process.env.NODE_ENV === 'production',
         }),
-        PostConfigModule,
+        // Import PostConfigModule only when requested. Some low-level tests
+        // (e.g. infra smoke) may not need the full PostConfig validation.
+        ...(moduleMetadata.includePostConfig === false ? [] : [PostConfigModule]),
         ...(moduleMetadata.imports || []),
       ],
       providers: moduleMetadata.providers || [],
