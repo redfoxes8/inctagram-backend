@@ -1,5 +1,6 @@
 import path from 'path';
 import { createTestApp } from '../test-app.factory';
+import { PostsModule } from '../../src/modules/posts/posts.module';
 import { prepareTestDatabase, resetTestDatabase } from '../reset-db';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { validateTestDatabaseEnvironment } from '../validate-test-db-environment';
@@ -15,7 +16,15 @@ describe('Infrastructure smoke test', () => {
     // validate DB environment before starting application (test-only validation)
     validateTestDatabaseEnvironment(process.env.DATABASE_URL);
 
-    module = await createTestApp({});
+    module = await createTestApp(
+      { imports: [PostsModule] },
+      {
+        PORT: '3004',
+        GRPC_PORT: '50052',
+        RABBITMQ_URL: 'amqp://localhost',
+        FILE_SERVICE_GRPC_URL: 'localhost:50052',
+      },
+    );
     prisma = module.get(PrismaService);
 
     // ensure prisma connect (onModuleInit triggers automatic connect)
@@ -50,7 +59,15 @@ describe('Infrastructure smoke test', () => {
     }
 
     // verify we can bootstrap again (reconnect)
-    const module2 = await createTestApp({});
+    const module2 = await createTestApp(
+      { imports: [PostsModule] },
+      {
+        PORT: '3004',
+        GRPC_PORT: '50052',
+        RABBITMQ_URL: 'amqp://localhost',
+        FILE_SERVICE_GRPC_URL: 'localhost:50052',
+      },
+    );
     const prisma2 = module2.get(PrismaService);
     await prisma2.$connect();
     await prisma2.$disconnect();

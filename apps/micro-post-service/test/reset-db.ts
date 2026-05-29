@@ -18,7 +18,7 @@ async function acquireFsLock(timeoutMs = 2 * 60 * 1000, retryMs = 100) {
       fs.closeSync(fd);
       return;
     } catch (err) {
-      if ((Date.now() - start) > timeoutMs) {
+      if (Date.now() - start > timeoutMs) {
         throw new Error('Timeout acquiring test migrate lock');
       }
       // wait
