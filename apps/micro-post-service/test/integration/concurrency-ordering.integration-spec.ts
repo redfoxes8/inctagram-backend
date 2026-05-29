@@ -8,7 +8,16 @@ describe('Concurrency / Ordering Integration (skeleton)', () => {
 
   beforeAll(async () => {
     await prepareTestDatabase();
-    module = await createTestApp({ imports: [PostsModule] });
+    module = await createTestApp(
+      { imports: [PostsModule] },
+      {
+        PORT: '3004',
+        GRPC_PORT: '50051',
+        RABBITMQ_URL: 'amqp://localhost',
+        FILE_SERVICE_GRPC_URL: 'localhost:50051',
+      },
+    );
+    await module.init();
   });
 
   beforeEach(async () => {
@@ -16,7 +25,11 @@ describe('Concurrency / Ordering Integration (skeleton)', () => {
   });
 
   afterAll(async () => {
-    await module.close();
+    try {
+      if (module) {
+        await module.close();
+      }
+    } catch {}
   });
 
   it.todo('should maintain ordering and avoid deadlocks under concurrent writes');

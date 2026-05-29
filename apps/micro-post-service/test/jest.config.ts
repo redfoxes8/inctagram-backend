@@ -6,5 +6,8 @@ export default {
   detectOpenHandles: true,
   roots: ['<rootDir>/..'],
   setupFilesAfterEnv: ['<rootDir>/jest.env-setup.ts'],
-  testMatch: ['**/integration/**/*.integration-spec.ts'],
+  testMatch: [
+    '**/integration/**/*.integration-spec.ts',
+    '**/unit/**/*.spec.ts'
+  ],
 };
