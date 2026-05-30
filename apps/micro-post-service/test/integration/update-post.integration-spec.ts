@@ -9,7 +9,7 @@ import { UpdatePostCommand } from '../../src/modules/posts/application/commands/
 import { PostCommandRepository } from '../../src/modules/posts/infrastructure/repositories/post.command-repository';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { makePost, makeOwnerId } from '../factories/post-test.factory';
-import { DomainException, DomainExceptionCode } from '../../../../../../libs/common/src';
+import { DomainException, DomainExceptionCode } from '../../../../libs/common/src';
 
 describe('Update Post Integration', () => {
   let module: TestingModule;
@@ -19,7 +19,15 @@ describe('Update Post Integration', () => {
 
   beforeAll(async () => {
     await prepareTestDatabase();
-    module = await createTestApp({ imports: [PostsModule] });
+    module = await createTestApp(
+      { imports: [PostsModule] },
+      {
+        PORT: '3005',
+        GRPC_PORT: '50052',
+        RABBITMQ_URL: 'amqp://localhost',
+        FILE_SERVICE_GRPC_URL: 'localhost:50052',
+      },
+    );
     await module.init();
     handler = module.get(UpdatePostHandler);
     repo = module.get(PostCommandRepository);
@@ -61,6 +69,7 @@ describe('Update Post Integration', () => {
     const otherOwner = makeOwnerId();
     const post = makePost({ ownerId });
     await repo.createPost(post);
+    const beforeUpdate = await repo.findById(post.id);
     const command = new UpdatePostCommand(post.id, otherOwner, 'Malicious update');
 
     await expect(handler.execute(command)).rejects.toMatchObject({
@@ -69,10 +78,13 @@ describe('Update Post Integration', () => {
 
     const persisted = await repo.findById(post.id);
     expect(persisted).not.toBeNull();
-    // description unchanged
-    expect(persisted!.description).toBe(post.description);
-    // updatedAt unchanged (still equals createdAt)
-    expect(persisted!.updatedAt.getTime()).toBe(persisted!.createdAt.getTime());
+    expect(beforeUpdate).not.toBeNull();
+    // unchanged after forbidden update
+    expect(persisted!.description).toBe(beforeUpdate!.description);
+    expect(persisted!.updatedAt.getTime()).toBe(beforeUpdate!.updatedAt.getTime());
+    expect(persisted!.createdAt.getTime()).toBe(beforeUpdate!.createdAt.getTime());
+    expect(persisted!.ownerId).toBe(beforeUpdate!.ownerId);
+    expect(persisted!.images).toHaveLength(beforeUpdate!.images.length);
   });
 
   it('throws NotFound when post does not exist', async () => {

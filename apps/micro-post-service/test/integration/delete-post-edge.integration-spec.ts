@@ -186,6 +186,11 @@ describe('Delete Post Edge Cases Integration', () => {
 
       expect(deletedPost).toBeNull();
       expect(events).toHaveLength(1);
+
+      const postImages = await prisma.postImage.findMany({
+        where: { postId: post.id },
+      });
+      expect(postImages).toHaveLength(0);
     });
 
     it('outbox event payload includes all file IDs that belonged to the post', async () => {
