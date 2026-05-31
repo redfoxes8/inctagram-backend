@@ -26,6 +26,9 @@ RUN npm install
 # Bundle app source code
 COPY --chown=node . .
 
+#добавил для генерации клиента Prisma до установки зависимостей
+RUN npm run prisma:post:generate
+
 RUN npm run build:${SERVICE}
 
 # Bind to all network interfaces so that it can be mapped to the host OS
