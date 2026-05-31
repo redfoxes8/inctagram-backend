@@ -1,8 +1,9 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PostConfig } from './post.config';
+import { ConfigModule } from '@nestjs/config';
 
-@Global()
 @Module({
+  imports: [ConfigModule],
   providers: [PostConfig],
   exports: [PostConfig],
 })
