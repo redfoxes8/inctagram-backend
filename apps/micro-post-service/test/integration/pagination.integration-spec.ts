@@ -213,4 +213,52 @@ describe('Pagination Integration', () => {
     expect(hasMore).toBe(false);
     expect(nextCursor).toBeNull();
   });
+
+  it('handles pageSize=1 with correct cursor progression and stable ordering', async () => {
+    const ownerId = makeOwnerId();
+    const expectedIds = await seedPosts(repo, ownerId, 4);
+
+    const firstPage = await handler.execute(new GetUserPostsQuery(ownerId, 1));
+    expect(firstPage.posts).toHaveLength(1);
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeTruthy();
+    expect(firstPage.posts.map((p) => p.id)).toEqual([expectedIds[0]]);
+
+    const secondPage = await handler.execute(
+      new GetUserPostsQuery(ownerId, 1, firstPage.nextCursor ?? undefined),
+    );
+    expect(secondPage.posts).toHaveLength(1);
+    expect(secondPage.hasMore).toBe(true);
+    expect(secondPage.nextCursor).toBeTruthy();
+    expect(secondPage.posts.map((p) => p.id)).toEqual([expectedIds[1]]);
+
+    const collectedIds = [...firstPage.posts, ...secondPage.posts].map((p) => p.id);
+    expect(new Set(collectedIds).size).toBe(collectedIds.length);
+  });
+
+  it('handles pageSize equal to total posts with no cursor and stable ordering', async () => {
+    const ownerId = makeOwnerId();
+    const expectedIds = await seedPosts(repo, ownerId, 5);
+
+    const result = await handler.execute(new GetUserPostsQuery(ownerId, 5));
+
+    expect(result.posts).toHaveLength(5);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
+    expect(result.posts.map((p) => p.id)).toEqual(expectedIds);
+    expect(new Set(result.posts.map((p) => p.id)).size).toBe(result.posts.length);
+  });
+
+  it('handles pageSize greater than total posts with no cursor and stable ordering', async () => {
+    const ownerId = makeOwnerId();
+    const expectedIds = await seedPosts(repo, ownerId, 3);
+
+    const result = await handler.execute(new GetUserPostsQuery(ownerId, 10));
+
+    expect(result.posts).toHaveLength(3);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
+    expect(result.posts.map((p) => p.id)).toEqual(expectedIds);
+    expect(new Set(result.posts.map((p) => p.id)).size).toBe(result.posts.length);
+  });
 });

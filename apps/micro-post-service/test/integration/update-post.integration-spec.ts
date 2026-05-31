@@ -47,6 +47,7 @@ describe('Update Post Integration', () => {
     const ownerId = makeOwnerId();
     const post = makePost({ ownerId });
     await repo.createPost(post);
+    const originalFileIds = post.images.map((image) => image.fileId);
     const newDesc = 'Updated description';
     const command = new UpdatePostCommand(post.id, ownerId, newDesc);
 
@@ -62,6 +63,7 @@ describe('Update Post Integration', () => {
     // images and ownership stay the same
     expect(persisted!.ownerId).toBe(ownerId);
     expect(persisted!.images).toHaveLength(post.images.length);
+    expect(persisted!.images.map((image) => image.fileId)).toEqual(originalFileIds);
   });
 
   it('throws Forbidden when owner does not match and leaves DB unchanged', async () => {
@@ -93,5 +95,23 @@ describe('Update Post Integration', () => {
     await expect(handler.execute(command)).rejects.toMatchObject({
       code: DomainExceptionCode.NotFound,
     });
+  });
+
+  it('rejects descriptions longer than 500 characters', async () => {
+    const ownerId = makeOwnerId();
+    const post = makePost({ ownerId });
+    await repo.createPost(post);
+    const longDescription = 'a'.repeat(501);
+
+    try {
+      await handler.execute(new UpdatePostCommand(post.id, ownerId, longDescription));
+      fail('Expected update to reject descriptions longer than 500 characters');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toMatchObject({
+        name: 'Error',
+        message: expect.any(String),
+      });
+    }
   });
 });
