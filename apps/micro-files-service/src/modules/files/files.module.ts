@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
 import { FilesConfigModule } from '../../core/files-config.module';
-import { RabbitFileEventAdapter } from './infrastructure/event-publishers/rabbit-file-event.adapter';
 import { GenerateUrlForUploadUseCase } from './application/use-cases/generate-url-for-upload.use-case';
 import { FileUploadedUseCase } from './application/use-cases/file-uploaded.use-case';
 import { DeleteFilesUseCase } from './application/use-cases/delete-files.use-case';
@@ -53,9 +52,8 @@ const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesU
     ...repositories,
     ...adapters,
     ...queryHandlers,
-    RabbitFileEventAdapter,
     AwsSqsAdapter,
   ],
-  exports: [IStorageAdapter, IFilesRepository, RabbitFileEventAdapter],
+  exports: [IStorageAdapter, IFilesRepository],
 })
 export class FilesModule {}

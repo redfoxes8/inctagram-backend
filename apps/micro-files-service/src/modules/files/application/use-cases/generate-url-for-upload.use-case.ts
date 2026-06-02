@@ -1,10 +1,10 @@
 import { GenerateUploadUrlRequest, GenerateUploadUrlResponse } from '@inctagram/contracts';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { AwsStorageAdapter } from '../../infrastructure/aws/aws-storage.adapter';
 import { FileType, PresignedUrlResult } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
 import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
 import { FilesConfig } from '../../../../core/files.config';
+import { IStorageAdapter } from '../../infrastructure/interfaces/storage-adapter.interface';
 
 export class GenerateUrlForUploadCommand {
   constructor(
@@ -19,7 +19,7 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
   GenerateUploadUrlResponse
 > {
   constructor(
-    private awsStorageAdapter: AwsStorageAdapter,
+    private awsStorageAdapter: IStorageAdapter,
     private filesRepository: IFilesRepository,
     private config: FilesConfig,
   ) {}

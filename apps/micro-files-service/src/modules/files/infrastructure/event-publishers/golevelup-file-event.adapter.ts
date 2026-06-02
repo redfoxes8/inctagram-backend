@@ -1,7 +1,8 @@
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { FileEvents, FileUploadedPayload } from '../../file-event.constants';
 import { IAsyncEventPublisher } from '../interfaces/event-publisher.interface';
-import { DomainException, DomainExceptionCode } from '@inctagram/common';
+import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 export class GolevelupFileEventAdapter implements IAsyncEventPublisher {
   constructor(private readonly amqpConnection: AmqpConnection) {}

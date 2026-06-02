@@ -3,11 +3,13 @@ import { FilesConfig } from '../../../../core/files.config';
 import { Message, SQSClient } from '@aws-sdk/client-sqs';
 import { CommandBus } from '@nestjs/cqrs';
 import { FileUploadedCommand } from '../../application/use-cases/file-uploaded.use-case';
+import { Inject, Injectable } from '@nestjs/common';
 
+@Injectable()
 export class AwsSqsAdapter {
   private consumer: Consumer;
   constructor(
-    private config: FilesConfig,
+    @Inject(FilesConfig) private config: FilesConfig,
     private commandBus: CommandBus,
   ) {}
 

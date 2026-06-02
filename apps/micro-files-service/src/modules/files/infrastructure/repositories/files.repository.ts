@@ -20,8 +20,8 @@ export class FilesRepository implements IFilesRepository {
     return;
   }
 
-  async findPendingOlderThan(date: Date, limit?: number): Promise<File[]> {
-    return this.prisma.file.findMany({
+  async findPendingOlderThan(date: Date, limit?: number): Promise<FileEntity[]> {
+    const result: File[] = await this.prisma.file.findMany({
       where: {
         status: FileStatus.PENDING,
         createdAt: {
@@ -30,15 +30,17 @@ export class FilesRepository implements IFilesRepository {
       },
       take: limit,
     });
+    return PrismaMapper.toDomainMany(result);
   }
 
-  async findFailedDeleteFiles(limit?: number): Promise<File[]> {
-    return this.prisma.file.findMany({
+  async findFailedDeleteFiles(limit?: number): Promise<FileEntity[]> {
+    const result: File[] = await this.prisma.file.findMany({
       where: {
         status: FileStatus.FAILED_DELETE,
       },
       take: limit,
     });
+    return PrismaMapper.toDomainMany(result);
   }
 
   async deleteById(id: string): Promise<void> {
@@ -97,6 +99,19 @@ export class FilesRepository implements IFilesRepository {
       },
       data: { status: prismaStatus },
     });
+  }
+
+  async updateStatusManyByS3Key(s3Keys: string[], fileStatus: FileStatusDomain): Promise<void> {
+    const prismaStatus: FileStatus = PrismaMapper.statusToPrismaRecord(fileStatus);
+    await this.prisma.file.updateMany({
+      where: {
+        s3Key: {
+          in: s3Keys,
+        },
+      },
+      data: { status: prismaStatus },
+    });
+    return;
   }
 
   async findByIds(ids: string[]): Promise<FileEntity[] | null> {

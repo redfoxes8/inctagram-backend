@@ -57,7 +57,7 @@ export class AppModule {
           connectionInitOptions: { wait: false },
           queues: [
             {
-              name: 'files_queue',
+              name: config.filesEventsQueue,
               options: {
                 durable: true,
                 arguments: {

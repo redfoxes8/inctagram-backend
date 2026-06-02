@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { IFilesRepository } from '../files/domain/interfaces/files.repository.interface';
 import { IStorageAdapter } from '../files/infrastructure/interfaces/storage-adapter.interface';
-import { FileType } from '../files/domain/file.types';
-import { FileStatus } from '../../core/prisma/client';
+import { FileStatusDomain } from '../files/domain/file.types';
+import { FileEntity } from '../files/domain/file.entity';
 
 @Injectable()
 export class CleanupPendingFilesCron {
@@ -18,49 +18,57 @@ export class CleanupPendingFilesCron {
   async cleanupOrphanedPendingFiles(): Promise<void> {
     this.logger.log('Starting cleanup of orphaned PENDING files...');
 
-    const olderThan = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 часа назад
-    const limit = 500;
-    let processedCount = 0;
+    const olderThan: Date = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 часа назад
+    const limit: number = 500;
+    let processedCount: number = 0;
 
     try {
       while (true) {
         // 1. Получаем пачку PENDING файлов
-        const pendingFiles = await this.filesRepository.findPendingOlderThan(olderThan, limit);
+        const pendingFiles: FileEntity[] = await this.filesRepository.findPendingOlderThan(
+          olderThan,
+          limit,
+        );
         if (pendingFiles.length === 0) break;
 
         this.logger.log(`Found ${pendingFiles.length} pending files to clean up.`);
 
         // Временный перевод в статус DELETING
-        const ids = pendingFiles.map((f) => f.id);
-        await this.filesRepository.updateStatusMany(ids, FileStatus.DELETING);
+        const ids: string[] = pendingFiles.map((f) => f.id);
+        await this.filesRepository.updateStatusMany(ids, FileStatusDomain.DELETING);
 
-        // 2. Группируем по типу
-        const filesByType: Record<FileType, typeof pendingFiles> = {} as any;
-        for (const file of pendingFiles) {
-          const type = file.fileType as FileType;
-          if (!filesByType[type]) {
-            filesByType[type] = [];
-          }
-          filesByType[type].push(file);
-        }
+        // 2. Группируем по bucket
+        const filesToDelete: Record<string, string[]> = pendingFiles.reduce(
+          (acc, file) => {
+            const bucket: string = file.getBucket();
+            const s3Key: string = file.getS3Key();
+            acc[bucket] = acc[bucket] || [];
+            acc[bucket].push(s3Key);
+            return acc;
+          },
+          {} as Record<string, string[]>,
+        );
 
         // 3. Массовое удаление из S3 и БД
-        for (const [type, typeFiles] of Object.entries(filesByType)) {
-          const keys = typeFiles.map((f) => f.s3Key);
-          const typeIds = typeFiles.map((f) => f.id);
-
+        const buckets: string[] = Object.keys(filesToDelete);
+        buckets.map(async (bucket) => {
           try {
-            await this.storageAdapter.deleteFiles(keys, type as FileType);
-            await this.filesRepository.deleteManyById(typeIds);
-            processedCount += typeIds.length;
-          } catch (err) {
+            await this.storageAdapter.deleteFiles(bucket, filesToDelete[bucket]);
+            await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
+            processedCount += filesToDelete[bucket].length;
+            return;
+          } catch (e) {
             this.logger.error(
-              `Failed to delete S3 pending files for type ${type}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to delete S3 pending files for bucket ${bucket}: ${e instanceof Error ? e.message : String(e)}`,
             );
             // Если упало, переводим в FAILED_DELETE для повторной попытки
-            await this.filesRepository.updateStatusMany(typeIds, FileStatus.FAILED_DELETE);
+            await this.filesRepository.updateStatusManyByS3Key(
+              filesToDelete[bucket],
+              FileStatusDomain.FAILED_DELETE,
+            );
+            return;
           }
-        }
+        });
 
         // Задержка между чанками
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -80,46 +88,53 @@ export class CleanupPendingFilesCron {
   async retryFailedDeletes(): Promise<void> {
     this.logger.log('Starting retry of FAILED_DELETE files...');
 
-    const limit = 500;
-    let processedCount = 0;
+    const limit: number = 500;
+    let processedCount: number = 0;
 
     try {
       while (true) {
-        const failedFiles = await this.filesRepository.findFailedDeleteFiles(limit);
+        // 1. Получаем массив Failed To Delete файлов
+        const failedFiles: FileEntity[] = await this.filesRepository.findFailedDeleteFiles(limit);
         if (failedFiles.length === 0) break;
 
         this.logger.log(`Found ${failedFiles.length} failed delete files to retry.`);
 
         // Временный перевод в DELETING
-        const ids = failedFiles.map((f) => f.id);
-        await this.filesRepository.updateStatusMany(ids, FileStatus.DELETING);
+        const ids: string[] = failedFiles.map((f) => f.id);
+        await this.filesRepository.updateStatusMany(ids, FileStatusDomain.DELETING);
 
-        // Группируем по типу
-        const filesByType: Record<FileType, typeof failedFiles> = {} as any;
-        for (const file of failedFiles) {
-          const type = file.fileType as FileType;
-          if (!filesByType[type]) {
-            filesByType[type] = [];
-          }
-          filesByType[type].push(file);
-        }
+        // 2. Группируем по bucket
+        const filesToDelete: Record<string, string[]> = failedFiles.reduce(
+          (acc, file) => {
+            const bucket: string = file.getBucket();
+            const s3Key: string = file.getS3Key();
+            acc[bucket] = acc[bucket] || [];
+            acc[bucket].push(s3Key);
+            return acc;
+          },
+          {} as Record<string, string[]>,
+        );
 
-        // Массовое удаление из S3 и БД
-        for (const [type, typeFiles] of Object.entries(filesByType)) {
-          const keys = typeFiles.map((f) => f.s3Key);
-          const typeIds = typeFiles.map((f) => f.id);
-
+        // 3. Массовое удаление из S3 и БД
+        const buckets: string[] = Object.keys(filesToDelete);
+        buckets.map(async (bucket) => {
           try {
-            await this.storageAdapter.deleteFiles(keys, type as FileType);
-            await this.filesRepository.deleteManyById(typeIds);
-            processedCount += typeIds.length;
-          } catch (err) {
+            await this.storageAdapter.deleteFiles(bucket, filesToDelete[bucket]);
+            await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
+            processedCount += filesToDelete[bucket].length;
+            return;
+          } catch (e) {
             this.logger.error(
-              `Retry failed to delete S3 files for type ${type}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to delete S3 pending files for bucket ${bucket}: ${e instanceof Error ? e.message : String(e)}`,
             );
-            await this.filesRepository.updateStatusMany(typeIds, FileStatus.FAILED_DELETE);
+            // Если упало, переводим в FAILED_DELETE для повторной попытки
+            await this.filesRepository.updateStatusManyByS3Key(
+              filesToDelete[bucket],
+              FileStatusDomain.FAILED_DELETE,
+            );
+            return;
           }
-        }
+        });
 
         await new Promise((resolve) => setTimeout(resolve, 100));
       }

@@ -87,7 +87,7 @@ export class FilesConfig {
 
     // RabbitMQ Configuration
     this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
-    this.filesEventsQueue = this.configService.get('FILES_EVENTS_EXCHANGE');
+    this.filesEventsQueue = this.configService.get('FILES_EVENTS_QUEUE');
 
     // Database Configuration
     this.databaseUrl = this.configService.get('DATABASE_URL');
