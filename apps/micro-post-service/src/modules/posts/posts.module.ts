@@ -17,6 +17,7 @@ import { GetLatestPostsHandler } from './application/queries/get-latest-posts.qu
 import { PostQueryRepository } from './infrastructure/repositories/post.query-repository';
 import { IPostQueryRepository } from './domain/interfaces/post-query-repository.interface';
 import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
+import { FileGrpcClient } from './infrastructure/grpc/file-grpc.client';
 
 const Handlers = [
   CreatePostHandler,
@@ -27,6 +28,7 @@ const Handlers = [
 ];
 const Repositories = [
   PostCommandRepository,
+  PostQueryRepository,
   { provide: IPostQueryRepository, useClass: PostQueryRepository },
 ];
 
@@ -56,6 +58,7 @@ const Repositories = [
     PrismaService,
     ...Repositories,
     ...Handlers,
+    FileGrpcClient,
     // Outbox relay
     OutboxRelayCron,
   ],
