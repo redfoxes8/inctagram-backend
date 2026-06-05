@@ -18,7 +18,7 @@ export class FilesQueryRepository implements IFilesQueryRepository {
         },
       },
     });
-    if (!result) {
+    if (result.length === 0) {
       return null;
     }
     return PrismaMapper.toDomainMany(result);

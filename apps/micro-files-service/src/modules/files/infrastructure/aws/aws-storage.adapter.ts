@@ -3,17 +3,18 @@ import { DeleteObjectCommand, DeleteObjectsCommand, S3Client } from '@aws-sdk/cl
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { FilesConfig } from '../../../../core/files.config';
 import {
-  FileType,
+  FileTypeDomain,
   BucketConfig,
-  PresignedUrlResult,
+  PresignedUrlRequest,
   CONTENT_TYPE_MAP,
+  PresignedUrlResponse,
 } from '../../domain/file.types';
 import { IStorageAdapter } from '../interfaces/storage-adapter.interface';
 
 @Injectable()
 export class AwsStorageAdapter implements IStorageAdapter {
   private readonly s3Client: S3Client;
-  private readonly bucketConfigs: Map<FileType, BucketConfig>;
+  private readonly bucketConfigs: Map<FileTypeDomain, BucketConfig>;
 
   constructor(private readonly config: FilesConfig) {
     this.s3Client = new S3Client({
@@ -27,31 +28,19 @@ export class AwsStorageAdapter implements IStorageAdapter {
     this.bucketConfigs = this.initBucketConfigs();
   }
 
-  /**
-   * Генерирует presigned URL для загрузки файла напрямую в S3
-   * @param userId - ID пользователя
-   * @param fileType - Тип файла (определяет бакет и лимиты)
-   * @param fileExtension - Расширение файла (например: .jpg, .png)
-   * @param fileId - ID файла
-   */
-  async generateUploadUrl(
-    userId: string,
-    fileType: FileType,
-    fileExtension: string,
-    fileId: string,
-  ): Promise<PresignedUrlResult> {
-    const bucketConfig = this.getBucketConfig(fileType);
+  async generateUploadUrl(dto: PresignedUrlRequest): Promise<PresignedUrlResponse> {
+    const bucketConfig = this.getBucketConfig(dto.fileType);
 
-    const contentType = CONTENT_TYPE_MAP[fileExtension];
+    const contentType = CONTENT_TYPE_MAP[dto.fileExtension];
 
     if (!contentType) {
       throw new BadRequestException(
-        `Unsupported file extension: ${fileExtension}. ` +
+        `Unsupported file extension: ${dto.fileExtension}. ` +
           `Supported extensions: ${Object.keys(CONTENT_TYPE_MAP).join(', ')}`,
       );
     }
 
-    const s3Key = this.generateS3Key(userId, fileId, fileType);
+    const s3Key = this.generateS3Key(dto.userId, dto.fileId, dto.fileType);
 
     const { url, fields } = await createPresignedPost(this.s3Client, {
       Bucket: bucketConfig.name,
@@ -72,14 +61,14 @@ export class AwsStorageAdapter implements IStorageAdapter {
       s3Key: s3Key,
       bucket: bucketConfig.name,
       expiresIn: bucketConfig.urlExpiration,
-      fileId: fileId,
+      fileId: dto.fileId,
     };
   }
 
   /**
    * Возвращает конфигурацию бакета по типу файла
    */
-  getBucketConfig(fileType: FileType): BucketConfig {
+  getBucketConfig(fileType: FileTypeDomain): BucketConfig {
     const config = this.bucketConfigs.get(fileType);
 
     if (!config) {
@@ -93,17 +82,17 @@ export class AwsStorageAdapter implements IStorageAdapter {
    * Генерирует уникальный путь в S3
    * Формат: {fileType}/{userId}/{fileId}
    */
-  private generateS3Key(userId: string, fileId: string, fileType: FileType): string {
+  private generateS3Key(userId: string, fileId: string, fileType: FileTypeDomain): string {
     return `${fileType}/${userId}/${fileId}`;
   }
 
   /**
    * Инициализирует конфигурации бакетов для разных типов файлов
    */
-  private initBucketConfigs(): Map<FileType, BucketConfig> {
-    return new Map<FileType, BucketConfig>([
+  private initBucketConfigs(): Map<FileTypeDomain, BucketConfig> {
+    return new Map<FileTypeDomain, BucketConfig>([
       [
-        FileType.AVATAR,
+        FileTypeDomain.AVATAR,
         {
           name: this.config.s3BucketImages,
           maxFileSize: 5 * 1024 * 1024, // 5MB
@@ -112,7 +101,7 @@ export class AwsStorageAdapter implements IStorageAdapter {
         },
       ],
       [
-        FileType.POST_IMAGE,
+        FileTypeDomain.POST_IMAGE,
         {
           name: this.config.s3BucketImages,
           maxFileSize: 20 * 1024 * 1024, // 20MB
@@ -121,7 +110,7 @@ export class AwsStorageAdapter implements IStorageAdapter {
         },
       ],
       [
-        FileType.DOCUMENT,
+        FileTypeDomain.DOCUMENT,
         {
           name: this.config.s3BucketDocuments ?? this.config.s3BucketImages,
           maxFileSize: 50 * 1024 * 1024, // 50MB
@@ -130,7 +119,7 @@ export class AwsStorageAdapter implements IStorageAdapter {
         },
       ],
       [
-        FileType.MEDIA,
+        FileTypeDomain.MEDIA,
         {
           name: this.config.s3BucketMedia ?? this.config.s3BucketImages,
           maxFileSize: 100 * 1024 * 1024, // 100MB
@@ -144,7 +133,7 @@ export class AwsStorageAdapter implements IStorageAdapter {
   /**
    * Удаляет файл из S3
    */
-  async deleteFile(fileKey: string, fileType: FileType): Promise<void> {
+  async deleteFile(fileKey: string, fileType: FileTypeDomain): Promise<void> {
     const bucketConfig = this.getBucketConfig(fileType);
 
     await this.s3Client.send(

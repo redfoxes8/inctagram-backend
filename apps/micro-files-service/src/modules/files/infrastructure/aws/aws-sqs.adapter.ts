@@ -3,10 +3,10 @@ import { FilesConfig } from '../../../../core/files.config';
 import { Message, SQSClient } from '@aws-sdk/client-sqs';
 import { CommandBus } from '@nestjs/cqrs';
 import { FileUploadedCommand } from '../../application/use-cases/file-uploaded.use-case';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 @Injectable()
-export class AwsSqsAdapter {
+export class AwsSqsAdapter implements OnModuleInit, OnModuleDestroy {
   private consumer: Consumer;
   constructor(
     @Inject(FilesConfig) private config: FilesConfig,
@@ -24,23 +24,30 @@ export class AwsSqsAdapter {
         },
       }),
       handleMessage: async (message: Message): Promise<Message | undefined> => {
-        if (message && message.Body) {
-          const event = JSON.parse(message.Body);
-          const fileKey: string = event.s3.object.key;
-          if (event.eventName.startsWith('ObjectCreated')) {
-            try {
-              await this.commandBus.execute(new FileUploadedCommand(fileKey));
-            } catch (e) {
-              if (e.message == 'File not found') {
-                console.warn(`[SQS] File record with key ${fileKey} not found in DB. Skipping.`);
-                return message;
-              } else {
-                return undefined;
-              }
+        if (!message || !message.Body) return message;
+
+        const event = JSON.parse(message.Body);
+        const records = event.Records;
+
+        if (!Array.isArray(records) || records.length === 0) return message;
+
+        const record = records[0];
+        const fileKey: string | undefined = record.s3?.object?.key;
+
+        if (!fileKey) return message;
+
+        if (record.eventName?.startsWith('ObjectCreated')) {
+          try {
+            await this.commandBus.execute(new FileUploadedCommand(fileKey));
+          } catch (e: any) {
+            if (e.message === 'File not found') {
+              console.warn(`[SQS] File record with key ${fileKey} not found in DB. Skipping.`);
+              return message;
             }
+            return undefined;
           }
-          return message;
         }
+        return message;
       },
     });
 

@@ -3,7 +3,7 @@ import {
   BaseDomainEntityProps,
 } from '../../../../../../libs/common/src/domain/base.domain.entity';
 
-import { FileStatusDomain, FileType } from './file.types';
+import { FileStatusDomain, FileTypeDomain } from './file.types';
 import { randomUUID } from 'crypto';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
@@ -14,14 +14,14 @@ type FileEntityProps = BaseDomainEntityProps & {
   fileExtension: string;
   status: FileStatusDomain;
   userId: string;
-  fileType: FileType;
+  fileType: FileTypeDomain;
   region: string;
 };
 
 export type CreateNewFileDTO = {
   fileExtension: string;
   userId: string;
-  fileType: FileType;
+  fileType: FileTypeDomain;
   region: string;
 };
 
@@ -31,7 +31,7 @@ export class FileEntity extends BaseDomainEntity {
   private readonly fileExtension: string;
   private status: FileStatusDomain;
   private readonly userId: string;
-  private readonly fileType: FileType;
+  private readonly fileType: FileTypeDomain;
   private readonly region: string;
 
   constructor(data: FileEntityProps) {
@@ -41,6 +41,7 @@ export class FileEntity extends BaseDomainEntity {
     this.fileExtension = data.fileExtension;
     this.status = data.status;
     this.userId = data.userId;
+    this.fileType = data.fileType;
     this.region = data.region;
   }
 
@@ -107,7 +108,7 @@ export class FileEntity extends BaseDomainEntity {
     return this.userId;
   }
 
-  public getFileType(): FileType {
+  public getFileType(): FileTypeDomain {
     return this.fileType;
   }
 

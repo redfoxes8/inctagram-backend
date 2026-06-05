@@ -2,6 +2,7 @@
 // npm install --save-dev prisma dotenv
 import dotenv from 'dotenv';
 // Getting process.env.PRISMA_DB_URL from .env.development file located at the path specified below
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 dotenv.config({ path: `apps/main-gateway-service/.env.${process.env.NODE_ENV}` });
 import { defineConfig } from 'prisma/config';
 
@@ -11,6 +12,6 @@ export default defineConfig({
     path: './migrations',
   },
   datasource: {
-    url: process.env.PRISMA_DB_URL,
+    url: process.env.PRISMA_DB_URL_DIRECT,
   },
 });

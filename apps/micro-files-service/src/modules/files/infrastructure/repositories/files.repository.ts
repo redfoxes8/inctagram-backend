@@ -20,7 +20,7 @@ export class FilesRepository implements IFilesRepository {
     return;
   }
 
-  async findPendingOlderThan(date: Date, limit?: number): Promise<FileEntity[]> {
+  async findPendingOlderThan(date: Date, limit?: number): Promise<FileEntity[] | null> {
     const result: File[] = await this.prisma.file.findMany({
       where: {
         status: FileStatus.PENDING,
@@ -30,16 +30,22 @@ export class FilesRepository implements IFilesRepository {
       },
       take: limit,
     });
+    if (result.length === 0) {
+      return null;
+    }
     return PrismaMapper.toDomainMany(result);
   }
 
-  async findFailedDeleteFiles(limit?: number): Promise<FileEntity[]> {
+  async findFailedDeleteFiles(limit?: number): Promise<FileEntity[] | null> {
     const result: File[] = await this.prisma.file.findMany({
       where: {
         status: FileStatus.FAILED_DELETE,
       },
       take: limit,
     });
+    if (result.length === 0) {
+      return null;
+    }
     return PrismaMapper.toDomainMany(result);
   }
 
@@ -47,15 +53,17 @@ export class FilesRepository implements IFilesRepository {
     await this.prisma.file.delete({
       where: { id },
     });
+    return;
   }
 
   async findFileByKey(key: string): Promise<FileEntity | null> {
     const prismaFileRecord: File | null = await this.prisma.file.findFirst({
       where: { s3Key: key },
     });
-    if (prismaFileRecord) {
-      return PrismaMapper.toDomain(prismaFileRecord);
-    } else return null;
+    if (!prismaFileRecord) {
+      return null;
+    }
+    return PrismaMapper.toDomain(prismaFileRecord);
   }
 
   async deleteManyById(ids: string[]): Promise<void> {
@@ -89,7 +97,7 @@ export class FilesRepository implements IFilesRepository {
     return;
   }
 
-  async updateStatusMany(ids: string[], fileStatus: FileStatusDomain): Promise<void> {
+  async updateStatusManyById(ids: string[], fileStatus: FileStatusDomain): Promise<void> {
     const prismaStatus: FileStatus = PrismaMapper.statusToPrismaRecord(fileStatus);
     await this.prisma.file.updateMany({
       where: {
@@ -122,7 +130,7 @@ export class FilesRepository implements IFilesRepository {
         },
       },
     });
-    if (!result) {
+    if (result.length === 0) {
       return null;
     }
     return PrismaMapper.toDomainMany(result);

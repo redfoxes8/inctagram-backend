@@ -2,47 +2,50 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
-import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
+import {
+  FileStatusDomain,
+  FileTypeDomain,
+  PresignedUrlResponse,
+} from '../../src/modules/files/domain/file.types';
 import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
-import { PresignedUrlResult } from '../../src/modules/files/domain/file.types';
 import { resetDb } from '../../../../libs/common/src/testing/reset-db';
 import { AppModule } from '../../src/app.module';
+import { FilesConfig } from '../../src/core/files.config';
+import { FilesController } from '../../src/modules/files/api/files.controller';
+import { GenerateUrlForUploadCommand } from '../../src/modules/files/application/use-cases/generate-url-for-upload.use-case';
+import { randomUUID } from 'crypto';
 
 describe('Files gRPC Endpoint - E2E Tests', () => {
   jest.setTimeout(100000);
   let app: INestApplication;
   let prisma: PrismaService;
   let commandBus: CommandBus;
-  // let storageAdapter: jest.Mocked<IStorageAdapter>;
-  let storageAdapter = jest.mocked<IStorageAdapter>({
-    generateUploadUrl: jest.fn(),
-    deleteFile: jest.fn(),
-    deleteFiles: jest.fn(),
-  });
+  let storageAdapter: jest.Mocked<IStorageAdapter>;
+
   beforeAll(async () => {
     await resetDb();
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-      // controllers: [FilesController],
-      // providers: [
-      //   CommandBus,
-      //   PrismaService,
-      //   {
-      //     provide: FilesConfig,
-      //     useValue: {
-      //       prismaDbUrl: process.env.PRISMA_DB_URL,
-      //     },
-      //   },
-      //   {
-      //     provide: IStorageAdapter,
-      //     useValue: {
-      //       generateUploadUrl: jest.fn(),
-      //       deleteFile: jest.fn(),
-      //       deleteFiles: jest.fn(),
-      //     },
-      //   },
-      // ],
+      controllers: [FilesController],
+      providers: [
+        CommandBus,
+        PrismaService,
+        {
+          provide: FilesConfig,
+          useValue: {
+            prismaDbUrl: process.env.PRISMA_DB_URL,
+          },
+        },
+        {
+          provide: IStorageAdapter,
+          useValue: {
+            generateUploadUrl: jest.fn(),
+            deleteFile: jest.fn(),
+            deleteFiles: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     app = module.createNestApplication();
@@ -53,47 +56,48 @@ describe('Files gRPC Endpoint - E2E Tests', () => {
     await app.init();
   });
 
-  afterAll(async () => {});
+  afterAll(async () => {
+    await app.close();
+  });
 
-  beforeEach(async () => {
-    await prisma.file.deleteMany();
+  beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('GenerateUploadUrl - gRPC endpoint', () => {
     it('должен возвращать DTO с presigned URL и создавать запись со статусом PENDING', async () => {
-      const mockPresignedResult: PresignedUrlResult = {
-        uploadUrl: 'https://test-bucket.s3.amazonaws.com',
-        uploadFields: {
-          key: 'test-key',
-          'Content-Type': 'image/jpeg',
-        },
-        s3Key: 'AVATAR/user123/file456',
-        bucket: 'test-bucket',
-        expiresIn: 3600,
-        fileId: 'file456',
-      };
+      const ownerId: string = randomUUID();
+      let mockPresignedResult!: PresignedUrlResponse;
 
       const mockRequest = {
-        ownerId: 'user123',
+        ownerId: ownerId,
         fileExtension: '.jpg',
-        fileType: 1, // AVATAR
+        fileType: FileTypeDomain.AVATAR,
+        fileSize: 1024,
       };
-      const storageGenerateUrlSpy = jest
-        .spyOn(storageAdapter, 'generateUploadUrl')
-        .mockResolvedValue(mockPresignedResult);
-
-      const result = await commandBus.execute({
-        dto: mockRequest,
-        fileType: FileType.AVATAR,
+      const storageGenerateUrlSpy = jest.spyOn(storageAdapter, 'generateUploadUrl');
+      storageGenerateUrlSpy.mockImplementation(async (dto) => {
+        return (mockPresignedResult = {
+          uploadUrl: 'https://test-bucket.s3.amazonaws.com',
+          uploadFields: {
+            key: 'test-key',
+            'Content-Type': 'image/jpeg',
+          },
+          s3Key: 'AVATAR/user123/file456',
+          bucket: 'test-bucket',
+          expiresIn: 3600,
+          fileId: dto.fileId,
+        });
       });
 
-      expect(storageGenerateUrlSpy).toHaveBeenCalledWith(
-        'user123',
-        FileType.AVATAR,
-        '.jpg',
-        expect.any(String),
-      );
+      const result = await commandBus.execute(new GenerateUrlForUploadCommand(mockRequest));
+
+      expect(storageGenerateUrlSpy).toHaveBeenCalledWith({
+        fileExtension: mockRequest.fileExtension,
+        fileId: mockPresignedResult.fileId,
+        fileType: mockRequest.fileType,
+        userId: ownerId,
+      });
 
       expect(result).toEqual({
         uploadUrl: mockPresignedResult.uploadUrl,
@@ -115,112 +119,116 @@ describe('Files gRPC Endpoint - E2E Tests', () => {
     });
 
     it('должен корректно маппить gRPC fileType в domain FileType', async () => {
-      const mockPresignedResult: PresignedUrlResult = {
-        uploadUrl: 'https://test-bucket.s3.amazonaws.com',
-        uploadFields: {
-          key: 'test-key',
-          'Content-Type': 'image/jpeg',
-        },
-        s3Key: 'POST_IMAGE/user123/file456',
-        bucket: 'test-bucket',
-        expiresIn: 3600,
-        fileId: 'file456',
-      };
+      const ownerId: string = randomUUID();
+      let mockPresignedResult!: PresignedUrlResponse;
+
       const storageGenerateUrlSpy = jest
         .spyOn(storageAdapter, 'generateUploadUrl')
-        .mockResolvedValue(mockPresignedResult);
+        .mockImplementation(async (dto) => {
+          return (mockPresignedResult = {
+            uploadUrl: 'https://test-bucket.s3.amazonaws.com',
+            uploadFields: {
+              key: 'test-key',
+              'Content-Type': 'image/jpeg',
+            },
+            s3Key: 'POST_IMAGE/user123/file456',
+            bucket: 'test-bucket',
+            expiresIn: 3600,
+            fileId: dto.fileId,
+          });
+        });
 
       const mockRequest = {
-        ownerId: 'user123',
+        ownerId: ownerId,
         fileExtension: '.jpg',
-        fileType: 2, // POST_IMAGE
+        fileType: FileTypeDomain.POST_IMAGE,
+        fileSize: 1024,
       };
 
-      await commandBus.execute({
-        dto: mockRequest,
-        fileType: FileType.POST_IMAGE,
-      });
+      await commandBus.execute(new GenerateUrlForUploadCommand(mockRequest));
 
-      expect(storageGenerateUrlSpy).toHaveBeenCalledWith(
-        'user123',
-        FileType.POST_IMAGE,
-        '.jpg',
-        expect.any(String),
-      );
+      expect(storageGenerateUrlSpy).toHaveBeenCalledWith({
+        fileExtension: mockRequest.fileExtension,
+        fileId: mockPresignedResult.fileId,
+        fileType: mockRequest.fileType,
+        userId: ownerId,
+      });
     });
 
     it('должен создавать запись с правильными полями в БД', async () => {
-      const mockPresignedResult: PresignedUrlResult = {
-        uploadUrl: 'https://test-bucket.s3.amazonaws.com',
-        uploadFields: {
-          key: 'test-key',
-          'Content-Type': 'image/jpeg',
-        },
-        s3Key: 'AVATAR/user123/file456',
-        bucket: 'test-bucket',
-        expiresIn: 3600,
-        fileId: 'file456',
-      };
+      const ownerId: string = randomUUID();
+      let mockPresignedResult!: PresignedUrlResponse;
 
-      storageAdapter.generateUploadUrl.mockResolvedValue(mockPresignedResult);
+      jest.spyOn(storageAdapter, 'generateUploadUrl').mockImplementation(async (dto) => {
+        return (mockPresignedResult = {
+          uploadUrl: 'https://test-bucket.s3.amazonaws.com',
+          uploadFields: {
+            key: 'test-key',
+            'Content-Type': 'image/jpeg',
+          },
+          s3Key: 'AVATAR/user123/file456',
+          bucket: 'test-bucket',
+          expiresIn: 3600,
+          fileId: dto.fileId,
+        });
+      });
 
       const mockRequest = {
-        ownerId: 'user123',
+        ownerId: ownerId,
         fileExtension: '.jpg',
-        fileType: 1,
+        fileType: FileTypeDomain.AVATAR,
+        fileSize: 1024,
       };
 
-      await commandBus.execute({
-        dto: mockRequest,
-        fileType: FileType.AVATAR,
-      });
+      await commandBus.execute(new GenerateUrlForUploadCommand(mockRequest));
 
       const fileRecord = await prisma.file.findUnique({
         where: { id: mockPresignedResult.fileId },
       });
 
       expect(fileRecord).toBeDefined();
-      expect(fileRecord?.userId).toBe('user123');
+      expect(fileRecord?.userId).toBe(ownerId);
       expect(fileRecord?.fileExtension).toBe('.jpg');
-      expect(fileRecord?.fileType).toBe(FileType.AVATAR as any);
+      expect(fileRecord?.fileType).toBe(FileTypeDomain.AVATAR as any);
       expect(fileRecord?.status).toBe(FileStatusDomain.PENDING as any);
       expect(fileRecord?.s3Key).toBe(mockPresignedResult.s3Key);
       expect(fileRecord?.bucket).toBe(mockPresignedResult.bucket);
     });
 
     it('должен обрабатывать разные типы файлов', async () => {
-      const fileTypes = [
-        { grpcType: 1, domainType: FileType.AVATAR },
-        { grpcType: 2, domainType: FileType.POST_IMAGE },
-        { grpcType: 3, domainType: FileType.DOCUMENT },
-        { grpcType: 4, domainType: FileType.MEDIA },
+      const ownerId: string = randomUUID();
+      const fileTypes: FileTypeDomain[] = [
+        FileTypeDomain.AVATAR,
+        FileTypeDomain.POST_IMAGE,
+        FileTypeDomain.DOCUMENT,
+        FileTypeDomain.MEDIA,
       ];
 
-      for (const { grpcType, domainType } of fileTypes) {
-        const mockPresignedResult: PresignedUrlResult = {
-          uploadUrl: 'https://test-bucket.s3.amazonaws.com',
-          uploadFields: {
-            key: 'test-key',
-            'Content-Type': 'image/jpeg',
-          },
-          s3Key: `${domainType}/user123/file456`,
-          bucket: 'test-bucket',
-          expiresIn: 3600,
-          fileId: `file-${grpcType}`,
-        };
+      for (const domainType of fileTypes) {
+        let mockPresignedResult!: PresignedUrlResponse;
 
-        storageAdapter.generateUploadUrl.mockResolvedValue(mockPresignedResult);
+        jest.spyOn(storageAdapter, 'generateUploadUrl').mockImplementation(async (dto) => {
+          return (mockPresignedResult = {
+            uploadUrl: 'https://test-bucket.s3.amazonaws.com',
+            uploadFields: {
+              key: 'test-key',
+              'Content-Type': 'image/jpeg',
+            },
+            s3Key: `${domainType}/user123/file456`,
+            bucket: 'test-bucket',
+            expiresIn: 3600,
+            fileId: dto.fileId,
+          });
+        });
 
         const mockRequest = {
-          ownerId: 'user123',
+          ownerId: ownerId,
           fileExtension: '.jpg',
-          fileType: grpcType,
+          fileType: domainType,
+          fileSize: 1024,
         };
 
-        await commandBus.execute({
-          dto: mockRequest,
-          fileType: domainType,
-        });
+        await commandBus.execute(new GenerateUrlForUploadCommand(mockRequest));
 
         const fileRecord = await prisma.file.findUnique({
           where: { id: mockPresignedResult.fileId },

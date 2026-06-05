@@ -1,5 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { ClientsModule, Transport, ClientProviderOptions } from '@nestjs/microservices';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 
 import { CoreModule } from '../../../libs/common/src/core.module';
@@ -11,7 +11,6 @@ import { FilesModule } from './modules/files/files.module';
 import { CronModule } from './modules/cron/cron.module';
 import { FilesController as TestingFilesController } from './modules/testing/api/files.controller';
 import { INCTAGRAM_POST_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
-import { FILES_EVENT_CLIENT } from './modules/files/file-event.constants';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 
 @Module({
@@ -33,18 +32,6 @@ export class AppModule {
               url: config.postServiceGrpcUrl,
             },
           },
-          {
-            name: FILES_EVENT_CLIENT,
-            transport: Transport.RMQ,
-            options: {
-              urls: [config.rabbitmqUrl],
-              queue: config.filesEventsQueue,
-              noAck: false,
-              queueOptions: {
-                durable: true,
-              },
-            },
-          } as ClientProviderOptions,
         ]),
         RabbitMQModule.forRoot({
           exchanges: [
@@ -55,17 +42,6 @@ export class AppModule {
           ],
           uri: config.rabbitmqUrl,
           connectionInitOptions: { wait: false },
-          queues: [
-            {
-              name: config.filesEventsQueue,
-              options: {
-                durable: true,
-                arguments: {
-                  'x-dead-letter-exchange': 'dlx.common_exchange',
-                },
-              },
-            },
-          ],
         }),
       ],
       controllers: [TestingFilesController],

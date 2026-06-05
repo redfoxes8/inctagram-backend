@@ -23,19 +23,6 @@ async function bootstrap() {
     },
   };
 
-  const rmqOptions: MicroserviceOptions = {
-    transport: Transport.RMQ,
-    options: {
-      urls: [filesConfig.rabbitmqUrl],
-      queue: filesConfig.filesEventsQueue,
-      queueOptions: {
-        durable: true,
-      },
-    },
-  };
-
-  app.connectMicroservice<MicroserviceOptions>(rmqOptions);
-
   app.enableShutdownHooks();
 
   appSetup(app, dynamicAppModule as unknown as Type<any>, {

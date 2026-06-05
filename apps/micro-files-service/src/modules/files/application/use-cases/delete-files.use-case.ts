@@ -29,11 +29,11 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
     }
 
     const files: FileEntity[] | null = await this.filesRepository.findByIds(dto.fileIds);
-    if (!files) return;
+    if (!files || files.length == 0) return;
 
     const idsToUpdate: string[] = files.map((f) => f.id);
 
-    await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.DELETING);
+    await this.filesRepository.updateStatusManyById(idsToUpdate, FileStatusDomain.DELETING);
 
     const filesToDelete: Record<string, string[]> = files.reduce(
       (acc, file) => {
@@ -52,7 +52,10 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
         await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
       } catch (error) {
         console.error(`[DeleteFilesUseCase] Failed to delete S3 files:`, error);
-        await this.filesRepository.updateStatusMany(idsToUpdate, FileStatusDomain.FAILED_DELETE);
+        await this.filesRepository.updateStatusManyByS3Key(
+          filesToDelete[bucket],
+          FileStatusDomain.FAILED_DELETE,
+        );
         throw new DomainException({
           message: '[DeleteFilesUseCase] Failed to delete S3 files',
           code: DomainExceptionCode.ServiceUnavailable,

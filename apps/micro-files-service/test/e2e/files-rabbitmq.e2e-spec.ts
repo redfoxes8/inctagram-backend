@@ -1,16 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  DeleteFilesUseCase,
   DeleteFilesCommand,
+  DeleteFilesUseCase,
 } from '../../src/modules/files/application/use-cases/delete-files.use-case';
 import { IFilesRepository } from '../../src/modules/files/domain/interfaces/files.repository.interface';
 import { IStorageAdapter } from '../../src/modules/files/infrastructure/interfaces/storage-adapter.interface';
-import { FileStatusDomain, FileType } from '../../src/modules/files/domain/file.types';
+import { FileStatusDomain, FileTypeDomain } from '../../src/modules/files/domain/file.types';
+import { resetDb } from '../../../../libs/common/src/testing/reset-db';
+import { FileEntity } from '../../src/modules/files/domain/file.entity';
+import { randomUUID } from 'crypto';
 
 describe('Files RabbitMQ Events - E2E Tests', () => {
+  jest.setTimeout(1000000);
   let useCase: DeleteFilesUseCase;
   let filesRepository: jest.Mocked<IFilesRepository>;
   let storageAdapter: jest.Mocked<IStorageAdapter>;
+
+  const createNewFileEntity = (
+    fileType: FileTypeDomain,
+    bucket: string,
+    fileExtension?: string,
+    userId?: string,
+    region?: string,
+    s3Key?: string,
+  ): FileEntity => {
+    const file: FileEntity = FileEntity.createNew({
+      fileExtension: fileExtension ?? randomUUID(),
+      fileType: fileType,
+      userId: userId ?? randomUUID(),
+      region: region ?? randomUUID(),
+    });
+    file.setS3Props(s3Key ?? randomUUID(), bucket);
+    return file;
+  };
+
+  beforeAll(async () => {
+    await resetDb();
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -20,8 +46,9 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
           provide: IFilesRepository,
           useValue: {
             findByIds: jest.fn(),
-            updateStatusMany: jest.fn(),
-            deleteMany: jest.fn(),
+            updateStatusManyById: jest.fn(),
+            updateStatusManyByS3Key: jest.fn(),
+            deleteManyByS3Key: jest.fn(),
           },
         },
         {
@@ -44,30 +71,22 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
 
   describe('handlePostDeleted - RabbitMQ event (DeleteFilesUseCase)', () => {
     it('должен инициировать удаление файлов при получении события post_deleted', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-        {
-          id: 'file2',
-          s3Key: 'POST_IMAGE/user123/file2.jpg',
-          fileType: FileType.POST_IMAGE,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockResolvedValue(undefined);
+      const file2: FileEntity = createNewFileEntity(FileTypeDomain.POST_IMAGE, 'POST_IMAGE');
 
-      await useCase.execute(new DeleteFilesCommand(['file1', 'file2']));
-      expect(findByIdsSpy).toHaveBeenCalledWith(['file1', 'file2']);
-      expect(updateStatusManySpy).toHaveBeenCalledWith(
-        ['file1', 'file2'],
+      const findByIdsSpy = jest
+        .spyOn(filesRepository, 'findByIds')
+        .mockResolvedValue([file1, file2]);
+      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles').mockResolvedValue(undefined);
+      const updateStatusByIdSpy = jest.spyOn(filesRepository, 'updateStatusManyById');
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyByS3Key');
+
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id, file2.id] }));
+
+      expect(findByIdsSpy).toHaveBeenCalledWith([file1.id, file2.id]);
+      expect(updateStatusByIdSpy).toHaveBeenCalledWith(
+        [file1.id, file2.id],
         FileStatusDomain.DELETING,
       );
       expect(deleteFilesSpy).toHaveBeenCalledTimes(2);
@@ -75,174 +94,110 @@ describe('Files RabbitMQ Events - E2E Tests', () => {
     });
 
     it('должен обновлять статус в БД на FAILED_DELETE при ошибке удаления из S3', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockRejectedValue(new Error('S3 error'));
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1]);
+      jest.spyOn(storageAdapter, 'deleteFiles').mockRejectedValue(new Error('S3 error'));
+      const updateStatusByS3KeySpy = jest.spyOn(filesRepository, 'updateStatusManyByS3Key');
 
-      await useCase.execute(new DeleteFilesCommand(['file1']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id] }));
 
-      expect(updateStatusManySpy).toHaveBeenCalledWith(['file1'], FileStatusDomain.FAILED_DELETE);
+      expect(updateStatusByS3KeySpy).toHaveBeenCalledWith(
+        [file1.getS3Key()],
+        FileStatusDomain.FAILED_DELETE,
+      );
     });
 
     it('должен удалять файлы из БД после успешного удаления из S3', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockResolvedValue(undefined);
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1]);
+      jest.spyOn(storageAdapter, 'deleteFiles').mockResolvedValue(undefined);
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyByS3Key');
 
-      await useCase.execute(new DeleteFilesCommand(['file1']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id] }));
 
-      expect(deleteManySpy).toHaveBeenCalledWith(['file1']);
+      expect(deleteManySpy).toHaveBeenCalledWith([file1.getS3Key()]);
     });
 
     it('должен игнорировать события с пустым списком fileIds', async () => {
       const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
       const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
 
-      await useCase.execute(new DeleteFilesCommand([]));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [] }));
 
       expect(findByIdsSpy).not.toHaveBeenCalled();
       expect(deleteFilesSpy).not.toHaveBeenCalled();
     });
 
-    it('должен группировать файлы по типу для удаления', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-        {
-          id: 'file2',
-          s3Key: 'AVATAR/user123/file2.jpg',
-          fileType: FileType.AVATAR,
-        },
-        {
-          id: 'file3',
-          s3Key: 'POST_IMAGE/user123/file3.jpg',
-          fileType: FileType.POST_IMAGE,
-        },
-      ];
+    it('должен группировать файлы по бакету для удаления', async () => {
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
+      const file2: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
+      const file3: FileEntity = createNewFileEntity(FileTypeDomain.POST_IMAGE, 'POST_IMAGE');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockResolvedValue(undefined);
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1, file2, file3]);
+      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles').mockResolvedValue(undefined);
 
-      await useCase.execute(new DeleteFilesCommand(['file1', 'file2', 'file3']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id, file2.id, file3.id] }));
 
-      expect(deleteFilesSpy).toHaveBeenCalledWith(
-        ['AVATAR/user123/file1.jpg', 'AVATAR/user123/file2.jpg'],
-        FileType.AVATAR,
-      );
-      expect(deleteFilesSpy).toHaveBeenCalledWith(
-        ['POST_IMAGE/user123/file3.jpg'],
-        FileType.POST_IMAGE,
-      );
+      expect(deleteFilesSpy).toHaveBeenCalledWith('AVATAR', [file1.getS3Key(), file2.getS3Key()]);
+      expect(deleteFilesSpy).toHaveBeenCalledWith('POST_IMAGE', [file3.getS3Key()]);
     });
 
     it('должен обрабатывать частичный сбой при удалении из S3', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-        {
-          id: 'file2',
-          s3Key: 'POST_IMAGE/user123/file2.jpg',
-          fileType: FileType.POST_IMAGE,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
+      const file2: FileEntity = createNewFileEntity(FileTypeDomain.POST_IMAGE, 'POST_IMAGE');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyById');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1, file2]);
+      jest
+        .spyOn(storageAdapter, 'deleteFiles')
         .mockRejectedValueOnce(new Error('S3 error for AVATAR'))
         .mockResolvedValueOnce(undefined);
+      const updateStatusByS3KeySpy = jest.spyOn(filesRepository, 'updateStatusManyByS3Key');
+      const deleteManySpy = jest.spyOn(filesRepository, 'deleteManyByS3Key');
 
-      await useCase.execute(new DeleteFilesCommand(['file1', 'file2']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id, file2.id] }));
 
-      expect(updateStatusManySpy).toHaveBeenCalledWith(['file1'], FileStatusDomain.FAILED_DELETE);
-      expect(deleteManySpy).toHaveBeenCalledWith(['file2']);
+      expect(updateStatusByS3KeySpy).toHaveBeenCalledWith(
+        [file1.getS3Key()],
+        FileStatusDomain.FAILED_DELETE,
+      );
+      expect(deleteManySpy).toHaveBeenCalledWith([file2.getS3Key()]);
     });
 
     it('должен устанавливать временный статус DELETING перед удалением', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockResolvedValue(undefined);
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1]);
+      jest.spyOn(storageAdapter, 'deleteFiles').mockResolvedValue(undefined);
+      const updateStatusByIdSpy = jest.spyOn(filesRepository, 'updateStatusManyById');
 
-      await useCase.execute(new DeleteFilesCommand(['file1']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id] }));
 
-      expect(updateStatusManySpy).toHaveBeenCalledWith(['file1'], FileStatusDomain.DELETING);
+      expect(updateStatusByIdSpy).toHaveBeenCalledWith([file1.id], FileStatusDomain.DELETING);
     });
 
     it('должен использовать Promise.allSettled для параллельного удаления', async () => {
-      const mockFiles = [
-        {
-          id: 'file1',
-          s3Key: 'AVATAR/user123/file1.jpg',
-          fileType: FileType.AVATAR,
-        },
-        {
-          id: 'file2',
-          s3Key: 'POST_IMAGE/user123/file2.jpg',
-          fileType: FileType.POST_IMAGE,
-        },
-      ];
+      const file1: FileEntity = createNewFileEntity(FileTypeDomain.AVATAR, 'AVATAR');
+      const file2: FileEntity = createNewFileEntity(FileTypeDomain.POST_IMAGE, 'POST_IMAGE');
 
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      findByIdsSpy.mockResolvedValue(mockFiles as any);
-      deleteFilesSpy.mockResolvedValue(undefined);
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([file1, file2]);
+      const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles').mockResolvedValue(undefined);
 
-      await useCase.execute(new DeleteFilesCommand(['file1', 'file2']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: [file1.id, file2.id] }));
 
       expect(deleteFilesSpy).toHaveBeenCalledTimes(2);
     });
 
     it('должен ничего не делать если файлы не найдены в БД', async () => {
-      const findByIdsSpy = jest.spyOn(filesRepository, 'findByIds');
-      findByIdsSpy.mockResolvedValue([]);
+      jest.spyOn(filesRepository, 'findByIds').mockResolvedValue([]);
 
       const deleteFilesSpy = jest.spyOn(storageAdapter, 'deleteFiles');
-      const updateStatusManySpy = jest.spyOn(filesRepository, 'updateStatusMany');
+      const updateStatusByIdSpy = jest.spyOn(filesRepository, 'updateStatusManyById');
 
-      await useCase.execute(new DeleteFilesCommand(['file1']));
+      await useCase.execute(new DeleteFilesCommand({ fileIds: ['file1'] }));
 
-      expect(updateStatusManySpy).not.toHaveBeenCalled();
+      expect(updateStatusByIdSpy).not.toHaveBeenCalled();
       expect(deleteFilesSpy).not.toHaveBeenCalled();
     });
   });

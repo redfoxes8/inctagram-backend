@@ -1,16 +1,14 @@
-import { GenerateUploadUrlRequest, GenerateUploadUrlResponse } from '@inctagram/contracts';
+import { GenerateUploadUrlResponse } from '@inctagram/contracts';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { FileType, PresignedUrlResult } from '../../domain/file.types';
+import { PresignedUrlRequest, PresignedUrlResponse } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
 import { IFilesRepository } from '../../domain/interfaces/files.repository.interface';
 import { FilesConfig } from '../../../../core/files.config';
 import { IStorageAdapter } from '../../infrastructure/interfaces/storage-adapter.interface';
+import { GenerateUrlForUploadDto } from './dto/generate-url-for-upload.dto';
 
 export class GenerateUrlForUploadCommand {
-  constructor(
-    public dto: GenerateUploadUrlRequest,
-    public fileType: FileType,
-  ) {}
+  constructor(public dto: GenerateUrlForUploadDto) {}
 }
 
 @CommandHandler(GenerateUrlForUploadCommand)
@@ -24,23 +22,23 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
     private config: FilesConfig,
   ) {}
 
-  async execute({
-    dto,
-    fileType,
-  }: GenerateUrlForUploadCommand): Promise<GenerateUploadUrlResponse> {
+  async execute({ dto }: GenerateUrlForUploadCommand): Promise<GenerateUploadUrlResponse> {
     const fileEntity: FileEntity = FileEntity.createNew({
       userId: dto.ownerId,
       fileExtension: dto.fileExtension,
-      fileType: fileType,
+      fileType: dto.fileType,
       region: this.config.awsRegion,
     });
 
-    const result: PresignedUrlResult = await this.awsStorageAdapter.generateUploadUrl(
-      dto.ownerId,
-      fileType,
-      dto.fileExtension,
-      fileEntity.id,
-    );
+    const presignedUrlRequest: PresignedUrlRequest = {
+      userId: dto.ownerId,
+      fileType: dto.fileType,
+      fileExtension: dto.fileExtension,
+      fileId: fileEntity.id,
+    };
+
+    const result: PresignedUrlResponse =
+      await this.awsStorageAdapter.generateUploadUrl(presignedUrlRequest);
 
     fileEntity.setS3Props(result.s3Key, result.bucket);
     await this.filesRepository.save(fileEntity);

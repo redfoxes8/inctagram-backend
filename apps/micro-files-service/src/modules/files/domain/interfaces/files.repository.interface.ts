@@ -4,9 +4,9 @@ import { FileStatusDomain } from '../file.types';
 export abstract class IFilesRepository {
   abstract save(file: FileEntity): Promise<void>;
 
-  abstract findPendingOlderThan(date: Date, limit?: number): Promise<FileEntity[]>;
+  abstract findPendingOlderThan(date: Date, limit?: number): Promise<FileEntity[] | null>;
 
-  abstract findFailedDeleteFiles(limit?: number): Promise<FileEntity[]>;
+  abstract findFailedDeleteFiles(limit?: number): Promise<FileEntity[] | null>;
 
   abstract deleteById(id: string): Promise<void>;
 
@@ -18,7 +18,7 @@ export abstract class IFilesRepository {
 
   abstract updateStatus(fileId: string, fileStatus: FileStatusDomain): Promise<void>;
 
-  abstract updateStatusMany(ids: string[], status: FileStatusDomain): Promise<void>;
+  abstract updateStatusManyById(ids: string[], status: FileStatusDomain): Promise<void>;
 
   abstract updateStatusManyByS3Key(s3Keys: string[], status: FileStatusDomain): Promise<void>;
 

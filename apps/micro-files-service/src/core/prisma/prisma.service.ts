@@ -6,10 +6,11 @@ import { PrismaClient } from './client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor(private config: FilesConfig) {
-    const schema = PrismaService.resolveSchema(config.prismaDbUrl);
+    const dbUrl = config.prismaDbUrl;
+    const schema = PrismaService.resolveSchema(dbUrl);
     const adapter = new PrismaPg(
       {
-        connectionString: config.prismaDbUrl,
+        connectionString: dbUrl,
       },
       schema ? { schema } : undefined,
     );

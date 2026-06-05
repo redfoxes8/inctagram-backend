@@ -1,11 +1,13 @@
-import { FileStatusDomain, FileType } from '../../domain/file.types';
+import { FileStatusDomain, FileTypeDomain } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
-import { File as PrismaFile, FileStatus } from '../../../../core/prisma/client';
+import { File as PrismaFile, FileStatus, FileType } from '../../../../core/prisma/client';
 
 export type PrismaFileRecord = PrismaFile;
 
 export class PrismaMapper {
   public static toDomain(prismaFileRecord: PrismaFileRecord): FileEntity {
+    const status: FileStatusDomain = this.statusToDomain(prismaFileRecord.status);
+    const type: FileTypeDomain = this.typeToDomain(prismaFileRecord.fileType);
     return new FileEntity({
       id: prismaFileRecord.id,
       createdAt: prismaFileRecord.createdAt,
@@ -14,26 +16,28 @@ export class PrismaMapper {
       s3Key: prismaFileRecord.s3Key,
       bucket: prismaFileRecord.bucket,
       fileExtension: prismaFileRecord.fileExtension,
-      status: prismaFileRecord.status as unknown as FileStatusDomain,
+      status: status,
       userId: prismaFileRecord.userId,
-      fileType: prismaFileRecord.fileType as unknown as FileType,
+      fileType: type,
       region: prismaFileRecord.region,
     });
   }
 
   public static toPrismaRecord(fileEntity: FileEntity): PrismaFileRecord {
+    const status: FileStatus = this.statusToPrismaRecord(fileEntity.getStatus());
+    const type: FileType = this.typeToPrismaRecord(fileEntity.getFileType());
     return {
       id: fileEntity.id,
       s3Key: fileEntity.getS3Key(),
       bucket: fileEntity.getBucket(),
       region: fileEntity.getRegion(),
       fileExtension: fileEntity.getFileExtension(),
-      status: fileEntity.getStatus() as any,
+      status: status,
       userId: fileEntity.getUserId(),
       createdAt: fileEntity.createdAt,
       updatedAt: fileEntity.updatedAt,
       deletedAt: fileEntity.deletedAt,
-      fileType: fileEntity.getFileType() as any,
+      fileType: type,
     };
   }
 
@@ -43,5 +47,17 @@ export class PrismaMapper {
 
   public static statusToPrismaRecord(fileStatus: FileStatusDomain): FileStatus {
     return FileStatus[fileStatus];
+  }
+
+  public static statusToDomain(fileStatus: FileStatus): FileStatusDomain {
+    return FileStatusDomain[fileStatus];
+  }
+
+  public static typeToPrismaRecord(fileType: FileTypeDomain): FileType {
+    return FileType[fileType];
+  }
+
+  public static typeToDomain(fileType: FileType): FileTypeDomain {
+    return FileTypeDomain[fileType];
   }
 }

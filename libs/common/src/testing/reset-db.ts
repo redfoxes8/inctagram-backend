@@ -38,7 +38,7 @@ function parseSslFromConnectionString(connectionString: string) {
 }
 
 function requireConnectionString(): string {
-  const direct = process.env.PRISMA_DB_DIRECT_URL;
+  const direct = process.env.PRISMA_DB_URL_DIRECT || process.env.PRISMA_DB_DIRECT_URL;
   const pooled = process.env.PRISMA_DB_URL;
   return direct || pooled || '';
 }
@@ -85,7 +85,12 @@ async function acquireFileLock(lockPath: string, timeoutMs = 60_000): Promise<()
 }
 
 function ensureEnvLoaded(envFilePath?: string) {
-  if (process.env.PRISMA_DB_URL || process.env.PRISMA_DB_DIRECT_URL) return;
+  if (
+    process.env.PRISMA_DB_URL ||
+    process.env.PRISMA_DB_URL_DIRECT ||
+    process.env.PRISMA_DB_DIRECT_URL
+  )
+    return;
 
   const p =
     envFilePath?.trim() ||
@@ -154,15 +159,29 @@ export async function resetDb(options: ResetDbOptions = {}): Promise<void> {
             // Prisma config file loads env by NODE_ENV; for tests we want `.env.test`
             // that was already loaded by jest.env-setup.ts.
             NODE_ENV: 'test',
+            // Force the CLI to use the same schema-isolated connection string that
+            // resetDb already computed (e.g. with ?schema=test_1). Different services
+            // read different env vars (DATABASE_URL, PRISMA_DB_URL, PRISMA_DB_URL_DIRECT),
+            // so we inject all of them to guarantee isolation regardless of the config.
+            DATABASE_URL: connectionString,
+            PRISMA_DB_URL: connectionString,
+            PRISMA_DB_URL_DIRECT: connectionString,
+            PRISMA_DB_DIRECT_URL: connectionString,
           },
         };
 
         try {
-          execSync(`pnpm -s prisma migrate deploy --config "${prismaConfigPath}"`, execOptions);
+          execSync(
+            `pnpm -s prisma db push --accept-data-loss --config "${prismaConfigPath}"`,
+            execOptions,
+          );
         } catch {
           // Tests should recover from a previously broken worker schema instead of requiring manual repair.
           await recreateSchema(client, schema);
-          execSync(`pnpm -s prisma migrate deploy --config "${prismaConfigPath}"`, execOptions);
+          execSync(
+            `pnpm -s prisma db push --accept-data-loss --config "${prismaConfigPath}"`,
+            execOptions,
+          );
         }
 
         migratedSchemas.add(migrationKey);

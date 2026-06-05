@@ -23,57 +23,50 @@ export class CleanupPendingFilesCron {
     let processedCount: number = 0;
 
     try {
-      while (true) {
-        // 1. Получаем пачку PENDING файлов
-        const pendingFiles: FileEntity[] = await this.filesRepository.findPendingOlderThan(
-          olderThan,
-          limit,
-        );
-        if (pendingFiles.length === 0) break;
+      // 1. Получаем пачку PENDING файлов
+      const pendingFiles: FileEntity[] | null = await this.filesRepository.findPendingOlderThan(
+        olderThan,
+        limit,
+      );
+      if (!pendingFiles) return;
 
-        this.logger.log(`Found ${pendingFiles.length} pending files to clean up.`);
+      this.logger.log(`Found ${pendingFiles.length} pending files to clean up.`);
 
-        // Временный перевод в статус DELETING
-        const ids: string[] = pendingFiles.map((f) => f.id);
-        await this.filesRepository.updateStatusMany(ids, FileStatusDomain.DELETING);
+      // Временный перевод в статус DELETING
+      const ids: string[] = pendingFiles.map((f) => f.id);
+      await this.filesRepository.updateStatusManyById(ids, FileStatusDomain.DELETING);
 
-        // 2. Группируем по bucket
-        const filesToDelete: Record<string, string[]> = pendingFiles.reduce(
-          (acc, file) => {
-            const bucket: string = file.getBucket();
-            const s3Key: string = file.getS3Key();
-            acc[bucket] = acc[bucket] || [];
-            acc[bucket].push(s3Key);
-            return acc;
-          },
-          {} as Record<string, string[]>,
-        );
+      // 2. Группируем по bucket
+      const filesToDelete: Record<string, string[]> = pendingFiles.reduce(
+        (acc, file) => {
+          const bucket: string = file.getBucket();
+          const s3Key: string = file.getS3Key();
+          acc[bucket] = acc[bucket] || [];
+          acc[bucket].push(s3Key);
+          return acc;
+        },
+        {} as Record<string, string[]>,
+      );
 
-        // 3. Массовое удаление из S3 и БД
-        const buckets: string[] = Object.keys(filesToDelete);
+      // 3. Массовое удаление из S3 и БД
+      const buckets: string[] = Object.keys(filesToDelete);
+      await Promise.all(
         buckets.map(async (bucket) => {
           try {
             await this.storageAdapter.deleteFiles(bucket, filesToDelete[bucket]);
             await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
             processedCount += filesToDelete[bucket].length;
-            return;
           } catch (e) {
             this.logger.error(
               `Failed to delete S3 pending files for bucket ${bucket}: ${e instanceof Error ? e.message : String(e)}`,
             );
-            // Если упало, переводим в FAILED_DELETE для повторной попытки
             await this.filesRepository.updateStatusManyByS3Key(
               filesToDelete[bucket],
               FileStatusDomain.FAILED_DELETE,
             );
-            return;
           }
-        });
-
-        // Задержка между чанками
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
+        }),
+      );
       this.logger.log(
         `Cleanup of orphaned PENDING files complete. Cleaned up ${processedCount} files.`,
       );
@@ -92,52 +85,48 @@ export class CleanupPendingFilesCron {
     let processedCount: number = 0;
 
     try {
-      while (true) {
-        // 1. Получаем массив Failed To Delete файлов
-        const failedFiles: FileEntity[] = await this.filesRepository.findFailedDeleteFiles(limit);
-        if (failedFiles.length === 0) break;
+      // 1. Получаем массив Failed To Delete файлов
+      const failedFiles: FileEntity[] | null =
+        await this.filesRepository.findFailedDeleteFiles(limit);
+      if (!failedFiles) return;
 
-        this.logger.log(`Found ${failedFiles.length} failed delete files to retry.`);
+      this.logger.log(`Found ${failedFiles.length} failed delete files to retry.`);
 
-        // Временный перевод в DELETING
-        const ids: string[] = failedFiles.map((f) => f.id);
-        await this.filesRepository.updateStatusMany(ids, FileStatusDomain.DELETING);
+      // Временный перевод в DELETING
+      const ids: string[] = failedFiles.map((f) => f.id);
+      await this.filesRepository.updateStatusManyById(ids, FileStatusDomain.DELETING);
 
-        // 2. Группируем по bucket
-        const filesToDelete: Record<string, string[]> = failedFiles.reduce(
-          (acc, file) => {
-            const bucket: string = file.getBucket();
-            const s3Key: string = file.getS3Key();
-            acc[bucket] = acc[bucket] || [];
-            acc[bucket].push(s3Key);
-            return acc;
-          },
-          {} as Record<string, string[]>,
-        );
+      // 2. Группируем по bucket
+      const filesToDelete: Record<string, string[]> = failedFiles.reduce(
+        (acc, file) => {
+          const bucket: string = file.getBucket();
+          const s3Key: string = file.getS3Key();
+          acc[bucket] = acc[bucket] || [];
+          acc[bucket].push(s3Key);
+          return acc;
+        },
+        {} as Record<string, string[]>,
+      );
 
-        // 3. Массовое удаление из S3 и БД
-        const buckets: string[] = Object.keys(filesToDelete);
+      // 3. Массовое удаление из S3 и БД
+      const buckets: string[] = Object.keys(filesToDelete);
+      await Promise.all(
         buckets.map(async (bucket) => {
           try {
             await this.storageAdapter.deleteFiles(bucket, filesToDelete[bucket]);
             await this.filesRepository.deleteManyByS3Key(filesToDelete[bucket]);
             processedCount += filesToDelete[bucket].length;
-            return;
           } catch (e) {
             this.logger.error(
               `Failed to delete S3 pending files for bucket ${bucket}: ${e instanceof Error ? e.message : String(e)}`,
             );
-            // Если упало, переводим в FAILED_DELETE для повторной попытки
             await this.filesRepository.updateStatusManyByS3Key(
               filesToDelete[bucket],
               FileStatusDomain.FAILED_DELETE,
             );
-            return;
           }
-        });
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+        }),
+      );
 
       this.logger.log(`Retry of FAILED_DELETE files complete. Cleaned up ${processedCount} files.`);
     } catch (error) {

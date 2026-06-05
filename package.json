@@ -82,7 +82,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sqs-consumer": "^15.0.1",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.22.4"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.69.0",

@@ -6,6 +6,7 @@ import { configValidationUtility } from '../../../../libs/common/src/utils/confi
 
 @Injectable()
 export class FilesConfig {
+  // General Configuration
   @IsNumber({}, { message: 'Set Env variable PORT, example: 3001' })
   port: number;
 
@@ -13,6 +14,7 @@ export class FilesConfig {
   @IsNotEmpty({ message: 'Set Env variable INCLUDE_TESTING_MODULE, example: false' })
   includeTestingModule: boolean;
 
+  // gRPC Configuration
   @IsString({ message: 'POST_SERVICE_GRPC_URL must be a string' })
   postServiceGrpcUrl: string;
 
@@ -44,9 +46,6 @@ export class FilesConfig {
   @IsOptional()
   s3BucketMedia?: string;
 
-  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
-  prismaDbUrl: string;
-
   // SQS Configuration
   @IsString({ message: 'SQS_QUEUE_URL must be a string' })
   sqsQueueUrl: string;
@@ -58,16 +57,18 @@ export class FilesConfig {
   @IsString({ message: 'FILES_EVENTS_QUEUE must be a string' })
   filesEventsQueue: string;
 
-  // Database Configuration
-  @IsString({ message: 'DATABASE_URL must be a string' })
-  databaseUrl: string;
+  // Prisma Configuration
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
+  prismaDbUrl: string;
 
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
+    // General Configuration
     this.port = Number(this.configService.get('PORT'));
-    this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );
+
+    // gRPC Configuration
     this.postServiceGrpcUrl = this.configService.get('POST_SERVICE_GRPC_URL') || '0.0.0.0:50051';
     this.grpcHost = this.configService.get('GRPC_HOST') || '0.0.0.0';
     this.grpcPort = Number(this.configService.get('GRPC_PORT')) || 50052;
@@ -89,8 +90,8 @@ export class FilesConfig {
     this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
     this.filesEventsQueue = this.configService.get('FILES_EVENTS_QUEUE');
 
-    // Database Configuration
-    this.databaseUrl = this.configService.get('DATABASE_URL');
+    // Prisma Configuration
+    this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');
 
     configValidationUtility.validateConfig(this);
   }

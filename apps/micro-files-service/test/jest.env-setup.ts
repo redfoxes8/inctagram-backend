@@ -38,11 +38,11 @@ if (process.env.PRISMA_DB_URL) {
   }
 }
 
-if (process.env.PRISMA_DB_DIRECT_URL) {
+if (process.env.PRISMA_DB_URL_DIRECT) {
   try {
-    const u = new URL(process.env.PRISMA_DB_DIRECT_URL);
+    const u = new URL(process.env.PRISMA_DB_URL_DIRECT);
     u.searchParams.set('schema', process.env.TEST_DB_SCHEMA);
-    process.env.PRISMA_DB_DIRECT_URL = u.toString();
+    process.env.PRISMA_DB_URL_DIRECT = u.toString();
   } catch {
     // ignore
   }

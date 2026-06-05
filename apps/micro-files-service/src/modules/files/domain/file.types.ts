@@ -1,22 +1,22 @@
 /**
  * Типы файлов для разных бакетов
  */
-export enum FileType {
-  AVATAR,
-  POST_IMAGE,
-  DOCUMENT,
-  MEDIA,
+export enum FileTypeDomain {
+  AVATAR = 'AVATAR',
+  POST_IMAGE = 'POST_IMAGE',
+  DOCUMENT = 'DOCUMENT',
+  MEDIA = 'MEDIA',
 }
 
 /**
  * Статусы загрузки файла
  */
 export enum FileStatusDomain {
-  PENDING,
-  UPLOADED,
-  FAILED,
-  DELETING,
-  FAILED_DELETE,
+  PENDING = 'PENDING',
+  UPLOADED = 'UPLOADED',
+  FAILED = 'FAILED',
+  DELETING = 'DELETING',
+  FAILED_DELETE = 'FAILED_DELETE',
 }
 
 /**
@@ -47,11 +47,18 @@ export interface BucketConfig {
 /**
  * Результат генерации presigned URL
  */
-export interface PresignedUrlResult {
+export interface PresignedUrlResponse {
   uploadUrl: string;
   uploadFields: Record<string, string>;
   s3Key: string;
   bucket: string;
   expiresIn: number;
+  fileId: string;
+}
+
+export interface PresignedUrlRequest {
+  userId: string;
+  fileType: FileTypeDomain;
+  fileExtension: string;
   fileId: string;
 }
