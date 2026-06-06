@@ -35,6 +35,76 @@ spec:
                  secretKeyRef:
                    name: micro-files-service-14-04-2026-production-config-secret
                    key: NODE_ENV
+             - name: PRISMA_DB_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: PRISMA_DB_URL
+             - name: PRISMA_DB_URL_DIRECT
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: PRISMA_DB_URL_DIRECT
+             - name: AWS_REGION
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: AWS_REGION
+             - name: AWS_ACCESS_KEY_ID
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: AWS_ACCESS_KEY_ID
+             - name: AWS_SECRET_ACCESS_KEY
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: AWS_SECRET_ACCESS_KEY
+             - name: S3_BUCKET_IMAGES
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: S3_BUCKET_IMAGES
+             - name: S3_BUCKET_DOCUMENTS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: S3_BUCKET_DOCUMENTS
+             - name: S3_BUCKET_MEDIA
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: S3_BUCKET_MEDIA
+             - name: SQS_QUEUE_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: SQS_QUEUE_URL
+             - name: FILES_EVENTS_QUEUE
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: FILES_EVENTS_QUEUE
+             - name: RABBITMQ_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: RABBITMQ_URL
+             - name: POST_SERVICE_GRPC_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: POST_SERVICE_GRPC_URL
+             - name: GRPC_HOST
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: GRPC_HOST
+             - name: GRPC_PORT
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-files-service-14-04-2026-production-config-secret
+                   key: GRPC_PORT
              - name: PORT
                valueFrom:
                  secretKeyRef:
