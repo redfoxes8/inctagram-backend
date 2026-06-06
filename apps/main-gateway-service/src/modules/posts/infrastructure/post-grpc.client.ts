@@ -64,6 +64,7 @@ export class PostGrpcClient implements OnModuleInit {
     try {
       return await firstValueFrom(this.postService.getLatestPosts(request));
     } catch (error: unknown) {
+      console.error(error);
       throw GrpcErrorMapper.toDomainException(error);
     }
   }
