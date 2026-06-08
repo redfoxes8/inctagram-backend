@@ -1,8 +1,6 @@
 import { GetFilesDataDto } from '../../api/dto/get-files-data.dto';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { FileEntity } from '../../domain/file.entity';
-import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { IFilesQueryRepository } from '../../domain/interfaces/files.query-repository.interface';
 
 export class GetFilesDataQuery {
@@ -13,13 +11,6 @@ export class GetFilesDataQuery {
 export class GetFilesDataHandler implements IQueryHandler<GetFilesDataQuery, FileEntity[]> {
   constructor(private readonly queryRepository: IFilesQueryRepository) {}
   async execute({ dto }: GetFilesDataQuery): Promise<FileEntity[]> {
-    const files: FileEntity[] | null = await this.queryRepository.getFilesByIds(dto.fileIds);
-    if (!files) {
-      throw new DomainException({
-        message: 'Files not found',
-        code: DomainExceptionCode.NotFound,
-      });
-    }
-    return files;
+    return await this.queryRepository.getFilesByIds(dto.fileIds);
   }
 }

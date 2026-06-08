@@ -18,9 +18,17 @@ export class GetLatestPostsHandler implements IQueryHandler<GetLatestPostsQuery,
   ) {}
   async execute({ dto }: GetLatestPostsQuery): Promise<PostViewType[]> {
     const result: PostEntity[] = await this.postQueryRepository.getLatestPosts(dto.limit);
+    if (result.length === 0) {
+      return [];
+    }
+
     const idsOfFiles: string[] = result.flatMap(
       (post) => post.images?.map((image) => image.fileId) ?? [],
     );
+    if (idsOfFiles.length === 0) {
+      return PostMapper.toView(result, { files: {} });
+    }
+
     const files: FileDataType = await this.fileGrpcClient.getFilesByIds({
       fileIds: idsOfFiles,
     });
