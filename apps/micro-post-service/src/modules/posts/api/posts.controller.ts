@@ -138,6 +138,8 @@ export class PostsController {
   async getLatestPosts(data: GetLatestPostsRequest): Promise<GetLatestPostsResponse> {
     this.logger.log(`[Post MS] gRPC GetLatestPosts received`);
     const result: PostViewType[] = await this.queryBus.execute(new GetLatestPostsQuery(data));
-    return GrpcResponseMapper.getLatestPostsResponse(result);
+    const response = GrpcResponseMapper.getLatestPostsResponse(result);
+    this.logger.log(`[Post MS] gRPC GetLatestPosts response: ${JSON.stringify(response)}`);
+    return response;
   }
 }

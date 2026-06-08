@@ -1,9 +1,12 @@
 import { Post as PrismaPost, PostImage as PrismaPostImage } from '../../../../core/prisma/client';
+import { Logger } from '@nestjs/common';
 import { PostEntity } from '../../domain/post.entity';
 import { PostImageEntity } from '../../domain/post-image.entity';
 import { FileDataType, FileDataViewType, PostViewType } from '../../domain/post.types';
 
 export class PostMapper {
+  private static readonly logger = new Logger(PostMapper.name);
+
   static toDomain(prismaPost: PrismaPost & { images?: PrismaPostImage[] }): PostEntity {
     const images = prismaPost.images?.map((img) =>
       PostImageEntity.create({
@@ -38,19 +41,31 @@ export class PostMapper {
 
   static toView(posts: PostEntity[], filesData: FileDataType): PostViewType[] {
     return posts.map((post) => {
-      const images: FileDataViewType[] = post.images?.map((img) => {
-        return {
-          id: img.id,
-          fileId: img.fileId,
-          url: filesData.files[img.fileId].fileUrl,
-          order: img.order,
-        };
+      const images: FileDataViewType[] = (post.images ?? []).flatMap((img) => {
+        const fileData = filesData.files[img.fileId];
+
+        if (!fileData) {
+          PostMapper.logger.warn(
+            `[PostMapper] Broken file reference skipped: postId=${post.id}, fileId=${img.fileId}, context=missing file metadata in filesData`,
+          );
+          return [];
+        }
+
+        return [
+          {
+            id: img.id,
+            fileId: img.fileId,
+            url: fileData.fileUrl,
+            order: img.order,
+          },
+        ];
       });
+
       return {
         id: post.id,
         ownerId: post.ownerId,
         description: post.description,
-        images: images,
+        images,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
       };
