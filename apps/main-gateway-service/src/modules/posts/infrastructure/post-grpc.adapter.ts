@@ -9,7 +9,7 @@ import { Injectable } from '@nestjs/common';
 export class PostGrpcAdapter {
   constructor(private readonly postGrpcClient: PostGrpcClient) {}
 
-  async getLatestPosts(dto: GetLatestPostsQueryDto): Promise<PostViewType[]> {
+  async getLatestPosts(dto: GetLatestPostsQueryDto): Promise<PostViewType[] | null> {
     const request: GetLatestPostsRequest = PostRequestMapper.toGetLatestPostsRequest({
       query: dto,
     });

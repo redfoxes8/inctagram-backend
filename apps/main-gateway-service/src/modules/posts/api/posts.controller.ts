@@ -157,7 +157,13 @@ export class PostsController {
   })
   @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
   async getLatestPosts(@Query() query: GetLatestPostsQueryDto): Promise<PostViewType[]> {
-    return this.queryBus.execute(new GetLatestPostsQuery(query));
+    const result: PostViewType[] | null = await this.queryBus.execute(
+      new GetLatestPostsQuery(query),
+    );
+    if (!result) {
+      return [];
+    }
+    return result;
   }
 
   @Patch(':postId')

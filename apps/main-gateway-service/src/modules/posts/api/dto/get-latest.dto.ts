@@ -55,7 +55,7 @@ export class PostViewType {
       order: 1,
     },
   })
-  images: FileDataViewType[];
+  images: FileDataViewType[] | [];
 
   @ApiProperty({
     description: 'Post creation date',

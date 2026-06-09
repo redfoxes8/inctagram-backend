@@ -36,16 +36,21 @@ export class PostMapper {
     };
   }
 
-  static toView(posts: PostEntity[], filesData: FileDataType): PostViewType[] {
+  static toView(posts: PostEntity[], filesData?: FileDataType | null): PostViewType[] {
     return posts.map((post) => {
-      const images: FileDataViewType[] = post.images?.map((img) => {
-        return {
-          id: img.id,
-          fileId: img.fileId,
-          url: filesData.files[img.fileId].fileUrl,
-          order: img.order,
-        };
-      });
+      let images: FileDataViewType[] | [];
+      if (!filesData) {
+        images = [];
+      } else {
+        images = post.images.map((img) => {
+          return {
+            id: img.id,
+            fileId: img.fileId,
+            url: filesData.files[img.fileId].fileUrl,
+            order: img.order,
+          };
+        });
+      }
       return {
         id: post.id,
         ownerId: post.ownerId,

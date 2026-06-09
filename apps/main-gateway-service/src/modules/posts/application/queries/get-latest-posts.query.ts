@@ -7,10 +7,13 @@ export class GetLatestPostsQuery {
 }
 
 @QueryHandler(GetLatestPostsQuery)
-export class GetLatestPostsHandler implements IQueryHandler<GetLatestPostsQuery, PostViewType[]> {
+export class GetLatestPostsHandler implements IQueryHandler<
+  GetLatestPostsQuery,
+  PostViewType[] | null
+> {
   constructor(private readonly postGrpcAdapter: IPostGrpcAdapter) {}
-  async execute({ query }: GetLatestPostsQuery): Promise<PostViewType[]> {
-    const result: PostViewType[] = await this.postGrpcAdapter.getLatestPosts(query);
+  async execute({ query }: GetLatestPostsQuery): Promise<PostViewType[] | null> {
+    const result: PostViewType[] | null = await this.postGrpcAdapter.getLatestPosts(query);
     return result;
   }
 }

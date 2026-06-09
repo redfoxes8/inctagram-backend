@@ -4,7 +4,12 @@ import { dateToTimestamp } from '../utils/date-to-timestamp.helper';
 import { GetLatestPostsResponse } from '../../../../../../../libs/contracts/src/generated/post';
 
 export class GrpcResponseMapper {
-  public static getLatestPostsResponse(posts: PostViewType[]): GetLatestPostsResponse {
+  public static getLatestPostsResponse(
+    posts: PostViewType[] | null,
+  ): GetLatestPostsResponse | { posts: [] } {
+    if (!posts) {
+      return { posts: [] };
+    }
     const mappedPosts: Post[] = posts.map((post) => {
       return {
         id: post.id,

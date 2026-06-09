@@ -56,7 +56,10 @@ export class PostResponseMapper {
     };
   }
 
-  static toViewType(posts: Post[]): PostViewType[] {
+  static toViewType(posts?: Post[]): PostViewType[] | null {
+    if (!posts) {
+      return null;
+    }
     return posts.map((post) => {
       return {
         id: post.id,

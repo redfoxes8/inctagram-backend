@@ -1,24 +1,22 @@
 import { GetFilesDataDto } from '../../api/dto/get-files-data.dto';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { FileEntity } from '../../domain/file.entity';
-import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { IFilesQueryRepository } from '../../domain/interfaces/files.query-repository.interface';
+import { Logger } from '@nestjs/common';
 
 export class GetFilesDataQuery {
   constructor(public dto: GetFilesDataDto) {}
 }
 
 @QueryHandler(GetFilesDataQuery)
-export class GetFilesDataHandler implements IQueryHandler<GetFilesDataQuery, FileEntity[]> {
+export class GetFilesDataHandler implements IQueryHandler<GetFilesDataQuery, FileEntity[] | null> {
+  private readonly logger = new Logger(GetFilesDataHandler.name);
   constructor(private readonly queryRepository: IFilesQueryRepository) {}
-  async execute({ dto }: GetFilesDataQuery): Promise<FileEntity[]> {
+  async execute({ dto }: GetFilesDataQuery): Promise<FileEntity[] | null> {
     const files: FileEntity[] | null = await this.queryRepository.getFilesByIds(dto.fileIds);
     if (!files) {
-      throw new DomainException({
-        message: 'Files not found',
-        code: DomainExceptionCode.NotFound,
-      });
+      this.logger.warn(`Files not found: ${dto.fileIds.join(', ')}`);
+      return [];
     }
     return files;
   }

@@ -29,7 +29,7 @@ export class FilesController {
 
   @GrpcMethod('FileService', 'GetFilesData')
   async getFilesData(data: GetFilesDataRequest): Promise<GetFilesDataResponse> {
-    const result: FileEntity[] = await this.queryBus.execute(new GetFilesDataQuery(data));
+    const result: FileEntity[] | null = await this.queryBus.execute(new GetFilesDataQuery(data));
     return GrpcResponseMapper.getFilesDataResponse(result);
   }
 }

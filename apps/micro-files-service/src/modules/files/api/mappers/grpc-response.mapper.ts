@@ -2,7 +2,10 @@ import { FileEntity } from '../../domain/file.entity';
 import { FileData, GetFilesDataResponse } from '../../../../../../../libs/contracts/src';
 
 export class GrpcResponseMapper {
-  public static getFilesDataResponse(files: FileEntity[]): GetFilesDataResponse {
+  public static getFilesDataResponse(files: FileEntity[] | null): GetFilesDataResponse {
+    if (!files) {
+      return { files: {} };
+    }
     const filesMap = files.reduce(
       (acc, file) => {
         acc[file.id] = {
