@@ -1,4 +1,4 @@
-import { Controller, Logger } from '@nestjs/common';
+import { Controller, Logger, UseInterceptors } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GrpcMethod } from '@nestjs/microservices';
 import {
@@ -11,6 +11,7 @@ import {
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
 } from '../../../../../../libs/contracts/src';
+import { GrpcExceptionInterceptor } from '../../../../../../libs/common/src/exceptions/grpc-exception.interceptor';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
@@ -24,6 +25,7 @@ import { PostViewType } from '../domain/post.types';
 import { GrpcResponseMapper } from './mappers/grpc-response.mapper';
 
 @Controller()
+@UseInterceptors(GrpcExceptionInterceptor)
 export class PostsController {
   private readonly logger = new Logger(PostsController.name);
 
@@ -91,11 +93,9 @@ export class PostsController {
   @GrpcMethod('PostService', 'GetPostsByUserId')
   async getPostsByUserId(data: GetPostsByUserIdRequest): Promise<GetPostsByUserIdResponse> {
     this.logger.log(`[Post MS] gRPC GetPostsByUserId received for user: ${data.ownerId}`);
-
     const result = await this.queryBus.execute(
       new GetUserPostsQuery(data.ownerId, data.pageSize || 8, data.cursor),
     );
-
     return {
       posts: result.posts.map((post) => ({
         id: post.id,

@@ -11,6 +11,7 @@ import {
   Post,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -40,6 +41,7 @@ import { GeneratePostImageUploadUrlCommand } from '../application/commands/gener
 import { GetFeedQuery } from '../application/queries/get-feed.query';
 import { GetLatestPostsQueryDto, PostViewType } from './dto/get-latest.dto';
 import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
+import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -112,11 +114,8 @@ export class PostsController {
   @ApiDomainError(400, 'Validation error', 'Validation failed')
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
   @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
-  async getFeed(
-    @Query() query: GetFeedQueryDto,
-    @CurrentUserId() ownerId: string,
-  ): Promise<GetFeedResponseDto> {
-    return this.queryBus.execute(new GetFeedQuery({ query, ownerId }));
+  async getFeed(@Query() query: GetFeedQueryDto, @Request() req: IAuthRequestInfo): Promise<void> {
+    return this.queryBus.execute(new GetFeedQuery({ query, ownerId: req.user.userId }));
   }
 
   @Delete(':postId')

@@ -12,8 +12,7 @@ export class DomainException extends Error {
 
   constructor(errorInfo: { code: DomainExceptionCode; message: string; extensions?: Extension[] }) {
     super(errorInfo.message);
-    Object.setPrototypeOf(this, new.target.prototype);
-
+    // Object.setPrototypeOf(this, new.target.prototype);
     this.name = DomainException.name;
     this.code = errorInfo.code;
     this.extensions = errorInfo.extensions ?? [];

@@ -12,12 +12,31 @@ type GrpcErrorLike = {
 export class GrpcErrorMapper {
   static toDomainException(error: unknown): DomainException {
     const grpcError = this.toGrpcErrorLike(error);
-    const message = grpcError.details ?? grpcError.message ?? 'gRPC request failed';
+    const message = this.extractMessage(grpcError);
 
     return new DomainException({
       code: this.toDomainCode(grpcError.code),
       message,
     });
+  }
+
+  private static extractMessage(grpcError: GrpcErrorLike): string {
+    if (!grpcError.message) {
+      return grpcError.details ?? 'gRPC request failed';
+    }
+
+    // gRPC auto-formats as "N STATUS_NAME: details_or_message"
+    const match = grpcError.message.match(/^\d+\s+\w+:\s+(.+)$/);
+    if (match) {
+      const extracted = match[1];
+      // If extracted looks like JSON (serialized extensions), skip it
+      if (extracted.startsWith('[') || extracted.startsWith('{')) {
+        return grpcError.details ?? 'gRPC request failed';
+      }
+      return extracted;
+    }
+
+    return grpcError.message;
   }
 
   private static toGrpcErrorLike(error: unknown): GrpcErrorLike {

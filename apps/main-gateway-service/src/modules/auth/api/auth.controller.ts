@@ -53,6 +53,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
+import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -133,7 +134,7 @@ export class AuthController {
   })
   @ApiDomainError(401, 'Invalid credentials or OAuth provider required', 'Unauthorized')
   public async login(
-    @Request() req: Express.Request & { user: CurrentUserInfo },
+    @Request() req: IAuthRequestInfo,
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
@@ -221,8 +222,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout', description: 'Logout the user and clear the session.' })
   @ApiOkResponse({ description: 'Logout successful' })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  public async logout(@Request() req: Express.Request): Promise<void> {
-    await this.commandBus.execute(new LogoutCommand(req.user as LogoutDTO));
+  public async logout(@Request() req: IAuthRequestInfo): Promise<void> {
+    await this.commandBus.execute(new LogoutCommand(req.user));
     return;
   }
 
