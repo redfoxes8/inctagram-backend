@@ -42,14 +42,16 @@ export class PostMapper {
       if (!filesData) {
         images = [];
       } else {
-        images = post.images.map((img) => {
-          return {
-            id: img.id,
-            fileId: img.fileId,
-            url: filesData.files[img.fileId].fileUrl,
-            order: img.order,
-          };
-        });
+        images = post.images
+          .filter((img) => filesData.files[img.fileId])
+          .map((img) => {
+            return {
+              id: img.id,
+              fileId: img.fileId,
+              url: filesData.files[img.fileId].fileUrl,
+              order: img.order,
+            };
+          });
       }
       return {
         id: post.id,

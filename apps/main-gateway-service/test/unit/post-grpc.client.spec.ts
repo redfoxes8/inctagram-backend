@@ -28,12 +28,12 @@ describe('PostGrpcClient', () => {
   });
 
   it('should normalize empty gRPC response to empty posts array', async () => {
-    postServiceMock.getLatestPosts.mockReturnValue(of({} as never));
+    postServiceMock.getLatestPosts.mockReturnValue(of({} as any));
 
     const response = await client.getLatestPosts({ limit: 8 });
-
+    const grpcMockSpy = jest.spyOn(clientGrpcMock, 'getService');
     expect(response).toEqual({ posts: [] });
-    expect(clientGrpcMock.getService).toHaveBeenCalledWith(POST_SERVICE_NAME);
+    expect(grpcMockSpy).toHaveBeenCalledWith(POST_SERVICE_NAME);
   });
 
   it('should fail strictly for malformed payloads', async () => {

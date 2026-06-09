@@ -34,9 +34,9 @@ export class PostResponseMapper {
 
   static toFeedResponse(response: GetPostsByUserIdResponse): GetFeedResponseDto {
     return {
-      posts: response.posts.map((post) => this.toPostResponse(post)),
+      posts: response.posts?.map((post) => this.toPostResponse(post)) ?? [],
       nextCursor: response.nextCursor,
-      hasMore: response.hasMore,
+      hasMore: response.hasMore ?? false,
     };
   }
 
