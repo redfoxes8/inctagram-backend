@@ -21,35 +21,26 @@ export class GrpcErrorMapper {
   }
 
   private static extractMessage(grpcError: GrpcErrorLike): string {
-    if (!grpcError.message) {
-      return grpcError.details ?? 'gRPC request failed';
-    }
-
-    // gRPC auto-formats as "N STATUS_NAME: details_or_message"
-    const match = grpcError.message.match(/^\d+\s+\w+:\s+(.+)$/);
-    if (match) {
-      const extracted = match[1];
-      // If extracted looks like JSON (serialized extensions), skip it
-      if (extracted.startsWith('[') || extracted.startsWith('{')) {
-        return grpcError.details ?? 'gRPC request failed';
+    if (grpcError.message) {
+      const match = grpcError.message.match(/^\d+\s+\w+:\s+(.+)$/);
+      if (match) {
+        const msg = match[1];
+        // Skip serialized JSON details
+        if (!msg.startsWith('{') && !msg.startsWith('[')) return msg;
       }
-      return extracted;
     }
 
-    return grpcError.message;
+    return grpcError.details ?? 'gRPC request failed';
   }
 
   private static toGrpcErrorLike(error: unknown): GrpcErrorLike {
-    if (typeof error !== 'object' || error === null) {
-      return {};
-    }
+    if (typeof error !== 'object' || error === null) return {};
 
-    const candidate = error as Record<string, unknown>;
-
+    const { code, details, message } = error as Record<string, unknown>;
     return {
-      code: typeof candidate.code === 'number' ? candidate.code : undefined,
-      details: typeof candidate.details === 'string' ? candidate.details : undefined,
-      message: typeof candidate.message === 'string' ? candidate.message : undefined,
+      code: typeof code === 'number' ? code : undefined,
+      details: typeof details === 'string' ? details : undefined,
+      message: typeof message === 'string' ? message : undefined,
     };
   }
 
