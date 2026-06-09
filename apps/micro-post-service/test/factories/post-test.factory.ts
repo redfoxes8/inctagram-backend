@@ -27,9 +27,7 @@ export function makePostImage(overrides: Partial<PostImageProps> = {}): PostImag
 
 export function makePostProps(overrides: Partial<PostProps> = {}): PostProps {
   const defaultPostId = randomUUID();
-  const defaultImages = [
-    makePostImage({ postId: defaultPostId, order: 0 })
-  ];
+  const defaultImages = [makePostImage({ postId: defaultPostId, order: 0 })];
 
   return {
     id: overrides.id || defaultPostId,
@@ -44,12 +42,7 @@ export function makePostProps(overrides: Partial<PostProps> = {}): PostProps {
 
 export function makePost(overrides: Partial<PostProps> = {}): PostEntity {
   const props = makePostProps(overrides);
-  const entity = new PostEntity(props);
-  // If overrides explicitly defined an ID, ensure it is set correctly on the entity (BaseDomainEntity has id setter/getter)
-  if (props.id) {
-    entity.id = props.id;
-  }
-  return entity;
+  return new PostEntity(props);
 }
 
 export function makePostView(overrides: Partial<PostViewType> = {}): PostViewType {
