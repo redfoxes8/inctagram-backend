@@ -41,7 +41,7 @@ describe('FilesQueryRepository - Integration Tests', () => {
   });
 
   describe('getFilesByIds', () => {
-    it('должен находить файлы по списку ID', async () => {
+    it('should find files by list of IDs', async () => {
       const file1 = await prisma.file.create({
         data: {
           id: randomUUID(),
@@ -70,14 +70,13 @@ describe('FilesQueryRepository - Integration Tests', () => {
 
       const files = await repository.getFilesByIds([file1.id, file2.id]);
 
-      expect(files).not.toBeNull();
       expect(files).toHaveLength(2);
     });
 
-    it('должен возвращать null если файлы не найдены', async () => {
+    it('should return an empty array if files are not found', async () => {
       const files = await repository.getFilesByIds([randomUUID(), randomUUID()]);
 
-      expect(files).toBeNull();
+      expect(files).toEqual([]);
     });
   });
 });

@@ -7,7 +7,6 @@ import { IFilesQueryRepository } from '../../src/modules/files/domain/interfaces
 import { FileEntity } from '../../src/modules/files/domain/file.entity';
 import { FileTypeDomain } from '../../src/modules/files/domain/file.types';
 import { randomUUID } from 'crypto';
-import { DomainException } from '../../../../libs/common/src/exceptions/domain-exception';
 
 describe('GetFilesDataHandler - Unit Tests', () => {
   let handler: GetFilesDataHandler;
@@ -35,7 +34,7 @@ describe('GetFilesDataHandler - Unit Tests', () => {
   });
 
   describe('execute', () => {
-    it('должен возвращать массив FileEntity если файлы найдены', async () => {
+    it('should return array of FileEntity when files are found', async () => {
       const file = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
@@ -51,12 +50,12 @@ describe('GetFilesDataHandler - Unit Tests', () => {
       expect(result[0].id).toBe(file.id);
     });
 
-    it('должен выбрасывать DomainException если файлы не найдены', async () => {
-      queryRepository.getFilesByIds.mockResolvedValue(null);
+    it('should return an empty array when files are not found', async () => {
+      queryRepository.getFilesByIds.mockResolvedValue([]);
 
       await expect(
         handler.execute(new GetFilesDataQuery({ fileIds: ['nonexistent'] })),
-      ).rejects.toThrow(DomainException);
+      ).resolves.toEqual([]);
     });
   });
 });

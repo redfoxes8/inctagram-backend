@@ -62,10 +62,32 @@ export class PostGrpcClient implements OnModuleInit {
 
   async getLatestPosts(request: GetLatestPostsRequest): Promise<GetLatestPostsResponse> {
     try {
-      return await firstValueFrom(this.postService.getLatestPosts(request));
+      const response = await firstValueFrom(this.postService.getLatestPosts(request));
+      return this.normalizeGetLatestPostsResponse(response);
     } catch (error: unknown) {
-      console.error(error);
       throw GrpcErrorMapper.toDomainException(error);
     }
+  }
+
+  private normalizeGetLatestPostsResponse(response: unknown): GetLatestPostsResponse {
+    if (this.isEmptyObject(response)) {
+      // grpc/protobuf omits empty repeated fields at runtime, so normalize the empty object boundary here.
+      return { posts: [] };
+    }
+
+    if (
+      typeof response === 'object' &&
+      response !== null &&
+      Object.prototype.hasOwnProperty.call(response, 'posts') &&
+      Array.isArray((response as { posts: unknown }).posts)
+    ) {
+      return response as GetLatestPostsResponse;
+    }
+
+    throw new Error('Malformed GetLatestPostsResponse payload');
+  }
+
+  private isEmptyObject(value: unknown): value is Record<string, never> {
+    return typeof value === 'object' && value !== null && Object.keys(value).length === 0;
   }
 }

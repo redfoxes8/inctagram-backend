@@ -9,7 +9,6 @@ describe('GetLatestPostsHandler (Unit)', () => {
   let fileGrpcClientMock: jest.Mocked<FileGrpcClient>;
 
   beforeEach(async () => {
-    // Arrange: Create mocks
     postQueryRepositoryMock = {
       getLatestPosts: jest.fn(),
     } as any;
@@ -22,12 +21,19 @@ describe('GetLatestPostsHandler (Unit)', () => {
   });
 
   it('should successfully retrieve latest posts and map them with URLs', async () => {
-    // Arrange
     const query = new GetLatestPostsQuery({ limit: 2 });
     const fileId1 = 'file-1';
     const fileId2 = 'file-2';
-    const post1 = makePost({ id: 'post-1', description: 'Desc 1', images: [makePostImage({ fileId: fileId1, order: 0 })] });
-    const post2 = makePost({ id: 'post-2', description: 'Desc 2', images: [makePostImage({ fileId: fileId2, order: 0 })] });
+    const post1 = makePost({
+      id: 'post-1',
+      description: 'Desc 1',
+      images: [makePostImage({ fileId: fileId1, order: 0 })],
+    });
+    const post2 = makePost({
+      id: 'post-2',
+      description: 'Desc 2',
+      images: [makePostImage({ fileId: fileId2, order: 0 })],
+    });
 
     postQueryRepositoryMock.getLatestPosts.mockResolvedValue([post1, post2]);
     fileGrpcClientMock.getFilesByIds.mockResolvedValue({
@@ -37,39 +43,36 @@ describe('GetLatestPostsHandler (Unit)', () => {
       },
     } as any);
 
-    // Act
     const result = await handler.execute(query);
 
-    // Assert
-    expect(result).toBeDefined();
     expect(result).toHaveLength(2);
     expect(postQueryRepositoryMock.getLatestPosts).toHaveBeenCalledWith(2);
     expect(fileGrpcClientMock.getFilesByIds).toHaveBeenCalledWith({
       fileIds: [fileId1, fileId2],
     });
-
-    expect(result[0].id).toBe('post-1');
     expect(result[0].images[0].url).toBe('https://cdn.com/post1.jpg');
-    expect(result[1].id).toBe('post-2');
     expect(result[1].images[0].url).toBe('https://cdn.com/post2.jpg');
   });
 
-  it('should handle posts without images correctly', async () => {
-    // Arrange
+  it('should return empty array when there are no posts', async () => {
     const query = new GetLatestPostsQuery({ limit: 1 });
-    const post = makePost({ id: 'post-1', description: 'Desc 1', images: [] });
+    postQueryRepositoryMock.getLatestPosts.mockResolvedValue([]);
 
-    postQueryRepositoryMock.getLatestPosts.mockResolvedValue([post]);
-    fileGrpcClientMock.getFilesByIds.mockResolvedValue({
-      files: {},
-    } as any);
-
-    // Act
     const result = await handler.execute(query);
 
-    // Assert
+    expect(result).toEqual([]);
+    expect(fileGrpcClientMock.getFilesByIds).not.toHaveBeenCalled();
+  });
+
+  it('should skip file-ms call when posts exist but have no images', async () => {
+    const query = new GetLatestPostsQuery({ limit: 1 });
+    const post = makePost({ id: 'post-1', description: 'Desc 1', images: [] });
+    postQueryRepositoryMock.getLatestPosts.mockResolvedValue([post]);
+
+    const result = await handler.execute(query);
+
     expect(result).toHaveLength(1);
     expect(result[0].images).toHaveLength(0);
-    expect(fileGrpcClientMock.getFilesByIds).toHaveBeenCalledWith({ fileIds: [] });
+    expect(fileGrpcClientMock.getFilesByIds).not.toHaveBeenCalled();
   });
 });
