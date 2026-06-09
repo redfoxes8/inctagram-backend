@@ -32,8 +32,6 @@ import { ChangePasswordDTO } from './dto/change-password.dto';
 import { ChangePasswordCommand } from '../application/use-cases/change-password.use-case';
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { LogoutCommand } from '../application/use-cases/logout.use-case';
-import { LogoutDTO } from './dto/logout.dto';
-import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
 import { AuthEmailResendConfirmationCommand } from '../application/use-cases/auth-email-resend-confirmation.usecase';

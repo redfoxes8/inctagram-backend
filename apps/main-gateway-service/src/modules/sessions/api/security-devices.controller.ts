@@ -14,7 +14,6 @@ import {
   ISessionsQueryRepository,
   SessionViewModel,
 } from '../domain/interfaces/sessions.query-repository.interface';
-import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { CommandBus } from '@nestjs/cqrs';
 import { DeactivateOneCommand } from '../application/use-cases/deactivate-one.use-case';
 import { DeactivateAllCommand } from '../application/use-cases/deactivate-all.use-case';
