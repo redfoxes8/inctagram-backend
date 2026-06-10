@@ -8,21 +8,22 @@ datasource db {
 }
 
 model File {
-  id            String     @id @default(uuid()) @db.Uuid
-  s3Key         String     @map("s3_key")
-  bucket        String
-  region        String
-  fileExtension String     @map("file_extension") // avatar, post_image, document, media
-  fileType      FileType   @map("file_type")
-  status        FileStatus @default(PENDING)
-  userId        String     @map("user_id") @db.Uuid
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
-  deletedAt     DateTime?
+  id        String     @id @default(uuid()) @db.Uuid
+  s3Key     String     @map("s3_key")
+  bucket    String
+  region    String
+  extension String     @map("extension") // avatar, post_image, document, media
+  type      FileType   @map("type")
+  status    FileStatus @default(PENDING)
+  userId    String     @map("user_id") @db.Uuid
+  size      Int
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  deletedAt DateTime?
 
   @@index([userId])
   @@index([status])
-  @@index([fileExtension])
+  @@index([extension])
   @@map("files")
 }
 

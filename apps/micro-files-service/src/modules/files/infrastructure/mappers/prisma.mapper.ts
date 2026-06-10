@@ -7,7 +7,7 @@ export type PrismaFileRecord = PrismaFile;
 export class PrismaMapper {
   public static toDomain(prismaFileRecord: PrismaFileRecord): FileEntity {
     const status: FileStatusDomain = this.statusToDomain(prismaFileRecord.status);
-    const type: FileTypeDomain = this.typeToDomain(prismaFileRecord.fileType);
+    const type: FileTypeDomain = this.typeToDomain(prismaFileRecord.type);
     return new FileEntity({
       id: prismaFileRecord.id,
       createdAt: prismaFileRecord.createdAt,
@@ -15,11 +15,12 @@ export class PrismaMapper {
       deletedAt: prismaFileRecord.deletedAt,
       s3Key: prismaFileRecord.s3Key,
       bucket: prismaFileRecord.bucket,
-      fileExtension: prismaFileRecord.fileExtension,
+      fileExtension: prismaFileRecord.extension,
       status: status,
       userId: prismaFileRecord.userId,
       fileType: type,
       region: prismaFileRecord.region,
+      size: prismaFileRecord.size,
     });
   }
 
@@ -31,13 +32,14 @@ export class PrismaMapper {
       s3Key: fileEntity.getS3Key(),
       bucket: fileEntity.getBucket(),
       region: fileEntity.getRegion(),
-      fileExtension: fileEntity.getFileExtension(),
+      extension: fileEntity.getFileExtension(),
       status: status,
       userId: fileEntity.getUserId(),
       createdAt: fileEntity.createdAt,
       updatedAt: fileEntity.updatedAt,
       deletedAt: fileEntity.deletedAt,
-      fileType: type,
+      type: type,
+      size: fileEntity.getSize(),
     };
   }
 

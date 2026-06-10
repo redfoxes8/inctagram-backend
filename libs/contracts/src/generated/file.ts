@@ -15,6 +15,8 @@ export enum FileStatus {
   FILE_STATUS_UNSPECIFIED = 0,
   PENDING = 1,
   UPLOADED = 2,
+  DELETING = 3,
+  FAILED_DELETE = 4,
   UNRECOGNIZED = -1,
 }
 
@@ -85,9 +87,9 @@ export const INCTAGRAM_FILE_V1_PACKAGE_NAME = "inctagram.file.v1";
 export interface FileServiceClient {
   generateUploadUrl(request: GenerateUploadUrlRequest, metadata?: Metadata): Observable<GenerateUploadUrlResponse>;
 
-  getFileStatus(request: GetFileStatusRequest, metadata?: Metadata): Observable<GetFileStatusResponse>;
-
   getFilesData(request: GetFilesDataRequest, metadata?: Metadata): Observable<GetFilesDataResponse>;
+
+  getFileStatus(request: GetFileStatusRequest, metadata?: Metadata): Observable<GetFileStatusResponse>;
 }
 
 export interface FileServiceController {
@@ -96,20 +98,20 @@ export interface FileServiceController {
     metadata?: Metadata,
   ): Promise<GenerateUploadUrlResponse> | Observable<GenerateUploadUrlResponse> | GenerateUploadUrlResponse;
 
-  getFileStatus(
-    request: GetFileStatusRequest,
-    metadata?: Metadata,
-  ): Promise<GetFileStatusResponse> | Observable<GetFileStatusResponse> | GetFileStatusResponse;
-
   getFilesData(
     request: GetFilesDataRequest,
     metadata?: Metadata,
   ): Promise<GetFilesDataResponse> | Observable<GetFilesDataResponse> | GetFilesDataResponse;
+
+  getFileStatus(
+    request: GetFileStatusRequest,
+    metadata?: Metadata,
+  ): Promise<GetFileStatusResponse> | Observable<GetFileStatusResponse> | GetFileStatusResponse;
 }
 
 export function FileServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["generateUploadUrl", "getFileStatus", "getFilesData"];
+    const grpcMethods: string[] = ["generateUploadUrl", "getFilesData", "getFileStatus"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("FileService", method)(constructor.prototype[method], method, descriptor);

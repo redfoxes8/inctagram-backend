@@ -6,6 +6,8 @@ enum FileStatus {
   FILE_STATUS_UNSPECIFIED = 0;
   PENDING = 1;
   UPLOADED = 2;
+  DELETING = 3;
+  FAILED_DELETE = 4;
 }
 
 enum FileType {
@@ -66,6 +68,6 @@ message GetFilesDataResponse {
 
 service FileService {
   rpc GenerateUploadUrl(GenerateUploadUrlRequest) returns (GenerateUploadUrlResponse);
-  rpc GetFileStatus(GetFileStatusRequest) returns (GetFileStatusResponse);
   rpc GetFilesData(GetFilesDataRequest) returns (GetFilesDataResponse);
+  rpc GetFileStatus(GetFileStatusRequest) returns (GetFileStatusResponse);
 }
