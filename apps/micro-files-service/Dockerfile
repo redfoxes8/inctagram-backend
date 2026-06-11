@@ -21,7 +21,7 @@ WORKDIR /home/node/dist/${SERVICE}
 
 COPY --chown=node package*.json ./
 
-RUN npm ci --omit=dev
+RUN npm install
 
 # Bundle app source code
 COPY --chown=node . .
