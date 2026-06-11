@@ -18,6 +18,7 @@ import { IFilesQueryRepository } from './domain/interfaces/files.query-repositor
 import { FilesQueryRepository } from './infrastructure/repositories/files.query-repository';
 import { GetFilesDataHandler } from './application/queries/get-files-data.query';
 import { GolevelupFileEventAdapter } from './infrastructure/event-publishers/golevelup-file-event.adapter';
+import { GetFileStatusHandler } from './application/queries/get-file-status.query';
 
 const repositories = [
   {
@@ -40,9 +41,10 @@ const adapters = [
   },
 ];
 
-const queryHandlers = [GetFilesDataHandler];
+const queryHandlers = [GetFilesDataHandler, GetFileStatusHandler];
 
 const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesUseCase];
+
 @Module({
   imports: [CqrsModule, FilesConfigModule],
   controllers: [FilesController, FilesMessageController],

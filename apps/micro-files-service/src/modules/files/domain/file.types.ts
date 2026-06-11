@@ -14,7 +14,6 @@ export enum FileTypeDomain {
 export enum FileStatusDomain {
   PENDING = 'PENDING',
   UPLOADED = 'UPLOADED',
-  FAILED = 'FAILED',
   DELETING = 'DELETING',
   FAILED_DELETE = 'FAILED_DELETE',
 }
@@ -62,3 +61,16 @@ export interface PresignedUrlRequest {
   fileExtension: string;
   fileId: string;
 }
+
+export type FileViewType = {
+  extension: string;
+  status: FileStatusDomain;
+  userId: string;
+  type: FileTypeDomain;
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  url: string;
+  size: number;
+};

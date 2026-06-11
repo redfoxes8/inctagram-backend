@@ -28,6 +28,7 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
       fileExtension: dto.fileExtension,
       fileType: dto.fileType,
       region: this.config.awsRegion,
+      size: dto.fileSize,
     });
 
     const presignedUrlRequest: PresignedUrlRequest = {

@@ -23,11 +23,17 @@ export class CursorUtil {
       const json = Buffer.from(cursor, 'base64url').toString('utf8');
       payload = JSON.parse(json) as CursorPayload;
     } catch {
-      return null;
+      throw new DomainException({
+        message: 'Invalid cursor format',
+        code: DomainExceptionCode.BadRequest,
+      });
     }
 
     if (!payload.id || !payload.createdAt) {
-      return null;
+      throw new DomainException({
+        message: 'Invalid cursor. It must contain createdAt and Id fields',
+        code: DomainExceptionCode.BadRequest,
+      });
     }
 
     if (!isUUID(payload.id)) {

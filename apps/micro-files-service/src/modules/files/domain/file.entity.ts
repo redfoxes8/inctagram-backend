@@ -16,6 +16,7 @@ type FileEntityProps = BaseDomainEntityProps & {
   userId: string;
   fileType: FileTypeDomain;
   region: string;
+  size: number;
 };
 
 export type CreateNewFileDTO = {
@@ -23,26 +24,29 @@ export type CreateNewFileDTO = {
   userId: string;
   fileType: FileTypeDomain;
   region: string;
+  size: number;
 };
 
 export class FileEntity extends BaseDomainEntity {
   private s3Key: string | null;
   private bucket: string | null;
-  private readonly fileExtension: string;
+  private readonly extension: string;
   private status: FileStatusDomain;
   private readonly userId: string;
-  private readonly fileType: FileTypeDomain;
+  private readonly type: FileTypeDomain;
   private readonly region: string;
+  private readonly size: number;
 
   constructor(data: FileEntityProps) {
     super(data);
     this.s3Key = data.s3Key;
     this.bucket = data.bucket;
-    this.fileExtension = data.fileExtension;
+    this.extension = data.fileExtension;
     this.status = data.status;
     this.userId = data.userId;
-    this.fileType = data.fileType;
+    this.type = data.fileType;
     this.region = data.region;
+    this.size = data.size;
   }
 
   public static createNew(dto: CreateNewFileDTO) {
@@ -58,6 +62,7 @@ export class FileEntity extends BaseDomainEntity {
       userId: dto.userId,
       fileType: dto.fileType,
       region: dto.region,
+      size: dto.size,
     });
   }
 
@@ -97,7 +102,7 @@ export class FileEntity extends BaseDomainEntity {
   }
 
   public getFileExtension(): string {
-    return this.fileExtension;
+    return this.extension;
   }
 
   public getStatus(): FileStatusDomain {
@@ -109,10 +114,14 @@ export class FileEntity extends BaseDomainEntity {
   }
 
   public getFileType(): FileTypeDomain {
-    return this.fileType;
+    return this.type;
   }
 
   public getRegion(): string {
     return this.region;
+  }
+
+  public getSize(): number {
+    return this.size;
   }
 }

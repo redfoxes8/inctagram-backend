@@ -10,7 +10,7 @@ export type PrismaFileRecord = PrismaFile;
 @Injectable()
 export class FilesQueryRepository implements IFilesQueryRepository {
   constructor(private readonly prisma: PrismaService) {}
-  async getFilesByIds(ids: string[]): Promise<FileEntity[]> {
+  async getFilesByIds(ids: string[]): Promise<FileEntity[] | null> {
     const result: PrismaFileRecord[] | [] = await this.prisma.file.findMany({
       where: {
         id: {
@@ -18,6 +18,23 @@ export class FilesQueryRepository implements IFilesQueryRepository {
         },
       },
     });
+    if (result.length === 0) {
+      return null;
+    }
     return PrismaMapper.toDomainMany(result);
+  }
+
+  async findById(id: string): Promise<FileEntity | null> {
+    const result: PrismaFileRecord | null = await this.prisma.file.findUnique({
+      where: {
+        id: id,
+      },
+    });
+
+    if (!result) {
+      return null;
+    }
+
+    return PrismaMapper.toDomain(result);
   }
 }

@@ -188,8 +188,8 @@ describe('Files gRPC Endpoint - E2E Tests', () => {
 
       expect(fileRecord).toBeDefined();
       expect(fileRecord?.userId).toBe(ownerId);
-      expect(fileRecord?.fileExtension).toBe('.jpg');
-      expect(fileRecord?.fileType).toBe(FileTypeDomain.AVATAR as any);
+      expect(fileRecord?.extension).toBe('.jpg');
+      expect(fileRecord?.type).toBe(FileTypeDomain.AVATAR as any);
       expect(fileRecord?.status).toBe(FileStatusDomain.PENDING as any);
       expect(fileRecord?.s3Key).toBe(mockPresignedResult.s3Key);
       expect(fileRecord?.bucket).toBe(mockPresignedResult.bucket);
@@ -234,7 +234,7 @@ describe('Files gRPC Endpoint - E2E Tests', () => {
           where: { id: mockPresignedResult.fileId },
         });
 
-        expect(fileRecord?.fileType).toBe(domainType as any);
+        expect(fileRecord?.type).toBe(domainType as any);
       }
     });
   });

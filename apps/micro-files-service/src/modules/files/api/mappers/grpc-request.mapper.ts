@@ -1,6 +1,7 @@
-import { GenerateUploadUrlRequest } from '@inctagram/contracts';
+import { GenerateUploadUrlRequest, GetFileStatusRequest } from '@inctagram/contracts';
 import { GenerateUrlForUploadDto } from '../../application/use-cases/dto/generate-url-for-upload.dto';
 import { FileTypeDomain } from '../../domain/file.types';
+import { GetFileStatusDto } from '../dto/get-file-status.dto';
 
 export class GrpcRequestMapper {
   public static generateUrlForUploadRequest(
@@ -14,6 +15,13 @@ export class GrpcRequestMapper {
       fileExtension: requestData.fileExtension,
     };
   }
+
+  public static getFileStatusRequest(requestData: GetFileStatusRequest): GetFileStatusDto {
+    return {
+      fileId: requestData.fileId,
+    };
+  }
+
   private static mapGrpcFileTypeToDomain(grpcType: number): FileTypeDomain {
     switch (grpcType) {
       case 1: // AVATAR
