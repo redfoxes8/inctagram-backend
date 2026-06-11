@@ -1,6 +1,7 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
+import { Logger } from '@nestjs/common';
 
 import {
   type CreatePostRequest,
@@ -19,6 +20,7 @@ import { GetLatestPostsRequest, GetLatestPostsResponse } from '@inctagram/contra
 @Injectable()
 export class PostGrpcClient implements OnModuleInit {
   private postService: PostServiceClient;
+  private readonly logger = new Logger(PostGrpcClient.name);
 
   constructor(@Inject(POST_SERVICE_GRPC_CLIENT) private readonly client: ClientGrpc) {}
 
@@ -28,8 +30,10 @@ export class PostGrpcClient implements OnModuleInit {
 
   async createPost(request: CreatePostRequest): Promise<CreatePostResponse> {
     try {
+      this.logger.log('[Gateway][gRPC Client] createPost called - sending request');
       return await firstValueFrom(this.postService.createPost(request));
     } catch (error: unknown) {
+      this.logger.log('[Gateway][gRPC Client] createPost error or returned');
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

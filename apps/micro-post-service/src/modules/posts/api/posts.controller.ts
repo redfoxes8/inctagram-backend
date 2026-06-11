@@ -35,6 +35,7 @@ export class PostsController {
   ) {}
 
   @GrpcMethod('PostService', 'CreatePost')
+  @GrpcMethod('PostService', 'createPost')
   async createPost(data: CreatePostRequest): Promise<CreatePostResponse> {
     this.logger.log(`[Post MS] gRPC CreatePost received for user: ${data.ownerId}`);
 

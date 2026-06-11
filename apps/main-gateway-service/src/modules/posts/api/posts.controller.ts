@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Logger,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -46,6 +47,7 @@ import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-i
 @ApiTags('Posts')
 @Controller('posts')
 export class PostsController {
+  private readonly logger = new Logger(PostsController.name);
   constructor(
     @Inject(CommandBus) private readonly commandBus: CommandBus,
     @Inject(QueryBus) private readonly queryBus: QueryBus,
@@ -68,7 +70,30 @@ export class PostsController {
     @Body() dto: CreatePostDto,
     @CurrentUserId() ownerId: string,
   ): Promise<CreatePostResponseDto> {
-    return this.commandBus.execute(new CreatePostCommand({ dto, ownerId }));
+    this.logger.log(`[Gateway] Entered CreatePost controller - ownerId: ${ownerId}`);
+    this.logger.log('[Gateway] Before commandBus.execute(CreatePostCommand)');
+    const result = await this.commandBus.execute(new CreatePostCommand({ dto, ownerId }));
+    this.logger.log('[Gateway] After commandBus.execute(CreatePostCommand)');
+    return result;
+  }
+
+  // Temporary debug endpoint — calls the same CreatePost flow but accepts ownerId in body for quick testing
+  @Post('debug-create')
+  @HttpCode(HttpStatus.CREATED)
+  async debugCreate(@Body() body: { ownerId: string; description: string; fileIds: string[] }) {
+    this.logger.log('[Gateway][DEBUG] debugCreate entered');
+    this.logger.log(
+      `[Gateway][DEBUG] payload ownerId=${body.ownerId} fileIds=${JSON.stringify(body.fileIds)}`,
+    );
+    this.logger.log('[Gateway][DEBUG] Before commandBus.execute(CreatePostCommand)');
+    const result = await this.commandBus.execute(
+      new CreatePostCommand({
+        dto: { description: body.description, fileIds: body.fileIds },
+        ownerId: body.ownerId,
+      }),
+    );
+    this.logger.log('[Gateway][DEBUG] After commandBus.execute(CreatePostCommand)');
+    return result;
   }
 
   @Post('images/upload-url')
