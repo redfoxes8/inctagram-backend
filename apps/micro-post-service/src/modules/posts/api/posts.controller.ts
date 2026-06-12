@@ -78,7 +78,7 @@ export class PostsController {
       nanos: (now.getTime() % 1000) * 1000000,
     };
 
-    return {
+    const result: UpdatePostResponse = {
       post: {
         id: data.postId,
         ownerId: data.ownerId,
@@ -88,6 +88,8 @@ export class PostsController {
         updatedAt: timestamp as any,
       },
     };
+
+    return result;
   }
 
   @GrpcMethod('PostService', 'GetPostsByUserId')
