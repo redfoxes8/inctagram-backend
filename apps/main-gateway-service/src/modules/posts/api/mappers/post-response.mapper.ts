@@ -45,7 +45,7 @@ export class PostResponseMapper {
       id: post.id,
       ownerId: post.ownerId,
       description: post.description,
-      images: post.images.map((image) => ({
+      images: (post.images ?? []).map((image) => ({
         id: image.id,
         fileId: image.fileId,
         url: image.url,
