@@ -49,6 +49,9 @@ export class OutboxRelayCron {
     });
     if (!pending.length) return;
 
+    // Debug: log picked events count
+    this.logger.log(`[OUTBOX] picked ${pending.length} event(s)`);
+
     let conn: AmqpConnection | undefined;
     let ch: AmqpChannel | undefined;
 
@@ -65,6 +68,8 @@ export class OutboxRelayCron {
       }
 
       for (const ev of pending) {
+        // Short log when picking an individual event
+        this.logger.log(`[OUTBOX] picked event id=${ev.id} type=${ev.type}`);
         try {
           const routingKey = 'post.deleted';
 
@@ -81,12 +86,55 @@ export class OutboxRelayCron {
           }
 
           const buf = Buffer.from(JSON.stringify(payload));
-          ch.publish(POST_EVENTS_EXCHANGE, routingKey, buf, { persistent: true });
+
+          // Publish to legacy post_events exchange (keep existing behavior)
+          this.logger.log(
+            `[OUTBOX] publishing event id=${ev.id} type=${ev.type} to ${POST_EVENTS_EXCHANGE} routingKey=${routingKey}`,
+          );
+
+          const publishResult = ch.publish(POST_EVENTS_EXCHANGE, routingKey, buf, {
+            persistent: true,
+          });
+
+          if (publishResult) {
+            this.logger.log(
+              `[RABBIT] publish to ${POST_EVENTS_EXCHANGE} success id=${ev.id} routingKey=${routingKey}`,
+            );
+          } else {
+            this.logger.warn(
+              `[RABBIT] publish to ${POST_EVENTS_EXCHANGE} returned false for id=${ev.id} routingKey=${routingKey}`,
+            );
+          }
+
+          // Additionally publish to common_exchange so existing consumers receive events without infra changes
+          try {
+            this.logger.log(
+              `[OUTBOX] publishing event id=${ev.id} type=${ev.type} to common_exchange routingKey=${routingKey}`,
+            );
+            const publishResultCommon = ch.publish('common_exchange', routingKey, buf, {
+              persistent: true,
+            });
+            if (publishResultCommon) {
+              this.logger.log(
+                `[RABBIT] publish to common_exchange success id=${ev.id} routingKey=${routingKey}`,
+              );
+            } else {
+              this.logger.warn(
+                `[RABBIT] publish to common_exchange returned false for id=${ev.id} routingKey=${routingKey}`,
+              );
+            }
+          } catch (e) {
+            this.logger.error(
+              `Failed to publish to common_exchange for event ${ev.id}: ${this.toMessage(e)}`,
+            );
+            // Do not rethrow — maintain existing post_events publish
+          }
 
           await this.prisma.outboxEvent.update({
             where: { id: ev.id },
             data: { status: 'PROCESSED', processedAt: new Date() },
           });
+
           this.logger.log(`Relayed outbox event ${ev.id} to exchange ${POST_EVENTS_EXCHANGE}`);
         } catch (err) {
           this.logger.error(`Failed to publish outbox event: ${this.toMessage(err)}`);

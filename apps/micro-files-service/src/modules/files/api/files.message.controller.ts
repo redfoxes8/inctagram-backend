@@ -1,24 +1,13 @@
-import { Controller } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
-import { DeleteFilesCommand } from '../application/use-cases/delete-files.use-case';
-import { Nack, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-import { PostDeletedMessageDto } from './dto/post-deleted-message.dto';
+import { Controller, OnModuleInit, Logger } from '@nestjs/common';
 
 @Controller()
-export class FilesMessageController {
-  constructor(private readonly commandBus: CommandBus) {}
+export class FilesMessageController implements OnModuleInit {
+  private readonly logger = new Logger(FilesMessageController.name);
 
-  @RabbitSubscribe({
-    exchange: 'common_exchange',
-    routingKey: 'post.deleted',
-    queue: 'files_queue',
-  })
-  async handlePostDeleted(msg: PostDeletedMessageDto): Promise<Nack | void> {
-    try {
-      await this.commandBus.execute(new DeleteFilesCommand(msg));
-    } catch (e) {
-      console.error(e.message);
-      return new Nack(false);
-    }
+  onModuleInit(): void {
+    // Short startup log to confirm that message controller is present
+    this.logger.log(
+      '[RABBIT] consumer registered queue=files_queue exchange=common_exchange routingKey=post.deleted',
+    );
   }
 }

@@ -19,6 +19,7 @@ import { FilesQueryRepository } from './infrastructure/repositories/files.query-
 import { GetFilesDataHandler } from './application/queries/get-files-data.query';
 import { GolevelupFileEventAdapter } from './infrastructure/event-publishers/golevelup-file-event.adapter';
 import { GetFileStatusHandler } from './application/queries/get-file-status.query';
+import { FilesRabbitConsumer } from './infrastructure/files.rabbit.consumer';
 
 const repositories = [
   {
@@ -55,6 +56,7 @@ const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesU
     ...adapters,
     ...queryHandlers,
     AwsSqsAdapter,
+    FilesRabbitConsumer,
   ],
   exports: [IStorageAdapter, IFilesRepository],
 })
