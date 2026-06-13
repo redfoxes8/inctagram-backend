@@ -17,6 +17,12 @@ import { GrpcRequestMapper } from './mappers/grpc-request.mapper';
 import { GetFileStatusQuery } from '../application/queries/get-file-status.query';
 import { GetFileStatusDto } from './dto/get-file-status.dto';
 import { FileViewType } from '../domain/file.types';
+import type {
+  GetFileStatusBatchRequest,
+  GetFileStatusBatchResponse,
+} from '../../../../../../libs/contracts/src/generated/file';
+import { GetFileStatusBatchDto } from './dto/get-file-status-batch.dto';
+import { GetFileStatusBatchQuery } from '../application/queries/get-file-status-batch.query';
 
 @Controller()
 export class FilesController {
@@ -42,5 +48,12 @@ export class FilesController {
     const dto: GetFileStatusDto = GrpcRequestMapper.getFileStatusRequest(data);
     const result: FileViewType = await this.queryBus.execute(new GetFileStatusQuery(dto));
     return GrpcResponseMapper.getFileStatusResponse(result);
+  }
+
+  @GrpcMethod('FileService', 'GetFileStatusBatch')
+  async getFileStatusBatch(data: GetFileStatusBatchRequest): Promise<GetFileStatusBatchResponse> {
+    const dto: GetFileStatusBatchDto = GrpcRequestMapper.getFileStatusBatchRequest(data);
+    const result: FileViewType[] = await this.queryBus.execute(new GetFileStatusBatchQuery(dto));
+    return GrpcResponseMapper.getFileStatusBatchResponse(result);
   }
 }

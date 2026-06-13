@@ -2,6 +2,8 @@ import { GenerateUploadUrlRequest, GetFileStatusRequest } from '@inctagram/contr
 import { GenerateUrlForUploadDto } from '../../application/use-cases/dto/generate-url-for-upload.dto';
 import { FileTypeDomain } from '../../domain/file.types';
 import { GetFileStatusDto } from '../dto/get-file-status.dto';
+import { GetFileStatusBatchRequest } from '@inctagram/contracts/generated/file';
+import { GetFileStatusBatchDto } from '../dto/get-file-status-batch.dto';
 
 export class GrpcRequestMapper {
   public static generateUrlForUploadRequest(
@@ -19,6 +21,14 @@ export class GrpcRequestMapper {
   public static getFileStatusRequest(requestData: GetFileStatusRequest): GetFileStatusDto {
     return {
       fileId: requestData.fileId,
+    };
+  }
+
+  public static getFileStatusBatchRequest(
+    requestData: GetFileStatusBatchRequest,
+  ): GetFileStatusBatchDto {
+    return {
+      fileIds: requestData.fileIds,
     };
   }
 

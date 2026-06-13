@@ -6,6 +6,10 @@ import {
   GetFileStatusResponse,
 } from '../../../../../../../libs/contracts/src';
 import { FileStatusDomain, FileTypeDomain, FileViewType } from '../../domain/file.types';
+import {
+  FileStatusData,
+  GetFileStatusBatchResponse,
+} from '../../../../../../../libs/contracts/src/generated/file';
 
 export class GrpcResponseMapper {
   public static getFilesDataResponse(files: FileViewType[] | null): GetFilesDataResponse {
@@ -37,6 +41,18 @@ export class GrpcResponseMapper {
         fileType: fileType,
         fileSize: file.size,
       },
+    };
+  }
+
+  public static getFileStatusBatchResponse(files: FileViewType[]): GetFileStatusBatchResponse {
+    const filesStatus: FileStatusData[] = files.map((file) => {
+      return {
+        id: file.id,
+        status: this.statusToGrpc(file.status),
+      };
+    });
+    return {
+      filesStatus: filesStatus,
     };
   }
 

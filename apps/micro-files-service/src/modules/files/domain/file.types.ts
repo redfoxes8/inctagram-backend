@@ -16,6 +16,7 @@ export enum FileStatusDomain {
   UPLOADED = 'UPLOADED',
   DELETING = 'DELETING',
   FAILED_DELETE = 'FAILED_DELETE',
+  UNKNOWN = 'UNKNOWN',
 }
 
 /**

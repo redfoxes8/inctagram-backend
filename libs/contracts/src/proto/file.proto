@@ -58,6 +58,11 @@ message FileData {
   string file_url = 2;
 }
 
+message FileStatusData {
+  string id = 1;
+  FileStatus status = 2;
+}
+
 message GetFilesDataRequest {
   repeated string file_ids = 1;
 }
@@ -66,8 +71,17 @@ message GetFilesDataResponse {
   map<string, FileData> files = 1; 
 }
 
+message GetFileStatusBatchRequest {
+  repeated string file_ids = 1;
+}
+
+message GetFileStatusBatchResponse {
+  repeated FileStatusData files_status = 1;
+}
+
 service FileService {
   rpc GenerateUploadUrl(GenerateUploadUrlRequest) returns (GenerateUploadUrlResponse);
   rpc GetFilesData(GetFilesDataRequest) returns (GetFilesDataResponse);
   rpc GetFileStatus(GetFileStatusRequest) returns (GetFileStatusResponse);
+  rpc GetFileStatusBatch(GetFileStatusBatchRequest) returns (GetFileStatusBatchResponse);
 }

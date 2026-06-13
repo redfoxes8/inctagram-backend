@@ -20,6 +20,7 @@ import { GetFilesDataHandler } from './application/queries/get-files-data.query'
 import { GolevelupFileEventAdapter } from './infrastructure/event-publishers/golevelup-file-event.adapter';
 import { GetFileStatusHandler } from './application/queries/get-file-status.query';
 import { FilesRabbitConsumer } from './infrastructure/files.rabbit.consumer';
+import { GetFileStatusBatchHandler } from './application/queries/get-file-status-batch.query';
 
 const repositories = [
   {
@@ -42,7 +43,7 @@ const adapters = [
   },
 ];
 
-const queryHandlers = [GetFilesDataHandler, GetFileStatusHandler];
+const queryHandlers = [GetFilesDataHandler, GetFileStatusHandler, GetFileStatusBatchHandler];
 
 const useCases = [GenerateUrlForUploadUseCase, FileUploadedUseCase, DeleteFilesUseCase];
 

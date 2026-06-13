@@ -10,6 +10,10 @@ import {
 } from '../../../../../../libs/contracts/src';
 import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
 import { FILE_SERVICE_GRPC_CLIENT } from './file-grpc.constants';
+import {
+  GetFileStatusBatchRequest,
+  GetFileStatusBatchResponse,
+} from '../../../../../../libs/contracts/src/generated/file';
 
 @Injectable()
 export class FileGrpcClient implements OnModuleInit {
@@ -26,6 +30,16 @@ export class FileGrpcClient implements OnModuleInit {
       return await firstValueFrom(this.fileService.generateUploadUrl(request));
     } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getFileStatusBatch(
+    request: GetFileStatusBatchRequest,
+  ): Promise<GetFileStatusBatchResponse> {
+    try {
+      return await firstValueFrom(this.fileService.getFileStatusBatch(request));
+    } catch (e) {
+      throw GrpcErrorMapper.toDomainException(e);
     }
   }
 }
