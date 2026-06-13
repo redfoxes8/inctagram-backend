@@ -18,6 +18,10 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
   ) {}
 
   async execute({ dto }: DeleteFilesCommand): Promise<void> {
+    // Short log for delete request
+    // eslint-disable-next-line no-console
+    console.log('[FILES-MS] delete requested for fileIds=' + (dto.fileIds || []).join(','));
+
     if (!dto.fileIds) {
       throw new DomainException({
         message: '[POST_DELETED_MESSAGE] fileIds property is required',
@@ -63,6 +67,11 @@ export class DeleteFilesUseCase implements ICommandHandler<DeleteFilesCommand, v
       }
     });
     await Promise.allSettled(deletionPromises);
+
+    // Short log for delete completion
+    // eslint-disable-next-line no-console
+    console.log('[FILES-MS] delete completed for fileIds=' + (dto.fileIds || []).join(','));
+
     return;
   }
 }
