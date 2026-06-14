@@ -12,7 +12,7 @@ import { IRpcAdapter } from '../domain/interfaces/rpc-adapter.interface';
 export class FileController {
   constructor(@Inject(IRpcAdapter) private readonly rpcAdapter: IRpcAdapter) {}
 
-  @Post('file-status-batch')
+  @Post('status-batch')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'get files status',
