@@ -1,5 +1,5 @@
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import {
   GetFileStatusBatchRequestDto,
@@ -10,7 +10,7 @@ import { IRpcAdapter } from '../domain/interfaces/rpc-adapter.interface';
 @ApiTags('File')
 @Controller('file')
 export class FileController {
-  constructor(@Inject(IRpcAdapter) private readonly rpcAdapter: IRpcAdapter) {}
+  constructor(private readonly rpcAdapter: IRpcAdapter) {}
 
   @Post('status-batch')
   @HttpCode(HttpStatus.OK)

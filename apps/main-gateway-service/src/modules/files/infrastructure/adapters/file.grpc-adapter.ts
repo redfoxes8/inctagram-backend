@@ -10,7 +10,9 @@ import {
   GetFileStatusBatchResponse,
 } from '../../../../../../../libs/contracts/src/generated/file';
 import { FileResponseGrpcMapper } from '../mappers/file.response.grpc-mapper';
+import { Injectable } from '@nestjs/common';
 
+@Injectable()
 export class FileGrpcAdapter implements IRpcAdapter {
   constructor(private readonly grpcClient: FileGrpcClient) {}
 

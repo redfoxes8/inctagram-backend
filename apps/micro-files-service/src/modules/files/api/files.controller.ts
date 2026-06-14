@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UseInterceptors } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import type {
   GenerateUploadUrlRequest,
@@ -23,8 +23,10 @@ import type {
 } from '../../../../../../libs/contracts/src/generated/file';
 import { GetFileStatusBatchDto } from './dto/get-file-status-batch.dto';
 import { GetFileStatusBatchQuery } from '../application/queries/get-file-status-batch.query';
+import { GrpcExceptionInterceptor } from '../../../../../../libs/common/src/exceptions/grpc-exception.interceptor';
 
 @Controller()
+@UseInterceptors(GrpcExceptionInterceptor)
 export class FilesController {
   constructor(
     private readonly commandBus: CommandBus,
