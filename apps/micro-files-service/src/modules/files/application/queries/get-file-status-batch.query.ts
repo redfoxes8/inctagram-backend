@@ -5,12 +5,17 @@ import { FileEntity } from '../../domain/file.entity';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { FileViewTypeMapper } from '../mappers/file-view-type.mapper';
+import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 
 export class GetFileStatusBatchQuery {
   constructor(public dto: GetFileStatusBatchDto) {}
 }
 
-export class GetFileStatusBatchHandler {
+@QueryHandler(GetFileStatusBatchQuery)
+export class GetFileStatusBatchHandler implements IQueryHandler<
+  GetFileStatusBatchQuery,
+  FileViewType[]
+> {
   constructor(private readonly fileQueryRepository: IFilesQueryRepository) {}
 
   async execute({ dto }: GetFileStatusBatchQuery): Promise<FileViewType[]> {
