@@ -40,7 +40,7 @@ export class OutboxRelayCron {
     private readonly config: PostConfig,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_10_MINUTES)
   async handleOutboxRelay(): Promise<void> {
     const pending = await this.prisma.outboxEvent.findMany({
       where: { status: 'PENDING' },
