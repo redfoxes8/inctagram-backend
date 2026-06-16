@@ -65,7 +65,6 @@ async function bootstrap() {
     },
   });
   swaggerSetup(app);
-
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
 
   await app.listen(gatewayConfig.port);
