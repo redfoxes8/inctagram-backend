@@ -16,4 +16,11 @@ export abstract class ISessionsRepository {
   abstract deleteAllByUserId(userId: string): Promise<void>;
 
   abstract update(session: SessionEntity): Promise<void>;
+  
+  abstract updateSessionAtomic(
+    deviceId: string,
+    expectedIat: number,
+    newIat: number,
+    newExp: number,
+  ): Promise<boolean>;
 }

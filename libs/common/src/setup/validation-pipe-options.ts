@@ -11,7 +11,7 @@ export const BASE_VALIDATION_PIPE_OPTIONS: ValidationPipeOptions = {
   stopAtFirstError: true,
   exceptionFactory: (errors: ValidationError[]): never => {
     throw new DomainException({
-      code: DomainExceptionCode.ValidationError,
+      code: DomainExceptionCode.BadRequest,
       message: 'Validation failed',
       extensions: formatValidationErrors(errors),
     });

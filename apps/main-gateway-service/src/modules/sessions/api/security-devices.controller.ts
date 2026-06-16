@@ -14,12 +14,12 @@ import {
   ISessionsQueryRepository,
   SessionViewModel,
 } from '../domain/interfaces/sessions.query-repository.interface';
-import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { CommandBus } from '@nestjs/cqrs';
 import { DeactivateOneCommand } from '../application/use-cases/deactivate-one.use-case';
 import { DeactivateAllCommand } from '../application/use-cases/deactivate-all.use-case';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
+import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
 
 @ApiTags('Sessions')
 @Controller('sessions')
@@ -39,9 +39,7 @@ export class SessionsController {
   })
   @ApiOkResponse({ description: 'List of active sessions', type: [SessionViewModel] })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  async myDevices(
-    @Request() req: Express.Request & { user: CurrentUserInfo },
-  ): Promise<SessionViewModel[]> {
+  async myDevices(@Request() req: IAuthRequestInfo): Promise<SessionViewModel[]> {
     return await this.sessionsQueryRepo.getAllActiveSessions(req.user.userId);
   }
 
@@ -64,10 +62,7 @@ export class SessionsController {
   @ApiDomainError(404, 'Session not found', 'Not Found', [
     { message: 'Session with this ID does not exist', field: 'deviceId' },
   ])
-  async deactivateOne(
-    @Param('deviceId') deviceId: string,
-    @Request() req: Express.Request & { user: CurrentUserInfo },
-  ) {
+  async deactivateOne(@Param('deviceId') deviceId: string, @Request() req: IAuthRequestInfo) {
     await this.commandBus.execute(
       new DeactivateOneCommand({ deviceId: deviceId, userInfo: req.user }),
     );
@@ -85,7 +80,7 @@ export class SessionsController {
   })
   @ApiOkResponse({ description: 'All other sessions successfully deactivated' })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  async deactivateAll(@Request() req: Express.Request & { user: CurrentUserInfo }) {
+  async deactivateAll(@Request() req: IAuthRequestInfo) {
     await this.commandBus.execute(new DeactivateAllCommand(req.user));
     return;
   }

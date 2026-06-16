@@ -31,7 +31,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
 
     if (user.passwordHash === null) {
       throw new DomainException({
-        code: DomainExceptionCode.OAuthProviderRequired,
+        code: DomainExceptionCode.Unauthorized,
         message: 'Please login using your OAuth provider (Google)',
       });
     }

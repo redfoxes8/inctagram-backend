@@ -30,11 +30,13 @@ lerna-debug.log*
 
 # IDE - VSCode
 .vscode/*
+.cursor
 
 # dotenv environment variable files
 .env
 .env.development
 .env.development.local
+.env.test
 .env.test.local
 .env.production.local
 .env.local
@@ -62,3 +64,14 @@ Tasks.md
 /prisma/*.db-journal
 
 /generated/prisma
+
+# Generated Prisma clients
+apps/**/src/core/prisma/client/
+apps/**/prisma/client/
+
+# AI agent plans
+docs
+CARD_6_GRPC_CLIENTS_AND_AUTH_GUARDS_PLAN.md
+
+# Stakpak session files
+.stakpak/session*

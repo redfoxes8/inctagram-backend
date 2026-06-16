@@ -26,6 +26,8 @@ RUN npm install
 # Bundle app source code
 COPY --chown=node . .
 
+RUN npx prisma generate --schema=apps/micro-files-service/src/core/prisma/schema.prisma
+
 RUN npm run build:${SERVICE}
 
 # Bind to all network interfaces so that it can be mapped to the host OS

@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package inctagram.post.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message PostImage {
+  string id = 1;
+  string file_id = 2;
+  string url = 3;
+  int32 order = 4;
+}
+
+message Post {
+  string id = 1;
+  string owner_id = 2;
+  string description = 3; // строго макс 500 символов
+  repeated PostImage images = 4; 
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message CreatePostRequest {
+  string owner_id = 1;
+  string description = 2;
+  repeated string file_ids = 3;
+}
+
+message CreatePostResponse {
+  Post post = 1;
+}
+
+message UpdatePostRequest {
+  string post_id = 1;
+  string owner_id = 2;
+  string description = 3;
+}
+
+message UpdatePostResponse {
+  Post post = 1;
+}
+
+message DeletePostRequest {
+  string post_id = 1;
+  string owner_id = 2;
+}
+
+message DeletePostResponse {
+  bool success = 1;
+}
+
+message GetPostsByUserIdRequest {
+  string owner_id = 1;
+  optional string cursor = 2;
+  int32 page_size = 3;
+}
+
+message GetPostsByUserIdResponse {
+  repeated Post posts = 1;
+  optional string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message GetLatestPostsRequest {
+  int32 limit = 1;
+}
+
+message GetLatestPostsResponse {
+  repeated Post posts = 1;
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string reply = 1;
+}
+
+service PostService {
+  rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
+  rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse);
+  rpc DeletePost(DeletePostRequest) returns (DeletePostResponse);
+  rpc GetPostsByUserId(GetPostsByUserIdRequest) returns (GetPostsByUserIdResponse);
+  rpc GetLatestPosts(GetLatestPostsRequest) returns (GetLatestPostsResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+}

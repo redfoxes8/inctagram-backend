@@ -50,7 +50,7 @@ export class UserEntity extends BaseDomainEntity<string> {
     }
 
     throw new DomainException({
-      code: DomainExceptionCode.EmailNotConfirmed,
+      code: DomainExceptionCode.Unauthorized,
       message: 'Email is not confirmed',
     });
   }

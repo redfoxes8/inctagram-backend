@@ -38,6 +38,17 @@ if (process.env.PRISMA_DB_URL) {
   }
 }
 
+if (process.env.PRISMA_DB_URL_DIRECT) {
+  try {
+    const u = new URL(process.env.PRISMA_DB_URL_DIRECT);
+    u.searchParams.set('schema', process.env.TEST_DB_SCHEMA);
+    process.env.PRISMA_DB_URL_DIRECT = u.toString();
+  } catch {
+    // ignore
+  }
+}
+
+// Also keep the legacy alias for compatibility
 if (process.env.PRISMA_DB_DIRECT_URL) {
   try {
     const u = new URL(process.env.PRISMA_DB_DIRECT_URL);

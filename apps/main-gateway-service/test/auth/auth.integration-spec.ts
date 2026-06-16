@@ -108,6 +108,7 @@ describe('Auth Module - Integration Tests', () => {
       expect(result).toEqual({ accessToken: 'mock_access_token' });
       expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mock_refresh_token', {
         httpOnly: true,
+        sameSite: 'none',
         secure: true,
       });
     });

@@ -11,11 +11,14 @@ import {
   UseGuards,
   Inject,
   Get,
+  UnauthorizedException,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { CookieOptions, Request as ExpressRequest, Response } from 'express';
 import { PasswordRecoveryDto } from './dto/password-recovery.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginCommand } from '../application/use-cases/login.use-case';
+import { RefreshTokenCommand } from '../application/use-cases/refresh-token.use-case';
+import type { AuthTokens } from '../application/interfaces/jwt.service.interface';
 import { PasswordRecoveryCommand } from '../application/use-cases/password-recovery.use-case';
 import { RegisterUserCommand } from '../application/use-cases/register-user.use-case';
 import { ConfirmEmailCommand } from '../application/use-cases/confirm-email.use-case';
@@ -24,14 +27,15 @@ import type { SessionMetaData } from '../../sessions/api/decorators/session-info
 import { CommandBus } from '@nestjs/cqrs';
 import { LocalGuard } from '../../../common/guards/local.guard';
 import { LoginDTO } from './dto/login.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
 import { ChangePasswordDTO } from './dto/change-password.dto';
 import { ChangePasswordCommand } from '../application/use-cases/change-password.use-case';
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { LogoutCommand } from '../application/use-cases/logout.use-case';
-import { LogoutDTO } from './dto/logout.dto';
-import { CurrentUserInfo } from '../../../../../../libs/common/types/auth.types';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { GoogleLoginCommand } from '../application/use-cases/google-login.use-case';
+import { AuthEmailResendConfirmationCommand } from '../application/use-cases/auth-email-resend-confirmation.usecase';
+import { EmailResendDto } from './dto/email-resend.dto';
 import { CoreConfig } from '../../../../../../libs/common/src/core.config';
 import { GatewayConfig } from '../../../core/gateway.config';
 import { Recaptcha } from '@nestlab/google-recaptcha';
@@ -39,12 +43,15 @@ import {
   ApiTags,
   ApiOperation,
   ApiOkResponse,
+  ApiCookieAuth,
   ApiCreatedResponse,
   ApiBearerAuth,
   ApiBody,
   ApiHeader,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
+import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -56,16 +63,36 @@ export class AuthController {
   ) {}
 
   @Post('registration')
-  @Recaptcha()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Registration', description: 'Register a new user.' })
-  @ApiHeader({ name: 'recaptcha', description: 'Google reCAPTCHA token', required: true })
   @ApiCreatedResponse({ description: 'Registration successful' })
   @ApiDomainError(400, 'Validation error', 'Validation failed', [
     { message: 'Email must be a valid email address', field: 'email' },
   ])
   public async registration(@Body() dto: RegisterUserDto): Promise<void | { code: string }> {
     const code: string | null = await this.commandBus.execute(new RegisterUserCommand(dto));
+    if (this.coreConfig.env == 'test' && code) {
+      return { code: code };
+    }
+    return;
+  }
+
+  @Post('registration-email-resending')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Resend registration confirmation email' })
+  @ApiBody({ type: EmailResendDto })
+  @ApiOkResponse({ description: 'Confirmation email resent' })
+  @ApiDomainError(400, 'Validation error', 'Validation failed', [
+    { message: 'User not found', field: 'email' },
+    { message: 'Email already confirmed', field: 'email' },
+    { message: 'The confirmation code is still valid', field: 'email' },
+  ])
+  public async registrationEmailResending(
+    @Body() dto: EmailResendDto,
+  ): Promise<void | { code: string }> {
+    const code: string | void = await this.commandBus.execute(
+      new AuthEmailResendConfirmationCommand(dto),
+    );
     if (this.coreConfig.env == 'test' && code) {
       return { code: code };
     }
@@ -101,22 +128,54 @@ export class AuthController {
   @ApiBody({ type: LoginDTO })
   @ApiOkResponse({
     description: 'Login successful',
-    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } },
+    type: LoginResponseDto,
   })
   @ApiDomainError(401, 'Invalid credentials or OAuth provider required', 'Unauthorized')
   public async login(
-    @Request() req: Express.Request & { user: CurrentUserInfo },
+    @Request() req: IAuthRequestInfo,
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ accessToken: string }> {
-    const tokens = await this.commandBus.execute(
+  ): Promise<LoginResponseDto> {
+    const tokens: AuthTokens = await this.commandBus.execute(
       new LoginCommand(req.user, {
         ...sessionMeta,
         deviceId: randomUUID(),
       }),
     );
 
-    res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+    this.setRefreshTokenCookie(res, tokens.refreshToken);
+
+    return { accessToken: tokens.accessToken };
+  }
+
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('refreshToken')
+  @ApiOperation({
+    summary: 'Refresh access and refresh tokens',
+    description: 'Uses a valid refresh token from cookies to generate a new token pair.',
+  })
+  @ApiOkResponse({
+    description: 'Tokens successfully refreshed',
+    type: LoginResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized: Invalid token, session not found, or token reuse detected',
+  })
+  public async refreshToken(
+    @Request() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    const refreshToken: string = req.cookies?.refreshToken;
+    if (!refreshToken) throw new UnauthorizedException();
+
+    const tokens: AuthTokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
+
+    this.setRefreshTokenCookie(res, tokens.refreshToken, {
+      maxAge: this.gatewayConfig.refreshTokenExpTime * 1000,
+    });
+
     return { accessToken: tokens.accessToken };
   }
 
@@ -161,8 +220,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout', description: 'Logout the user and clear the session.' })
   @ApiOkResponse({ description: 'Logout successful' })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  public async logout(@Request() req: Express.Request): Promise<void> {
-    await this.commandBus.execute(new LogoutCommand(req.user as LogoutDTO));
+  public async logout(@Request() req: IAuthRequestInfo): Promise<void> {
+    await this.commandBus.execute(new LogoutCommand(req.user));
     return;
   }
 
@@ -197,7 +256,7 @@ export class AuthController {
     @SessionInfo() sessionMeta: SessionMetaData,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string }> {
-    const tokens = await this.commandBus.execute(
+    const tokens: AuthTokens = await this.commandBus.execute(
       new GoogleLoginCommand(
         dto.code,
         dto.username,
@@ -209,8 +268,27 @@ export class AuthController {
       ),
     );
 
-    res.cookie('refreshToken', tokens.refreshToken, { httpOnly: true, secure: true });
+    this.setRefreshTokenCookie(res, tokens.refreshToken);
 
     return { accessToken: tokens.accessToken };
+  }
+
+  private setRefreshTokenCookie(
+    res: Response,
+    refreshToken: string,
+    options: Pick<CookieOptions, 'maxAge'> = {},
+  ): void {
+    // WARNING: If authentication tests suddenly start failing locally or in CI/CD (deploy),
+    // check this cookie configuration first!
+    // Modern browsers (including headless ones like Playwright) strict-drop cookies with
+    // `sameSite: 'none'` + `secure: true` if they are sent over plain HTTP.
+    // - Local dev/testing: Works fine on `http://localhost` due to browser exceptions.
+    // - CI/CD / Deploy: Will FAIL over plain HTTP on non-localhost domains or custom IPs.
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      ...options,
+    });
   }
 }

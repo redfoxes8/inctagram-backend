@@ -4,7 +4,7 @@ import {
   IOAuthAccountsRepository,
   OAuthAccountData,
 } from '../domain/interfaces/oauth-accounts.repository.interface';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../core/prisma/client';
 
 @Injectable()
 export class PrismaOAuthAccountsRepository implements IOAuthAccountsRepository {

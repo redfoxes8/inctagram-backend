@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: micro-files-service
+  namespace: nymbi-org
+
+spec:
+  selector:
+    project: micro-files-service-14-04-2026
+
+  ports:
+    - protocol: TCP
+      port: 50052
+      targetPort: 50052

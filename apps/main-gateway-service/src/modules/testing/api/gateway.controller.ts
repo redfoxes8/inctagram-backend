@@ -6,7 +6,7 @@ import { FilesHttpClient } from '../infrastructure/files-http.client';
 export class GatewayController {
   constructor(private readonly filesHttpClient: FilesHttpClient) {}
 
-  // локальный тест http://localhost:3000/api/v1/gateway-testing/test-log?text=ConnectSuccessfully
+  // локальный тест http://localhost:4278/api/v1/gateway-testing/test-log?text=ConnectSuccessfully
   @Get('test-log')
   async testLog(
     @Query('text') text: string,

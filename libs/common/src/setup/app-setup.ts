@@ -44,9 +44,7 @@ export function appSetup(
     }
   }
 
-  if (options.rpcConfig?.enabled) {
-    if (options.rpcConfig.tcpPipes || options.rpcConfig.grpcPipes) {
-      // Reserved hook for protocol-specific RPC pipes.
-    }
+  if (options.rpcConfig?.enabled && options.rpcConfig.options) {
+    app.connectMicroservice(options.rpcConfig.options);
   }
 }

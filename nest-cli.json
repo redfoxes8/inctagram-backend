@@ -29,6 +29,15 @@
         "tsConfigPath": "libs/common/tsconfig.lib.json"
       }
     },
+    "contracts": {
+      "type": "library",
+      "root": "libs/contracts",
+      "entryFile": "index",
+      "sourceRoot": "libs/contracts/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/contracts/tsconfig.lib.json"
+      }
+    },
     "main-gateway-service": {
       "type": "application",
       "root": "apps/main-gateway-service",
@@ -60,6 +69,15 @@
             "watchAssets": true
           }
         ]
+      }
+    },
+    "micro-post-service": {
+      "type": "application",
+      "root": "apps/micro-post-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/micro-post-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/micro-post-service/tsconfig.app.json"
       }
     }
   }

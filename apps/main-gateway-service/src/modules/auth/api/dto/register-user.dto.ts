@@ -1,13 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterUserDto {
   @ApiProperty({ description: 'Unique username', example: 'cool_user' })
@@ -31,9 +23,4 @@ export class RegisterUserDto {
       ' Password must contain 0-9, a-z, A-Z, ! " # $ % & \' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ { | } ~ ',
   })
   password: string;
-
-  @ApiProperty({ description: 'Password confirmation', example: 'StrongPassword123!', required: false })
-  @IsOptional()
-  @IsString()
-  passwordConfirmation?: string;
 }
