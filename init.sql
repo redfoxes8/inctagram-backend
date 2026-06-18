@@ -1,0 +1,3 @@
+CREATE DATABASE gateway_db;
+CREATE DATABASE post_db;
+CREATE DATABASE files_db;
