@@ -239,6 +239,8 @@ export class NotificationsController {
 
   private buildFrontendLink(path: string, code: string): string {
     const normalizedFrontendUrl = this.notificationConfig.frontEndUrl.replace(/\/+$/, '');
+    console.log('Link ===>', `${normalizedFrontendUrl}/${path}?code=${encodeURIComponent(code)}`);
+
     return `${normalizedFrontendUrl}/${path}?code=${encodeURIComponent(code)}`;
   }
 }
