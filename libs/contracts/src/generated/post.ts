@@ -86,6 +86,22 @@ export interface PingResponse {
   reply: string;
 }
 
+export interface GetPostsCountByUserIdRequest {
+  ownerId: string;
+}
+
+export interface GetPostsCountByUserIdResponse {
+  count: number;
+}
+
+export interface GetPostByIdRequest {
+  postId: string;
+}
+
+export interface GetPostByIdResponse {
+  post: Post | undefined;
+}
+
 export const INCTAGRAM_POST_V1_PACKAGE_NAME = "inctagram.post.v1";
 
 export interface PostServiceClient {
@@ -100,6 +116,13 @@ export interface PostServiceClient {
   getLatestPosts(request: GetLatestPostsRequest, metadata?: Metadata): Observable<GetLatestPostsResponse>;
 
   ping(request: PingRequest, metadata?: Metadata): Observable<PingResponse>;
+
+  getPostsCountByUserId(
+    request: GetPostsCountByUserIdRequest,
+    metadata?: Metadata,
+  ): Observable<GetPostsCountByUserIdResponse>;
+
+  getPostById(request: GetPostByIdRequest, metadata?: Metadata): Observable<GetPostByIdResponse>;
 }
 
 export interface PostServiceController {
@@ -129,6 +152,16 @@ export interface PostServiceController {
   ): Promise<GetLatestPostsResponse> | Observable<GetLatestPostsResponse> | GetLatestPostsResponse;
 
   ping(request: PingRequest, metadata?: Metadata): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
+
+  getPostsCountByUserId(
+    request: GetPostsCountByUserIdRequest,
+    metadata?: Metadata,
+  ): Promise<GetPostsCountByUserIdResponse> | Observable<GetPostsCountByUserIdResponse> | GetPostsCountByUserIdResponse;
+
+  getPostById(
+    request: GetPostByIdRequest,
+    metadata?: Metadata,
+  ): Promise<GetPostByIdResponse> | Observable<GetPostByIdResponse> | GetPostByIdResponse;
 }
 
 export function PostServiceControllerMethods() {
@@ -140,6 +173,8 @@ export function PostServiceControllerMethods() {
       "getPostsByUserId",
       "getLatestPosts",
       "ping",
+      "getPostsCountByUserId",
+      "getPostById",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
