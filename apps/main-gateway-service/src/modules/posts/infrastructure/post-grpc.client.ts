@@ -9,6 +9,10 @@ import {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
+  type GetPostsCountByUserIdRequest,
+  type GetPostsCountByUserIdResponse,
+  type GetPostByIdRequest,
+  type GetPostByIdResponse,
   POST_SERVICE_NAME,
   type PostServiceClient,
 } from '../../../../../../libs/contracts/src';
@@ -63,6 +67,22 @@ export class PostGrpcClient implements OnModuleInit {
   async getLatestPosts(request: GetLatestPostsRequest): Promise<GetLatestPostsResponse> {
     try {
       return await firstValueFrom(this.postService.getLatestPosts(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getPostsCountByUserId(request: GetPostsCountByUserIdRequest): Promise<GetPostsCountByUserIdResponse> {
+    try {
+      return await firstValueFrom(this.postService.getPostsCountByUserId(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getPostById(request: GetPostByIdRequest): Promise<GetPostByIdResponse> {
+    try {
+      return await firstValueFrom(this.postService.getPostById(request));
     } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
     }
