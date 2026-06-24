@@ -10,6 +10,10 @@ import { GetMeHandler } from './application/queries/get-me.query';
 import { CqrsModule } from '@nestjs/cqrs';
 import { UsersController } from './api/users.controller';
 import { CountUsersHandler } from './application/queries/count-users.query';
+import { IUserProfileRepository } from './domain/interfaces/user-profile.repository.interface';
+import { PrismaUserProfileRepository } from './infrastructure/user-profile.repository';
+import { IUserProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
+import { PrismaUserProfileQueryRepository } from './infrastructure/user-profile.query-repository';
 
 @Module({
   imports: [CqrsModule],
@@ -20,8 +24,16 @@ import { CountUsersHandler } from './application/queries/count-users.query';
     CountUsersHandler,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
+    { provide: IUserProfileRepository, useClass: PrismaUserProfileRepository },
+    { provide: IUserProfileQueryRepository, useClass: PrismaUserProfileQueryRepository },
     { provide: IPasswordService, useClass: BcryptService },
   ],
-  exports: [IUsersRepository, IUsersQueryRepository, IPasswordService],
+  exports: [
+    IUsersRepository,
+    IUsersQueryRepository,
+    IUserProfileRepository,
+    IUserProfileQueryRepository,
+    IPasswordService,
+  ],
 })
 export class UsersModule {}

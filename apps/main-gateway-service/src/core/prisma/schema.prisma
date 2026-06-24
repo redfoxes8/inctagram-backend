@@ -20,9 +20,29 @@ model User {
   emailConfirmation EmailConfirmation?
   passwordRecovery PasswordRecovery?
   oauthAccounts    OAuthAccount[]
+  userProfile      UserProfile?
 
   @@index([username])
   @@index([email])
+}
+
+model UserProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  firstName     String?
+  lastName      String?
+  dateOfBirth   DateTime?
+  country       String?
+  city          String?
+  aboutMe       String?
+  avatarFileId  String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {
