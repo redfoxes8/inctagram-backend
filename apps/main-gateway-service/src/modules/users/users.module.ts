@@ -9,19 +9,23 @@ import { CheckUsernameHandler } from './application/queries/check-username.query
 import { GetMeHandler } from './application/queries/get-me.query';
 import { CqrsModule } from '@nestjs/cqrs';
 import { UsersController } from './api/users.controller';
+import { ProfileController } from './api/profile.controller';
 import { CountUsersHandler } from './application/queries/count-users.query';
+import { GetPublicProfileHandler } from './application/queries/get-public-profile.query';
 import { IUserProfileRepository } from './domain/interfaces/user-profile.repository.interface';
 import { PrismaUserProfileRepository } from './infrastructure/user-profile.repository';
 import { IUserProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
 import { PrismaUserProfileQueryRepository } from './infrastructure/user-profile.query-repository';
+import { PostGrpcClientModule } from '../posts/infrastructure/post-grpc-client.module';
 
 @Module({
-  imports: [CqrsModule],
-  controllers: [UsersController],
+  imports: [CqrsModule, PostGrpcClientModule],
+  controllers: [UsersController, ProfileController],
   providers: [
     CheckUsernameHandler,
     GetMeHandler,
     CountUsersHandler,
+    GetPublicProfileHandler,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
     { provide: IUserProfileRepository, useClass: PrismaUserProfileRepository },

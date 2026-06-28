@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 
@@ -22,12 +22,19 @@ import { GetLatestPostsRequest, GetLatestPostsResponse } from '@inctagram/contra
 
 @Injectable()
 export class PostGrpcClient implements OnModuleInit {
+  private readonly logger = new Logger(PostGrpcClient.name);
   private postService: PostServiceClient;
 
   constructor(@Inject(POST_SERVICE_GRPC_CLIENT) private readonly client: ClientGrpc) {}
 
   onModuleInit(): void {
     this.postService = this.client.getService<PostServiceClient>(POST_SERVICE_NAME);
+  }
+
+  private logGrpcFailure(rpcName: string, error: any, id: { userId?: string; postId?: string }): void {
+    const grpcStatus = error?.code ?? 'UNKNOWN';
+    const idKey = id.userId ? `userId=${id.userId}` : `postId=${id.postId}`;
+    this.logger.warn(`gRPC failure - rpcName: ${rpcName}, grpcStatus: ${grpcStatus}, ${idKey}. Message: ${error?.message || 'No message'}`);
   }
 
   async createPost(request: CreatePostRequest): Promise<CreatePostResponse> {
@@ -60,6 +67,7 @@ export class PostGrpcClient implements OnModuleInit {
     try {
       return await firstValueFrom(this.postService.getPostsByUserId(request));
     } catch (error: unknown) {
+      this.logGrpcFailure('GetPostsByUserId', error, { userId: request.ownerId });
       throw GrpcErrorMapper.toDomainException(error);
     }
   }
@@ -76,6 +84,7 @@ export class PostGrpcClient implements OnModuleInit {
     try {
       return await firstValueFrom(this.postService.getPostsCountByUserId(request));
     } catch (error: unknown) {
+      this.logGrpcFailure('GetPostsCountByUserId', error, { userId: request.ownerId });
       throw GrpcErrorMapper.toDomainException(error);
     }
   }
@@ -84,6 +93,7 @@ export class PostGrpcClient implements OnModuleInit {
     try {
       return await firstValueFrom(this.postService.getPostById(request));
     } catch (error: unknown) {
+      this.logGrpcFailure('GetPostById', error, { postId: request.postId });
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

@@ -4,6 +4,7 @@ import {
   type CreatePostResponse,
   type GetPostsByUserIdResponse,
   type Post,
+  type GetPostByIdResponse,
 } from '../../../../../../../libs/contracts/src';
 import {
   CreatePostResponseDto,
@@ -38,6 +39,16 @@ export class PostResponseMapper {
       nextCursor: response.nextCursor,
       hasMore: response.hasMore ?? false,
     };
+  }
+
+  static toSinglePostResponse(response: GetPostByIdResponse): PostResponseDto {
+    if (!response.post) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Post not found',
+      });
+    }
+    return this.toPostResponse(response.post);
   }
 
   private static toPostResponse(post: Post): PostResponseDto {

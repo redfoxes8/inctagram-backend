@@ -12,6 +12,7 @@ export function swaggerSetup(app: INestApplication) {
     .addTag('Auth')
     .addTag('Sessions')
     .addTag('Users')
+    .addTag('Profile')
     .addTag('Posts')
     .addTag('Gateway')
     .addTag('Testing')
