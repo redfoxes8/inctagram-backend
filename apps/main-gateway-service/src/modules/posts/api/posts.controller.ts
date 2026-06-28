@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Logger,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -30,7 +31,7 @@ import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetFeedQueryDto } from './dto/get-feed-query.dto';
-import { CreatePostResponseDto, GetFeedResponseDto } from './dto/post-response.dto';
+import { CreatePostResponseDto, GetFeedResponseDto, PostResponseDto } from './dto/post-response.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { GeneratePostImageUploadUrlDto } from './dto/generate-post-image-upload-url.dto';
 import { GeneratePostImageUploadUrlResponseDto } from './dto/generate-post-image-upload-url-response.dto';
@@ -41,7 +42,10 @@ import { GeneratePostImageUploadUrlCommand } from '../application/commands/gener
 import { GetFeedQuery } from '../application/queries/get-feed.query';
 import { GetLatestPostsQueryDto, PostViewType } from './dto/get-latest.dto';
 import { GetLatestPostsQuery } from '../application/queries/get-latest-posts.query';
+import { GetPostByIdQuery } from '../application/queries/get-post-by-id.query';
 import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
+
+const logger = new Logger('PostsController');
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -187,5 +191,27 @@ export class PostsController {
     @CurrentUserId() ownerId: string,
   ): Promise<CreatePostResponseDto> {
     return this.commandBus.execute(new UpdatePostCommand({ postId, dto, ownerId }));
+  }
+
+  @Get(':postId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get post by ID',
+    description: 'Retrieves a single post by its identifier.',
+  })
+  @ApiParam({
+    name: 'postId',
+    description: 'Post identifier',
+    example: 'post-id',
+  })
+  @ApiOkResponse({
+    description: 'Post retrieved successfully',
+    type: PostResponseDto,
+  })
+  @ApiDomainError(404, 'Post not found', 'Not Found')
+  @ApiDomainError(503, 'Post service unavailable', 'Service unavailable')
+  async getPostById(@Param('postId') postId: string): Promise<PostResponseDto> {
+    logger.debug(`Incoming request: postId=${postId}`);
+    return this.queryBus.execute(new GetPostByIdQuery(postId));
   }
 }
