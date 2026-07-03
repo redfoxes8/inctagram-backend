@@ -1,4 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { GatewayConfig } from './core/gateway.config';
 import { CoreModule } from '../../../libs/common/src/core.module';
 import { CommonModule } from '../../../libs/common/src';
@@ -20,6 +21,7 @@ import { FilesModule } from './modules/files/files.module';
     CommonModule,
     CoreModule,
     GatewayConfigModule,
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
