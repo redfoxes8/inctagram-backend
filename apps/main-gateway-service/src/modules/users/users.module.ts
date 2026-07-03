@@ -17,15 +17,23 @@ import { PrismaUserProfileRepository } from './infrastructure/user-profile.repos
 import { IUserProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
 import { PrismaUserProfileQueryRepository } from './infrastructure/user-profile.query-repository';
 import { PostGrpcClientModule } from '../posts/infrastructure/post-grpc-client.module';
+import { FileGrpcClientModule } from '../files/infrastructure/file-grpc-client.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { GetAvatarUploadUrlHandler } from './application/commands/get-avatar-upload-url.command';
+import { ConfirmAvatarHandler } from './application/commands/confirm-avatar.command';
+import { AvatarOutboxRelayCron } from './infrastructure/outbox/avatar-outbox-relay.cron';
 
 @Module({
-  imports: [CqrsModule, PostGrpcClientModule],
+  imports: [CqrsModule, PostGrpcClientModule, FileGrpcClientModule, ScheduleModule],
   controllers: [UsersController, ProfileController],
   providers: [
     CheckUsernameHandler,
     GetMeHandler,
     CountUsersHandler,
     GetPublicProfileHandler,
+    GetAvatarUploadUrlHandler,
+    ConfirmAvatarHandler,
+    AvatarOutboxRelayCron,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
     { provide: IUserProfileRepository, useClass: PrismaUserProfileRepository },

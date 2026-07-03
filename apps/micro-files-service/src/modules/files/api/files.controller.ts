@@ -36,6 +36,7 @@ export class FilesController {
   @GrpcMethod('FileService', 'GenerateUploadUrl')
   async generateUploadUrl(data: GenerateUploadUrlRequest): Promise<GenerateUploadUrlResponse> {
     const dto: GenerateUrlForUploadDto = GrpcRequestMapper.generateUrlForUploadRequest(data);
+
     return await this.commandBus.execute(new GenerateUrlForUploadCommand(dto));
   }
 
