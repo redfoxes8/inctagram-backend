@@ -10,6 +10,8 @@ import { EmailConfirmationEntity } from '../../domain/email-confirmation.entity'
 import { IEmailConfirmationRepository } from '../../domain/interfaces/email-confirmation.repository.interface';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { CoreConfig } from '../../../../../../../libs/common/src/core.config';
+import { IProfileRepository } from '../../../users/domain/interfaces/user-profile.repository.interface';
+import { ProfileEntity } from '../../../users/domain/profile.entity';
 
 export class RegisterUserCommand {
   constructor(public dto: RegisterUserDto) {}
@@ -18,20 +20,22 @@ export class RegisterUserCommand {
 @CommandHandler(RegisterUserCommand)
 export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand, void | string> {
   constructor(
-    private usersRepository: IUsersRepository,
-    private passwordService: IPasswordService,
-    private emailAdapter: IEmailAdapter,
-    private emailConfirmationRepository: IEmailConfirmationRepository,
-    private coreConfig: CoreConfig,
+    private readonly usersRepository: IUsersRepository,
+    private readonly passwordService: IPasswordService,
+    private readonly emailAdapter: IEmailAdapter,
+    private readonly emailConfirmationRepository: IEmailConfirmationRepository,
+    private readonly coreConfig: CoreConfig,
+    private readonly profileRepository: IProfileRepository,
   ) {}
 
   public async execute({ dto }: RegisterUserCommand): Promise<void | string> {
-    const existingUser = await this.usersRepository.findByEmail(dto.email);
-    const passwordHash = await this.passwordService.hashPassword(dto.password);
-    const confirmationCode = this.generateConfirmationCode();
+    const existingUser: UserEntity | null = await this.usersRepository.findByEmail(dto.email);
+    const passwordHash: string = await this.passwordService.hashPassword(dto.password);
+    const confirmationCode: string = this.generateConfirmationCode();
 
-    const existingUserUsername: UserEntity | null =
-      await this.usersRepository.findByUsernameOrEmail(dto.username);
+    const existingUserUsername: ProfileEntity | null = await this.profileRepository.findByUsername(
+      dto.username,
+    );
     if (existingUserUsername) {
       throw new DomainException({
         code: DomainExceptionCode.BadRequest,
@@ -48,12 +52,11 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
 
     if (existingUser) {
       existingUser.updateCredentials({
-        username: dto.username,
         email: dto.email,
         passwordHash,
       });
 
-      const updatedUser = await this.usersRepository.update(existingUser);
+      const updatedUser: UserEntity = await this.usersRepository.update(existingUser);
 
       await this.emailConfirmationRepository.deleteByUserId(updatedUser.id);
       await this.emailConfirmationRepository.save(
@@ -73,34 +76,22 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
       return;
     }
 
-    const user = new UserEntity({
-      id: randomUUID(),
-      username: dto.username,
-      email: dto.email,
-      passwordHash,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      deletedAt: null,
-      isConfirmed: false,
-    });
+    const user: UserEntity = UserEntity.createNew(dto.email, passwordHash);
+    await this.usersRepository.save(user);
 
-    const savedUser = await this.usersRepository.save(user);
+    const profile: ProfileEntity = ProfileEntity.createNew(user.id, dto.username);
+    await this.profileRepository.save(profile);
 
-    await this.emailConfirmationRepository.save(
-      new EmailConfirmationEntity({
-        id: randomUUID(),
-        userId: savedUser.id,
-        confirmationCode,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
-      }),
+    const emailConfirmation: EmailConfirmationEntity = EmailConfirmationEntity.createNew(
+      user.id,
+      confirmationCode,
     );
+    await this.emailConfirmationRepository.save(emailConfirmation);
 
     if (this.coreConfig.env == 'test') {
       return confirmationCode;
     }
-    await this.emailAdapter.sendRegistrationCode(savedUser.email, confirmationCode);
+    await this.emailAdapter.sendRegistrationCode(user.email, confirmationCode);
     return;
   }
 

@@ -9,8 +9,8 @@ import {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
-  type GetPostsCountByUserIdRequest,
-  type GetPostsCountByUserIdResponse,
+  type GetPostsCountRequest,
+  type GetPostsCountResponse,
   type GetPostByIdRequest,
   type GetPostByIdResponse,
   POST_SERVICE_NAME,
@@ -31,10 +31,16 @@ export class PostGrpcClient implements OnModuleInit {
     this.postService = this.client.getService<PostServiceClient>(POST_SERVICE_NAME);
   }
 
-  private logGrpcFailure(rpcName: string, error: any, id: { userId?: string; postId?: string }): void {
+  private logGrpcFailure(
+    rpcName: string,
+    error: any,
+    id: { userId?: string; postId?: string },
+  ): void {
     const grpcStatus = error?.code ?? 'UNKNOWN';
     const idKey = id.userId ? `userId=${id.userId}` : `postId=${id.postId}`;
-    this.logger.warn(`gRPC failure - rpcName: ${rpcName}, grpcStatus: ${grpcStatus}, ${idKey}. Message: ${error?.message || 'No message'}`);
+    this.logger.warn(
+      `gRPC failure - rpcName: ${rpcName}, grpcStatus: ${grpcStatus}, ${idKey}. Message: ${error?.message || 'No message'}`,
+    );
   }
 
   async createPost(request: CreatePostRequest): Promise<CreatePostResponse> {
@@ -80,7 +86,7 @@ export class PostGrpcClient implements OnModuleInit {
     }
   }
 
-  async getPostsCountByUserId(request: GetPostsCountByUserIdRequest): Promise<GetPostsCountByUserIdResponse> {
+  async getPostsCount(request: GetPostsCountRequest): Promise<GetPostsCountResponse> {
     try {
       return await firstValueFrom(this.postService.getPostsCountByUserId(request));
     } catch (error: unknown) {

@@ -11,13 +11,22 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { UsersController } from './api/users.controller';
 import { ProfileController } from './api/profile.controller';
 import { CountUsersHandler } from './application/queries/count-users.query';
-import { GetPublicProfileHandler } from './application/queries/get-public-profile.query';
-import { IUserProfileRepository } from './domain/interfaces/user-profile.repository.interface';
-import { PrismaUserProfileRepository } from './infrastructure/user-profile.repository';
-import { IUserProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
-import { PrismaUserProfileQueryRepository } from './infrastructure/user-profile.query-repository';
+import { GetProfileHandler } from './application/queries/get-profile.query';
+import { IProfileRepository } from './domain/interfaces/user-profile.repository.interface';
+import { ProfileRepository } from './infrastructure/profile.repository';
+import { IProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
+import { ProfileQueryRepository } from './infrastructure/profile.query-repository';
 import { PostGrpcClientModule } from '../posts/infrastructure/post-grpc-client.module';
+import { IPostGrpcAdapter } from '../posts/infrastructure/interfaces/post-grpc-adapter.interface';
+import { PostGrpcAdapter } from '../posts/infrastructure/post-grpc.adapter';
+import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
 
+const adapters = [
+  {
+    provide: IPostGrpcAdapter,
+    useClass: PostGrpcAdapter,
+  },
+];
 @Module({
   imports: [CqrsModule, PostGrpcClientModule],
   controllers: [UsersController, ProfileController],
@@ -25,18 +34,20 @@ import { PostGrpcClientModule } from '../posts/infrastructure/post-grpc-client.m
     CheckUsernameHandler,
     GetMeHandler,
     CountUsersHandler,
-    GetPublicProfileHandler,
+    GetProfileHandler,
+    UpdateProfileUseCase,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
-    { provide: IUserProfileRepository, useClass: PrismaUserProfileRepository },
-    { provide: IUserProfileQueryRepository, useClass: PrismaUserProfileQueryRepository },
+    { provide: IProfileRepository, useClass: ProfileRepository },
+    { provide: IProfileQueryRepository, useClass: ProfileQueryRepository },
     { provide: IPasswordService, useClass: BcryptService },
+    ...adapters,
   ],
   exports: [
     IUsersRepository,
     IUsersQueryRepository,
-    IUserProfileRepository,
-    IUserProfileQueryRepository,
+    IProfileRepository,
+    IProfileQueryRepository,
     IPasswordService,
   ],
 })

@@ -1,8 +1,8 @@
 import { FileStatusDomain, FileTypeDomain } from '../../domain/file.types';
 import { FileEntity } from '../../domain/file.entity';
-import { File as PrismaFile, FileStatus, FileType } from '../../../../core/prisma/client';
+import { File, FileStatus, FileType } from '../../../../core/prisma/client';
 
-export type PrismaFileRecord = PrismaFile;
+export type PrismaFileRecord = File;
 
 export class PrismaMapper {
   public static toDomain(prismaFileRecord: PrismaFileRecord): FileEntity {

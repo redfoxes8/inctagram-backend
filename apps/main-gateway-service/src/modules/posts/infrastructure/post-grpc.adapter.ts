@@ -2,18 +2,31 @@ import { PostGrpcClient } from './post-grpc.client';
 import { GetLatestPostsQueryDto, PostViewType } from '../api/dto/get-latest.dto';
 import { PostRequestMapper } from '../api/mappers/post-request.mapper';
 import { PostResponseMapper } from '../api/mappers/post-response.mapper';
-import { GetLatestPostsRequest, GetLatestPostsResponse } from '@inctagram/contracts/generated/post';
+import {
+  GetLatestPostsRequest,
+  GetLatestPostsResponse,
+  GetPostsCountRequest,
+  GetPostsCountResponse,
+} from '@inctagram/contracts/generated/post';
 import { Injectable } from '@nestjs/common';
+import { GetProfileRequestDto } from '../../users/api/dto/get-profile.dto';
+import { IPostGrpcAdapter } from './interfaces/post-grpc-adapter.interface';
 
 @Injectable()
-export class PostGrpcAdapter {
+export class PostGrpcAdapter implements IPostGrpcAdapter {
   constructor(private readonly postGrpcClient: PostGrpcClient) {}
 
   async getLatestPosts(dto: GetLatestPostsQueryDto): Promise<PostViewType[] | null> {
-    const request: GetLatestPostsRequest = PostRequestMapper.toGetLatestPostsRequest({
+    const request: GetLatestPostsRequest = PostRequestMapper.toGetLatestPosts({
       query: dto,
     });
     const response: GetLatestPostsResponse = await this.postGrpcClient.getLatestPosts(request);
     return PostResponseMapper.toViewType(response.posts);
+  }
+
+  async getPostsCount(dto: GetProfileRequestDto) {
+    const request: GetPostsCountRequest = PostRequestMapper.toGetPostsCount({ userId: dto.userId });
+    const response: GetPostsCountResponse = await this.postGrpcClient.getPostsCount(request);
+    return PostResponseMapper.getPostsCount(response);
   }
 }

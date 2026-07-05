@@ -7,7 +7,5 @@ export abstract class IUsersRepository {
 
   abstract findByEmail(email: string): Promise<UserEntity | null>;
 
-  abstract findByUsernameOrEmail(usernameOrEmail: string): Promise<UserEntity | null>;
-
   abstract update(user: UserEntity, tx?: unknown): Promise<UserEntity>;
 }

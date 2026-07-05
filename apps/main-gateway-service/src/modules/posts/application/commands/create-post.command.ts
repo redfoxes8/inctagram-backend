@@ -23,7 +23,7 @@ export class CreatePostHandler implements ICommandHandler<
   constructor(private readonly postGrpcClient: PostGrpcClient) {}
 
   async execute(command: CreatePostCommand): Promise<CreatePostResponseDto> {
-    const request = PostRequestMapper.toCreatePostRequest(command.params);
+    const request = PostRequestMapper.toCreatePost(command.params);
     const response = await this.postGrpcClient.createPost(request);
 
     return PostResponseMapper.toCreatePostResponse(response);

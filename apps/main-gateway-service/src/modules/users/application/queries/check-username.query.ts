@@ -1,5 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { IProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';
+import { ProfileEntity } from '../../domain/profile.entity';
 
 export class CheckUsernameQuery {
   constructor(public readonly username: string) {}
@@ -10,15 +11,10 @@ export class CheckUsernameHandler implements IQueryHandler<
   CheckUsernameQuery,
   { available: boolean }
 > {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(private readonly profileRepository: IProfileRepository) {}
 
-  async execute(query: CheckUsernameQuery): Promise<{ available: boolean }> {
-    const user = await this.prismaService.user.findFirst({
-      where: {
-        username: query.username,
-        deletedAt: null,
-      },
-    });
+  async execute({ username }: CheckUsernameQuery): Promise<{ available: boolean }> {
+    const user: ProfileEntity | null = await this.profileRepository.findByUsername(username);
 
     return { available: !user };
   }

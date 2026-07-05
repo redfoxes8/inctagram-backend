@@ -3,7 +3,6 @@ import { UserEntity } from '../../domain/user.entity';
 export type UserRecord = {
   id: string;
   email: string;
-  username: string;
   passwordHash: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -11,11 +10,10 @@ export type UserRecord = {
   isConfirmed: boolean;
 };
 
-export class UserMapper {
+export class UserPrismaMapper {
   public static toDomain(model: UserRecord): UserEntity {
     return new UserEntity({
       id: model.id,
-      username: model.username,
       email: model.email,
       passwordHash: model.passwordHash,
       createdAt: model.createdAt,

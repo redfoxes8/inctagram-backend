@@ -5,6 +5,7 @@ import {
   type GetPostsByUserIdResponse,
   type Post,
   type GetPostByIdResponse,
+  GetPostsCountResponse,
 } from '../../../../../../../libs/contracts/src';
 import {
   CreatePostResponseDto,
@@ -81,6 +82,10 @@ export class PostResponseMapper {
         updatedAt: this.timestampToDate(post.updatedAt),
       };
     });
+  }
+
+  static getPostsCount(response: GetPostsCountResponse): number {
+    return response.count;
   }
 
   private static timestampToDate(timestamp: TimestampLike | undefined): Date {

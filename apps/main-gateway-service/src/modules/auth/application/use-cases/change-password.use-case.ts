@@ -44,7 +44,6 @@ export class ChangePasswordUseCase implements ICommandHandler<ChangePasswordComm
 
     const passwordHash = await this.passwordService.hashPassword(dto.newPassword);
     user.updateCredentials({
-      username: user.username,
       email: user.email,
       passwordHash,
     });

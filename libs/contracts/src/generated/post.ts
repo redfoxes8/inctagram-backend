@@ -86,11 +86,11 @@ export interface PingResponse {
   reply: string;
 }
 
-export interface GetPostsCountByUserIdRequest {
+export interface GetPostsCountRequest {
   ownerId: string;
 }
 
-export interface GetPostsCountByUserIdResponse {
+export interface GetPostsCountResponse {
   count: number;
 }
 
@@ -118,9 +118,9 @@ export interface PostServiceClient {
   ping(request: PingRequest, metadata?: Metadata): Observable<PingResponse>;
 
   getPostsCountByUserId(
-    request: GetPostsCountByUserIdRequest,
+    request: GetPostsCountRequest,
     metadata?: Metadata,
-  ): Observable<GetPostsCountByUserIdResponse>;
+  ): Observable<GetPostsCountResponse>;
 
   getPostById(request: GetPostByIdRequest, metadata?: Metadata): Observable<GetPostByIdResponse>;
 }
@@ -154,9 +154,9 @@ export interface PostServiceController {
   ping(request: PingRequest, metadata?: Metadata): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
 
   getPostsCountByUserId(
-    request: GetPostsCountByUserIdRequest,
+    request: GetPostsCountRequest,
     metadata?: Metadata,
-  ): Promise<GetPostsCountByUserIdResponse> | Observable<GetPostsCountByUserIdResponse> | GetPostsCountByUserIdResponse;
+  ): Promise<GetPostsCountResponse> | Observable<GetPostsCountResponse> | GetPostsCountResponse;
 
   getPostById(
     request: GetPostByIdRequest,
