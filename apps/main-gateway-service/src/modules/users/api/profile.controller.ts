@@ -3,27 +3,6 @@ import {
   Controller,
   Get,
   HttpCode,
-  Inject,
-  Logger,
-  Param,
-  Put,
-  Request,
-} from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import {
-  ApiNoContentResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
-// /users/profile (получение и редактирование "био", загрузка аватара).
-
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
   HttpStatus,
   Inject,
   Logger,
@@ -31,6 +10,7 @@ import {
   Post,
   Put,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -41,8 +21,8 @@ import {
   ApiOperation,
   ApiParam,
   ApiTags,
+  ApiNoContentResponse,
 } from '@nestjs/swagger';
-
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import { GetProfileQuery } from '../application/queries/get-profile.query';
 import { GetProfileRequestDto, GetProfileResponseDto } from './dto/get-profile.dto';
@@ -53,12 +33,10 @@ import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
 import { ConfirmAvatarCommand } from '../application/commands/confirm-avatar.command';
 import { GetAvatarUploadUrlCommand } from '../application/commands/get-avatar-upload-url.command';
-import { GetPublicProfileQuery } from '../application/queries/get-public-profile.query';
 import { ConfirmAvatarRequestDto } from './dto/confirm-avatar-request.dto';
 import { ConfirmAvatarResponseDto } from './dto/confirm-avatar-response.dto';
 import { GetAvatarUploadUrlRequestDto } from './dto/get-avatar-upload-url-request.dto';
 import { GetAvatarUploadUrlResponseDto } from './dto/get-avatar-upload-url-response.dto';
-import { PublicProfileResponseDto } from './dto/public-profile-response.dto';
 
 const logger = new Logger('ProfileController');
 
@@ -71,6 +49,7 @@ export class ProfileController {
   ) {}
 
   @Get(':userId')
+  @UseGuards(JwtGuard)
   @ApiOperation({
     summary: 'Get public profile',
     description: 'Retrieves public profile details of a user, along with the posts count.',
@@ -171,13 +150,12 @@ export class ProfileController {
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
   @ApiDomainError(403, 'Forbidden', 'Forbidden')
   @ApiDomainError(503, 'File service unavailable', 'Service unavailable')
+  @ApiDomainError(404, 'Profile not found', 'Profile not found')
   public async confirmAvatar(
     @CurrentUserId() userId: string,
     @Body() dto: ConfirmAvatarRequestDto,
   ): Promise<ConfirmAvatarResponseDto> {
-    logger.debug(
-      `[ProfileController] PUT avatar/confirm userId=${userId} fileId=${dto.fileId}`,
-    );
+    logger.debug(`[ProfileController] PUT avatar/confirm userId=${userId} fileId=${dto.fileId}`);
 
     return this.commandBus.execute(
       new ConfirmAvatarCommand({

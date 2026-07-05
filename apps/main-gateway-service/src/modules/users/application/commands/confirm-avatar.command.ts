@@ -9,8 +9,8 @@ import { PrismaService } from '../../../../core/prisma/prisma.service';
 import { FileGrpcClient } from '../../../files/infrastructure/file-grpc.client';
 import { ConfirmAvatarResponseDto } from '../../api/dto/confirm-avatar-response.dto';
 import { AVATAR_DELETED_EVENT_TYPE } from '../../domain/constants/avatar-outbox.constants';
-import { IUserProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';
-import { UserProfileEntity } from '../../domain/user-profile.entity';
+import { IProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';
+import { ProfileEntity } from '../../domain/profile.entity';
 
 type ConfirmAvatarCommandParams = {
   userId: string;
@@ -30,8 +30,8 @@ export class ConfirmAvatarHandler implements ICommandHandler<
 
   constructor(
     private readonly fileGrpcClient: FileGrpcClient,
-    @Inject(IUserProfileRepository)
-    private readonly userProfileRepository: IUserProfileRepository,
+    @Inject(IProfileRepository)
+    private readonly userProfileRepository: IProfileRepository,
     private readonly prismaService: PrismaService,
   ) {}
 
@@ -84,20 +84,12 @@ export class ConfirmAvatarHandler implements ICommandHandler<
       });
     }
 
-    let profile = await this.userProfileRepository.findByUserId(userId);
+    const profile: ProfileEntity | null = await this.userProfileRepository.findByUserId(userId);
 
-    if (profile === null) {
-      profile = new UserProfileEntity({
-        id: randomUUID(),
-        userId,
-        firstName: null,
-        lastName: null,
-        dateOfBirth: null,
-        country: null,
-        city: null,
-        aboutMe: null,
-        avatarFileId: null,
-        avatarUrl: null,
+    if (!profile) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Profile not found',
       });
     }
 
@@ -119,7 +111,7 @@ export class ConfirmAvatarHandler implements ICommandHandler<
     let outboxEventId: string | null = null;
 
     await this.prismaService.$transaction(async (tx) => {
-      await this.userProfileRepository.upsert(profile, tx);
+      await this.userProfileRepository.save(profile, tx);
 
       this.logger.debug(
         `[ConfirmAvatar] userProfile updated userId=${userId} avatarFileId=${profile.avatarFileId} avatarUrl=${profile.avatarUrl}`,

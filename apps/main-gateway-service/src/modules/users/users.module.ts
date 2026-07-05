@@ -32,25 +32,33 @@ const adapters = [
     useClass: PostGrpcAdapter,
   },
 ];
+
+const handlers = [
+  GetAvatarUploadUrlHandler,
+  ConfirmAvatarHandler,
+  CheckUsernameHandler,
+  GetMeHandler,
+  CountUsersHandler,
+  GetProfileHandler,
+];
+
+const repositories = [
+  { provide: IUsersRepository, useClass: PrismaUsersRepository },
+  { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
+  { provide: IProfileRepository, useClass: ProfileRepository },
+  { provide: IProfileQueryRepository, useClass: ProfileQueryRepository },
+];
+
 @Module({
   imports: [CqrsModule, PostGrpcClientModule, FileGrpcClientModule, ScheduleModule],
   controllers: [UsersController, ProfileController],
   providers: [
-    CheckUsernameHandler,
-    GetMeHandler,
-    CountUsersHandler,
-    GetProfileHandler,
     UpdateProfileUseCase,
-    GetPublicProfileHandler,
-    GetAvatarUploadUrlHandler,
-    ConfirmAvatarHandler,
     AvatarOutboxRelayCron,
-    { provide: IUsersRepository, useClass: PrismaUsersRepository },
-    { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
-    { provide: IProfileRepository, useClass: ProfileRepository },
-    { provide: IProfileQueryRepository, useClass: ProfileQueryRepository },
     { provide: IPasswordService, useClass: BcryptService },
     ...adapters,
+    ...handlers,
+    ...repositories,
   ],
   exports: [
     IUsersRepository,
