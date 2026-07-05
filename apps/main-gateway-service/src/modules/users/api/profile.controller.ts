@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -37,6 +38,7 @@ import { ConfirmAvatarRequestDto } from './dto/confirm-avatar-request.dto';
 import { ConfirmAvatarResponseDto } from './dto/confirm-avatar-response.dto';
 import { GetAvatarUploadUrlRequestDto } from './dto/get-avatar-upload-url-request.dto';
 import { GetAvatarUploadUrlResponseDto } from './dto/get-avatar-upload-url-response.dto';
+import { DeleteAvatarCommand } from '../application/commands/delete-avatar.command';
 
 const logger = new Logger('ProfileController');
 
@@ -161,6 +163,28 @@ export class ProfileController {
       new ConfirmAvatarCommand({
         userId,
         fileId: dto.fileId,
+      }),
+    );
+  }
+
+  @Delete('avatar')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete profile avatar',
+    description: 'Deletes user profile avatar and triggers S3 file deletion.',
+  })
+  @ApiNoContentResponse({
+    description: 'Avatar deleted successfully',
+  })
+  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
+  @ApiDomainError(404, 'Profile not found', 'Profile not found')
+  public async deleteAvatar(@CurrentUserId() userId: string): Promise<void> {
+    logger.debug(`[ProfileController] DELETE avatar userId=${userId}`);
+    await this.commandBus.execute(
+      new DeleteAvatarCommand({
+        userId,
       }),
     );
   }
