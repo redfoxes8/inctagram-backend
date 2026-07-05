@@ -17,6 +17,11 @@ import { ProfileRepository } from './infrastructure/profile.repository';
 import { IProfileQueryRepository } from './domain/interfaces/user-profile.query-repository.interface';
 import { ProfileQueryRepository } from './infrastructure/profile.query-repository';
 import { PostGrpcClientModule } from '../posts/infrastructure/post-grpc-client.module';
+import { FileGrpcClientModule } from '../files/infrastructure/file-grpc-client.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { GetAvatarUploadUrlHandler } from './application/commands/get-avatar-upload-url.command';
+import { ConfirmAvatarHandler } from './application/commands/confirm-avatar.command';
+import { AvatarOutboxRelayCron } from './infrastructure/outbox/avatar-outbox-relay.cron';
 import { IPostGrpcAdapter } from '../posts/infrastructure/interfaces/post-grpc-adapter.interface';
 import { PostGrpcAdapter } from '../posts/infrastructure/post-grpc.adapter';
 import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
@@ -28,7 +33,7 @@ const adapters = [
   },
 ];
 @Module({
-  imports: [CqrsModule, PostGrpcClientModule],
+  imports: [CqrsModule, PostGrpcClientModule, FileGrpcClientModule, ScheduleModule],
   controllers: [UsersController, ProfileController],
   providers: [
     CheckUsernameHandler,
@@ -36,6 +41,10 @@ const adapters = [
     CountUsersHandler,
     GetProfileHandler,
     UpdateProfileUseCase,
+    GetPublicProfileHandler,
+    GetAvatarUploadUrlHandler,
+    ConfirmAvatarHandler,
+    AvatarOutboxRelayCron,
     { provide: IUsersRepository, useClass: PrismaUsersRepository },
     { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
     { provide: IProfileRepository, useClass: ProfileRepository },

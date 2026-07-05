@@ -57,6 +57,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # AI instructions and tasks
 Agents.md
 Tasks.md
+Tasks*.md
+INC*.md
 .codexignore
 
 # Prisma
