@@ -69,10 +69,12 @@ export class AvatarOutboxRelayCron {
       conn = connection;
       const channel = await connection.createChannel();
       ch = channel;
-      await channel.assertExchange(PROFILE_EVENTS_EXCHANGE, 'topic', { durable: true });
+      await channel.assertExchange('common_exchange', 'topic', { durable: true });
 
       if (!ch) {
-        this.logger.error('[AvatarOutboxRelay] relay error: AMQP channel is not available after creation');
+        this.logger.error(
+          '[AvatarOutboxRelay] relay error: AMQP channel is not available after creation',
+        );
         return;
       }
 
@@ -83,7 +85,7 @@ export class AvatarOutboxRelayCron {
 
         try {
           this.logger.debug(
-            `[AvatarOutboxRelay] publishing to exchange=${PROFILE_EVENTS_EXCHANGE} routingKey=${AVATAR_DELETED_ROUTING_KEY} eventId=${ev.id}`,
+            `[AvatarOutboxRelay] publishing to exchange=common_exchange routingKey=${AVATAR_DELETED_ROUTING_KEY} eventId=${ev.id}`,
           );
 
           const rawPayload: unknown = ev.payload as unknown;
@@ -100,16 +102,13 @@ export class AvatarOutboxRelayCron {
 
           const buf = Buffer.from(JSON.stringify(payload));
 
-          const publishResult = ch.publish(
-            PROFILE_EVENTS_EXCHANGE,
-            AVATAR_DELETED_ROUTING_KEY,
-            buf,
-            { persistent: true },
-          );
+          const publishResult = ch.publish('common_exchange', AVATAR_DELETED_ROUTING_KEY, buf, {
+            persistent: true,
+          });
 
           if (publishResult) {
             this.logger.log(
-              `[AvatarOutboxRelay] published event id=${ev.id} eventId=${ev.id} exchange=${PROFILE_EVENTS_EXCHANGE} routingKey=${AVATAR_DELETED_ROUTING_KEY} eventType=${ev.type}`,
+              `[AvatarOutboxRelay] published event id=${ev.id} eventId=${ev.id} exchange=common_exchange routingKey=${AVATAR_DELETED_ROUTING_KEY} eventType=${ev.type}`,
             );
 
             const processedAt = new Date();
@@ -123,17 +122,19 @@ export class AvatarOutboxRelayCron {
             );
           } else {
             this.logger.warn(
-              `[AvatarOutboxRelay] publish returned false for event id=${ev.id} eventId=${ev.id} exchange=${PROFILE_EVENTS_EXCHANGE} routingKey=${AVATAR_DELETED_ROUTING_KEY}`,
+              `[AvatarOutboxRelay] publish returned false for event id=${ev.id} eventId=${ev.id} exchange=common_exchange routingKey=${AVATAR_DELETED_ROUTING_KEY}`,
             );
           }
         } catch (err) {
           this.logger.error(
-            `[AvatarOutboxRelay] failed to publish event id=${ev.id}: ${this.toMessage(err)} eventId=${ev.id} exchange=${PROFILE_EVENTS_EXCHANGE} routingKey=${AVATAR_DELETED_ROUTING_KEY} error=${this.toMessage(err)}`,
+            `[AvatarOutboxRelay] failed to publish event id=${ev.id}: ${this.toMessage(err)} eventId=${ev.id} exchange=common_exchange routingKey=${AVATAR_DELETED_ROUTING_KEY} error=${this.toMessage(err)}`,
           );
         }
       }
     } catch (err) {
-      this.logger.error(`[AvatarOutboxRelay] relay error: ${this.toMessage(err)} error=${this.toMessage(err)}`);
+      this.logger.error(
+        `[AvatarOutboxRelay] relay error: ${this.toMessage(err)} error=${this.toMessage(err)}`,
+      );
     } finally {
       try {
         if (ch) await ch.close();

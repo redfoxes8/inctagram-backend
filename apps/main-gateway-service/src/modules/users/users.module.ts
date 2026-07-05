@@ -21,6 +21,7 @@ import { FileGrpcClientModule } from '../files/infrastructure/file-grpc-client.m
 import { ScheduleModule } from '@nestjs/schedule';
 import { GetAvatarUploadUrlHandler } from './application/commands/get-avatar-upload-url.command';
 import { ConfirmAvatarHandler } from './application/commands/confirm-avatar.command';
+import { DeleteAvatarHandler } from './application/commands/delete-avatar.command';
 import { AvatarOutboxRelayCron } from './infrastructure/outbox/avatar-outbox-relay.cron';
 import { IPostGrpcAdapter } from '../posts/infrastructure/interfaces/post-grpc-adapter.interface';
 import { PostGrpcAdapter } from '../posts/infrastructure/post-grpc.adapter';
@@ -36,6 +37,7 @@ const adapters = [
 const handlers = [
   GetAvatarUploadUrlHandler,
   ConfirmAvatarHandler,
+  DeleteAvatarHandler,
   CheckUsernameHandler,
   GetMeHandler,
   CountUsersHandler,
