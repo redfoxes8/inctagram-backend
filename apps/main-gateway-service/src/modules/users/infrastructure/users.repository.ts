@@ -6,6 +6,8 @@ import { UserPrismaMapper, type UserRecord } from './mappers/user.prisma.mapper'
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { PrismaClient } from '../../../core/prisma/client';
+import { Prisma } from '@prisma/client/extension';
+import TransactionClient = Prisma.TransactionClient;
 
 type UserCreateData = {
   id: string;
@@ -29,7 +31,7 @@ type UserUpdateData = {
 export class PrismaUsersRepository implements IUsersRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(user: UserEntity, tx?: PrismaClient): Promise<UserEntity> {
+  public async save(user: UserEntity, tx?: TransactionClient): Promise<UserEntity> {
     const prisma = tx || this.prismaService;
     const createdUser = await prisma.user.create({
       data: this.toCreateData(user),

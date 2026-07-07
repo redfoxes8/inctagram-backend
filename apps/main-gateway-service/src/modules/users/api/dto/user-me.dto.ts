@@ -2,15 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserMeResponseDto {
   @ApiPropertyOptional({
-    description: 'Profile user identifier placeholder until Profile storage is introduced',
-    example: null,
+    description: 'Profile user identifier',
+    example: 'd9f482a5-072a-4467-8e1d-85f269df16a7',
     nullable: true,
   })
   userId: string | null;
 
   @ApiPropertyOptional({
-    description: 'Avatar image URL placeholder until Avatar storage is introduced',
-    example: null,
+    description: 'Avatar image URL',
+    example: 's3.eu-central-1://avatars/images/avatar.jpg',
     nullable: true,
   })
   avatarUrl: string | null;
@@ -22,8 +22,8 @@ export class UserMeResponseDto {
   username: string;
 
   @ApiPropertyOptional({
-    description: 'Profile bio placeholder until Profile storage is introduced',
-    example: null,
+    description: 'Profile bio',
+    example: 'Big developer 228',
     nullable: true,
   })
   aboutMe: string | null;

@@ -51,7 +51,6 @@ export class ProfileController {
   ) {}
 
   @Get(':userId')
-  @UseGuards(JwtGuard)
   @ApiOperation({
     summary: 'Get public profile',
     description: 'Retrieves public profile details of a user, along with the posts count.',
@@ -76,6 +75,8 @@ export class ProfileController {
 
   @Put('update')
   @HttpCode(204)
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update profile info',
     description: 'Update whole profile info with received data',

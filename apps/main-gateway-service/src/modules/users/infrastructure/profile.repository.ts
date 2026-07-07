@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient, Profile } from '../../../core/prisma/client';
+import { Profile } from '../../../core/prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { IProfileRepository } from '../domain/interfaces/user-profile.repository.interface';
 import { ProfileEntity } from '../domain/profile.entity';
 import { ProfilePrismaMapper } from './mappers/profile.prisma.mapper';
+import { Prisma } from '@prisma/client/extension';
+import TransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class ProfileRepository implements IProfileRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(profileDomain: ProfileEntity, tx?: PrismaClient): Promise<void> {
-    const prisma = tx || this.prismaService;
+  public async save(profileDomain: ProfileEntity, tx?: TransactionClient): Promise<void> {
+    const prisma = tx ?? this.prismaService;
 
     const profilePrismaRecord: Profile = ProfilePrismaMapper.toPrismaRecord(profileDomain);
 

@@ -12,6 +12,7 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { CoreConfig } from '../../../../../../../libs/common/src/core.config';
 import { IProfileRepository } from '../../../users/domain/interfaces/user-profile.repository.interface';
 import { ProfileEntity } from '../../../users/domain/profile.entity';
+import { ITransactionManager } from '../../../../common/interfaces/transaction-manager.interface';
 
 export class RegisterUserCommand {
   constructor(public dto: RegisterUserDto) {}
@@ -26,6 +27,7 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
     private readonly emailConfirmationRepository: IEmailConfirmationRepository,
     private readonly coreConfig: CoreConfig,
     private readonly profileRepository: IProfileRepository,
+    private readonly transactionManager: ITransactionManager,
   ) {}
 
   public async execute({ dto }: RegisterUserCommand): Promise<void | string> {
@@ -77,16 +79,17 @@ export class RegisterUserUseCase implements ICommandHandler<RegisterUserCommand,
     }
 
     const user: UserEntity = UserEntity.createNew(dto.email, passwordHash);
-    await this.usersRepository.save(user);
-
     const profile: ProfileEntity = ProfileEntity.createNew(user.id, dto.username);
-    await this.profileRepository.save(profile);
-
     const emailConfirmation: EmailConfirmationEntity = EmailConfirmationEntity.createNew(
       user.id,
       confirmationCode,
     );
-    await this.emailConfirmationRepository.save(emailConfirmation);
+
+    await this.transactionManager.execute(async (tx) => {
+      await this.usersRepository.save(user, tx);
+      await this.profileRepository.save(profile, tx);
+      await this.emailConfirmationRepository.save(emailConfirmation, tx);
+    });
 
     if (this.coreConfig.env == 'test') {
       return confirmationCode;

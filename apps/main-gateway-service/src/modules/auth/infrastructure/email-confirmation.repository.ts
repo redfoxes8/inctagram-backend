@@ -5,13 +5,16 @@ import { DomainException } from '../../../../../../libs/common/src/exceptions/do
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { EmailConfirmationMapper } from './mappers/email-confirmation.mapper';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { Prisma } from '@prisma/client/extension';
+import TransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class EmailConfirmationRepositoryImplementation implements IEmailConfirmationRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(confirmation: EmailConfirmationEntity): Promise<void> {
-    await this.prismaService.emailConfirmation.create({
+  public async save(confirmation: EmailConfirmationEntity, tx?: TransactionClient): Promise<void> {
+    const prisma = tx ?? this.prismaService;
+    await prisma.emailConfirmation.create({
       data: this.toCreateData(confirmation),
     });
   }
