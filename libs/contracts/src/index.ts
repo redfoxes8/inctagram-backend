@@ -8,10 +8,8 @@ export {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
-  type PingRequest,
-  type PingResponse,
-  type GetPostsCountRequest,
-  type GetPostsCountResponse,
+  type GetPostsCountByUserIdRequest,
+  type GetPostsCountByUserIdResponse,
   type GetPostByIdRequest,
   type GetPostByIdResponse,
   type PostServiceClient,
@@ -40,7 +38,31 @@ export {
   INCTAGRAM_FILE_V1_PACKAGE_NAME,
 } from './generated/file';
 
+export {
+  type PaymentSubscription,
+  type PaymentHistoryItemGrpc,
+  type CreateCheckoutSessionRequest,
+  type CreateCheckoutSessionResponse,
+  type ProcessWebhookEventRequest,
+  type ProcessWebhookEventResponse,
+  type GetSubscriptionsRequest,
+  type GetSubscriptionsResponse,
+  type GetPaymentHistoryRequest,
+  type GetPaymentHistoryResponse,
+  type ToggleAutoRenewRequest,
+  type ToggleAutoRenewResponse,
+  type PaymentServiceClient,
+  type PaymentServiceController,
+  PaymentServiceControllerMethods,
+  PAYMENT_SERVICE_NAME,
+  INCTAGRAM_PAYMENT_V1_PACKAGE_NAME,
+} from './generated/payment';
+
 export * from './post/interfaces/post.service.interface';
 export * from './file/interfaces/file.service.interface';
+export * from './payment/interfaces/payment.service.interface';
 export * from './events/post-deleted.event';
 export * from './events/avatar-deleted.event';
+export * from './events/payment-subscription-expired.event';
+export * from './events/payment-succeeded.event';
+export * from './events/payment-failed.event';

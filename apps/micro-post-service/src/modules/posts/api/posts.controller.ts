@@ -10,8 +10,8 @@ import {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
-  type GetPostsCountRequest,
-  type GetPostsCountResponse,
+  type GetPostsCountByUserIdRequest,
+  type GetPostsCountByUserIdResponse,
   type GetPostByIdRequest,
   type GetPostByIdResponse,
 } from '../../../../../../libs/contracts/src';
@@ -152,7 +152,9 @@ export class PostsController {
   }
 
   @GrpcMethod('PostService', 'GetPostsCountByUserId')
-  async getPostsCountByUserId(data: GetPostsCountRequest): Promise<GetPostsCountResponse> {
+  async getPostsCountByUserId(
+    data: GetPostsCountByUserIdRequest,
+  ): Promise<GetPostsCountByUserIdResponse> {
     this.logger.log(`[Post MS] gRPC GetPostsCountByUserId received for user: ${data.ownerId}`);
     const count = await this.queryBus.execute(new GetPostsCountByUserIdQuery(data.ownerId));
     return { count };

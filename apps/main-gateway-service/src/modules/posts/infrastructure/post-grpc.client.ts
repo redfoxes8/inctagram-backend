@@ -9,8 +9,8 @@ import {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
-  type GetPostsCountRequest,
-  type GetPostsCountResponse,
+  type GetPostsCountByUserIdRequest,
+  type GetPostsCountByUserIdResponse,
   type GetPostByIdRequest,
   type GetPostByIdResponse,
   POST_SERVICE_NAME,
@@ -86,7 +86,9 @@ export class PostGrpcClient implements OnModuleInit {
     }
   }
 
-  async getPostsCount(request: GetPostsCountRequest): Promise<GetPostsCountResponse> {
+  async getPostsCount(
+    request: GetPostsCountByUserIdRequest,
+  ): Promise<GetPostsCountByUserIdResponse> {
     try {
       return await firstValueFrom(this.postService.getPostsCountByUserId(request));
     } catch (error: unknown) {

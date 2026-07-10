@@ -5,7 +5,7 @@ import {
   type GetPostsByUserIdResponse,
   type Post,
   type GetPostByIdResponse,
-  GetPostsCountResponse,
+  GetPostsCountByUserIdResponse,
 } from '../../../../../../../libs/contracts/src';
 import {
   CreatePostResponseDto,
@@ -84,7 +84,7 @@ export class PostResponseMapper {
     });
   }
 
-  static getPostsCount(response: GetPostsCountResponse): number {
+  static getPostsCount(response: GetPostsCountByUserIdResponse): number {
     return response.count;
   }
 
