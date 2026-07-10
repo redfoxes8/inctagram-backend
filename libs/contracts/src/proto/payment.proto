@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package inctagram.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message PaymentSubscription {
+  string id = 1;
+  string user_id = 2;
+  string product_id = 3;
+  string provider = 4;
+  string status = 5;
+  bool auto_renew = 6;
+
+  google.protobuf.Timestamp start_date = 7;
+  google.protobuf.Timestamp end_date = 8;
+}
+
+message PaymentHistoryItemGrpc {
+  string id = 1;
+
+  string product_name = 2;
+
+  string provider = 3;
+
+  string amount = 4;
+
+  string currency = 5;
+
+  google.protobuf.Timestamp payment_date = 6;
+
+  google.protobuf.Timestamp subscription_end_date = 7;
+}
+
+message CreateCheckoutSessionRequest {
+  string user_id = 1;
+
+  string product_id = 2;
+
+  string provider = 3;
+
+  string success_url = 4;
+
+  string cancel_url = 5;
+}
+
+message CreateCheckoutSessionResponse {
+  string checkout_url = 1;
+}
+
+message ProcessWebhookEventRequest {
+  string provider = 1;
+
+  string event_type = 2;
+
+  bytes raw_payload = 3;
+}
+
+message ProcessWebhookEventResponse {
+  bool accepted = 1;
+}
+
+message GetSubscriptionsRequest {
+  string user_id = 1;
+}
+
+message GetSubscriptionsResponse {
+  repeated PaymentSubscription subscriptions = 1;
+}
+
+message GetPaymentHistoryRequest {
+  string user_id = 1;
+
+  int32 page = 2;
+
+  int32 page_size = 3;
+}
+
+message GetPaymentHistoryResponse {
+  repeated PaymentHistoryItemGrpc items = 1;
+
+  int32 total_count = 2;
+
+  int32 page = 3;
+
+  int32 page_size = 4;
+
+  int32 pages_count = 5;
+}
+
+message ToggleAutoRenewRequest {
+  string subscription_id = 1;
+
+  string user_id = 2;
+
+  bool enabled = 3;
+}
+
+message ToggleAutoRenewResponse {
+  bool success = 1;
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string reply = 1;
+}
+
+service PaymentService {
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
+
+  rpc ProcessWebhookEvent(ProcessWebhookEventRequest) returns (ProcessWebhookEventResponse);
+
+  rpc GetSubscriptions(GetSubscriptionsRequest) returns (GetSubscriptionsResponse);
+
+  rpc GetPaymentHistory(GetPaymentHistoryRequest) returns (GetPaymentHistoryResponse);
+
+  rpc ToggleAutoRenew(ToggleAutoRenewRequest) returns (ToggleAutoRenewResponse);
+
+  rpc Ping(PingRequest) returns (PingResponse);
+}

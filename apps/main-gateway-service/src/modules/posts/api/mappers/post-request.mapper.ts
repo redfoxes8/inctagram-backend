@@ -2,7 +2,7 @@ import {
   type CreatePostRequest,
   type DeletePostRequest,
   type GetPostsByUserIdRequest,
-  type GetPostsCountRequest,
+  type GetPostsCountByUserIdRequest,
 } from '../../../../../../../libs/contracts/src';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { UpdatePostDto } from '../dto/update-post.dto';
@@ -71,7 +71,7 @@ export class PostRequestMapper {
     };
   }
 
-  static toGetPostsCount(params: ToGetPostsCountParams): GetPostsCountRequest {
+  static toGetPostsCount(params: ToGetPostsCountParams): GetPostsCountByUserIdRequest {
     return {
       ownerId: params.userId,
     };

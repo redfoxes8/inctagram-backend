@@ -5,8 +5,8 @@ import { PostResponseMapper } from '../api/mappers/post-response.mapper';
 import {
   GetLatestPostsRequest,
   GetLatestPostsResponse,
-  GetPostsCountRequest,
-  GetPostsCountResponse,
+  GetPostsCountByUserIdRequest,
+  GetPostsCountByUserIdResponse,
 } from '@inctagram/contracts/generated/post';
 import { Injectable } from '@nestjs/common';
 import { GetProfileRequestDto } from '../../users/api/dto/get-profile.dto';
@@ -25,8 +25,11 @@ export class PostGrpcAdapter implements IPostGrpcAdapter {
   }
 
   async getPostsCount(dto: GetProfileRequestDto) {
-    const request: GetPostsCountRequest = PostRequestMapper.toGetPostsCount({ userId: dto.userId });
-    const response: GetPostsCountResponse = await this.postGrpcClient.getPostsCount(request);
+    const request: GetPostsCountByUserIdRequest = PostRequestMapper.toGetPostsCount({
+      userId: dto.userId,
+    });
+    const response: GetPostsCountByUserIdResponse =
+      await this.postGrpcClient.getPostsCount(request);
     return PostResponseMapper.getPostsCount(response);
   }
 }
