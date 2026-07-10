@@ -3,7 +3,7 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "apps/main-gateway-service/src",
   "compilerOptions": {
-    "deleteOutDir": true,    
+    "deleteOutDir": true,
     "webpack": true,
     "tsConfigPath": "apps/main-gateway-service/tsconfig.app.json",
     "plugins": [
@@ -78,6 +78,15 @@
       "sourceRoot": "apps/micro-post-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/micro-post-service/tsconfig.app.json"
+      }
+    },
+    "micro-payment-service": {
+      "type": "application",
+      "root": "apps/micro-payment-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/micro-payment-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/micro-payment-service/tsconfig.app.json"
       }
     }
   }
