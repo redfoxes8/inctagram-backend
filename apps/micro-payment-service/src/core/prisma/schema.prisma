@@ -7,9 +7,9 @@ datasource db {
   provider = "postgresql"
 }
 
-model Product {
+model Plan {
   id            String         @id @default(uuid())
-  name          String         @unique
+  type          PlanType
   duration      Int
   price         Int
   stripeId      String         @map("stripe_id")
@@ -20,24 +20,64 @@ model Product {
   deletedAt     DateTime?
   subscriptions Subscription[]
 
-  @@index([name])
+  @@index([type])
   @@index([paypalId])
   @@index([stripeId])
 }
 
 model Subscription {
-  id        String    @id @default(uuid())
-  userId    String    @map("user_id") @db.Uuid
-  productId String    @map("product_id") @db.Uuid
-  startsAt  DateTime  @default(now()) @map("starts_at")
-  endsAt    DateTime  @map("ends_at")
-  isActive  Boolean   @default(false) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime?
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id") @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  startsAt    DateTime? @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  isActive    Boolean   @default(false) @map("is_active")
+  autoRenewal Boolean   @map("auto_renewal")
+  provider    Provider  @map("payment_service")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime?
 
-  product Product @relation(fields: [productId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
 
   @@index([userId])
-  @@index([productId])
+  @@index([planId])
+}
+
+model ProcessedWebhook {
+  id             String         @id @default(uuid())
+  provider       PaymentService @map("payment_service")
+  eventId        String         @unique @map("event_id")
+  eventType      String         @map("event_type")
+  subscriptionId String         @map("subscription_id") @db.Uuid
+  status         WebhookStatus  @default("pending")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  payload        Json?
+  error          String?
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([provider])
+  @@index([eventId])
+  @@index([eventType])
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+enum Provider {
+  PAYPAL
+  STRIPE
+}
+
+enum PlanType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum WebhookStatus {
+  PENDING
+  PROCESSED
+  FAILED
 }
