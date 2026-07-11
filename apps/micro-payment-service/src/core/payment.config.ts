@@ -25,6 +25,11 @@ export class PaymentConfig {
   @IsNotEmpty({ message: 'Set Env variable DATABASE_URL, example: http://xxxx' })
   databaseUrl: string;
 
+  // Prisma Configuration
+  @IsString({ message: 'PRISMA_DB_URL must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
+  prismaDbUrl: string;
+
   // RabbitMQ Configuration
   @IsString({ message: 'Env variable RABBITMQ_URL must be a string' })
   @IsNotEmpty({
@@ -71,6 +76,8 @@ export class PaymentConfig {
     this.grpcPort = Number(this.configService.get('GRPC_PORT'));
 
     this.databaseUrl = this.configService.get('DATABASE_URL');
+
+    this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');
 
     this.rabbitUrl = this.configService.get('RABBITMQ_URL');
 

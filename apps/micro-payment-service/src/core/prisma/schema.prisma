@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  duration      Int
+  price         Int
+  stripeId      String         @map("stripe_id")
+  paypalId      String         @map("paypal_id")
+  isActive      Boolean        @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?
+  subscriptions Subscription[]
+
+  @@index([name])
+  @@index([paypalId])
+  @@index([stripeId])
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id") @db.Uuid
+  productId String    @map("product_id") @db.Uuid
+  startsAt  DateTime  @default(now()) @map("starts_at")
+  endsAt    DateTime  @map("ends_at")
+  isActive  Boolean   @default(false) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime?
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+}
