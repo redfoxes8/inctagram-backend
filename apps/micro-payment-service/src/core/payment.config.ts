@@ -6,49 +6,61 @@ import { configValidationUtility } from '../../../../libs/common/src/utils/confi
 
 @Injectable()
 export class PaymentConfig {
-  @IsNumber({}, { message: 'Set Env variable PORT' })
+  // General Configuration
+  @IsNumber({}, { message: 'Env variable PORT must be a number' })
+  @IsNotEmpty({ message: 'Set Env variable PORT, example: 3001' })
   port: number;
 
-  @IsString()
-  @IsNotEmpty()
+  // gRPC Configuration
+  @IsString({ message: 'Env variable GRPC_HOST must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable GRPC_HOST, example: 0.0.0.0' })
   grpcHost: string;
 
-  @IsNumber()
+  @IsNumber({}, { message: 'GRPC_PORT must be a number' })
+  @IsNotEmpty({ message: 'Set Env variable GRPC_PORT, example: 00000' })
   grpcPort: number;
 
-  @IsString()
-  @IsNotEmpty()
+  // Database Configuration
+  @IsString({ message: 'Env variable DATABASE_URL must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable DATABASE_URL, example: http://xxxx' })
   databaseUrl: string;
 
-  @IsString()
-  @IsNotEmpty()
+  // RabbitMQ Configuration
+  @IsString({ message: 'Env variable RABBITMQ_URL must be a string' })
+  @IsNotEmpty({
+    message: 'Set Env variable RABBITMQ_URL, example: amqps://xxxxx',
+  })
   rabbitUrl: string;
 
-  @IsString()
-  @IsNotEmpty()
+  // Stripe Configuration
+  @IsString({ message: 'Env variable STRIPE_SECRET_KEY must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable STRIPE_SECRET_KEY, example: xxx123' })
   stripeSecretKey: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Env variable STRIPE_WEBHOOK_SECRET must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable STRIPE_WEBHOOK_SECRET, example: xxx123' })
   stripeWebhookSecret: string;
 
-  @IsString()
-  @IsNotEmpty()
+  // PayPal Configuration
+  @IsString({ message: 'Env variable PAYPAL_CLIENT_ID must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable PAYPAL_CLIENT_ID, example: xxx123' })
   paypalClientId: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Env variable PAYPAL_CLIENT_SECRET must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable PAYPAL_CLIENT_SECRET, example: xxx123' })
   paypalClientSecret: string;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'Env variable PAYPAL_WEBHOOK_ID must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable PAYPAL_WEBHOOK_ID, example: xxx123' })
   paypalWebhookId: string;
 
-  @IsIn(['sandbox', 'live'])
+  @IsIn(['sandbox', 'live'], { message: "Env variable PAYPAL_MODE must be in ['sandbox', 'live']" })
+  @IsNotEmpty({ message: 'Set Env variable PAYPAL_MODE, example: sandbox' })
   paypalMode: string;
 
-  @IsString()
-  @IsNotEmpty()
+  // ?? Configuration
+  @IsString({ message: 'Env variable SUBSCRIPTION_CHECK_CRON must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable SUBSCRIPTION_CHECK_CRON, example: xxx123' })
   subscriptionCheckCron: string;
 
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {

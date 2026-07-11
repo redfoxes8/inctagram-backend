@@ -7,13 +7,15 @@ import { configValidationUtility } from '../../../../libs/common/src/utils/confi
 @Injectable()
 export class GatewayConfig {
   // General Configuration
-  @IsNumber({}, { message: 'Set Env variable PORT, example: 3000' })
+  @IsNumber({}, { message: 'Env variable PORT must be a number' })
+  @IsNotEmpty({ message: 'Set Env variable PORT, example: 3000' })
   port: number;
 
   @IsBoolean({ message: 'INCLUDE_TESTING_MODULE must be a boolean value' })
   @IsNotEmpty({ message: 'Set Env variable INCLUDE_TESTING_MODULE, example: false' })
   includeTestingModule: boolean;
 
+  @IsString({ message: 'Env variable FRONTEND_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable FRONTEND_URL, example: https://inctagram.com' })
   frontEndUrl: string;
 
@@ -22,6 +24,7 @@ export class GatewayConfig {
   filesServiceUrl: string;
 
   // Prisma Configuration
+  @IsString({ message: 'Env variable PRISMA_DB_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL, example: postgres://xxxxxx' })
   prismaDbUrl: string;
 
@@ -39,21 +42,21 @@ export class GatewayConfig {
   jwtSecret: string;
 
   @IsNotEmpty()
-  @IsNumber()
+  @IsNumber({}, { message: 'Env variable ACCESS_TOKEN_EXPIRE_TIME must be a number' })
   @Min(1, { message: 'Set Env variable ACCESS_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   accessTokenExpTime: number;
 
   @IsNotEmpty()
-  @IsNumber()
+  @IsNumber({}, { message: 'Env variable REFRESH_TOKEN_EXPIRE_TIME must be a number' })
   @Min(1, { message: 'Set Env variable REFRESH_TOKEN_EXPIRE_TIME in seconds, example: 60' })
   refreshTokenExpTime: number;
 
   // RabbitMQ Configuration
-  @IsString()
+  @IsString({ message: 'Env variable RABBITMQ_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable RABBITMQ_URL, example: amqp://localhost:5672' })
   rabbitmqUrl: string;
 
-  @IsString()
+  @IsString({ message: 'Env variable NOTIFICATION_QUEUE_NAME must be a string' })
   @IsNotEmpty({
     message: 'Set Env variable NOTIFICATION_QUEUE_NAME, example: micro-notification-service',
   })
@@ -68,7 +71,7 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable GOOGLE_CLIENT_SECRET' })
   googleClientSecret: string;
 
-  @IsString()
+  @IsString({ message: 'Env variable GOOGLE_REDIRECT_URI must be a string' })
   @IsNotEmpty({ message: 'Set Env variable GOOGLE_REDIRECT_URI' })
   googleRedirectUri: string;
 
