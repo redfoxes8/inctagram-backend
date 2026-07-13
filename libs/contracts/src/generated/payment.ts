@@ -87,14 +87,6 @@ export interface ToggleAutoRenewResponse {
   success: boolean;
 }
 
-export interface PingRequest {
-  message: string;
-}
-
-export interface PingResponse {
-  reply: string;
-}
-
 export const INCTAGRAM_PAYMENT_V1_PACKAGE_NAME = "inctagram.payment.v1";
 
 export interface PaymentServiceClient {
@@ -113,8 +105,6 @@ export interface PaymentServiceClient {
   getPaymentHistory(request: GetPaymentHistoryRequest, metadata?: Metadata): Observable<GetPaymentHistoryResponse>;
 
   toggleAutoRenew(request: ToggleAutoRenewRequest, metadata?: Metadata): Observable<ToggleAutoRenewResponse>;
-
-  ping(request: PingRequest, metadata?: Metadata): Observable<PingResponse>;
 }
 
 export interface PaymentServiceController {
@@ -142,8 +132,6 @@ export interface PaymentServiceController {
     request: ToggleAutoRenewRequest,
     metadata?: Metadata,
   ): Promise<ToggleAutoRenewResponse> | Observable<ToggleAutoRenewResponse> | ToggleAutoRenewResponse;
-
-  ping(request: PingRequest, metadata?: Metadata): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
 }
 
 export function PaymentServiceControllerMethods() {
@@ -154,7 +142,6 @@ export function PaymentServiceControllerMethods() {
       "getSubscriptions",
       "getPaymentHistory",
       "toggleAutoRenew",
-      "ping",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

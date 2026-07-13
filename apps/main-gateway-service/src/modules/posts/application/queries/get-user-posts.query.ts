@@ -26,7 +26,9 @@ export class GetUserPostsHandler implements IQueryHandler<GetUserPostsQuery, Get
     const { cursor, pageSize } = queryDto;
     const startTime = Date.now();
 
-    logger.debug(`GetUserPostsQueryHandler started: userId=${userId}, cursor=${cursor}, pageSize=${pageSize}`);
+    logger.debug(
+      `GetUserPostsQueryHandler started: userId=${userId}, cursor=${cursor}, pageSize=${pageSize}`,
+    );
 
     let response;
     try {
@@ -39,7 +41,7 @@ export class GetUserPostsHandler implements IQueryHandler<GetUserPostsQuery, Get
       const elapsed = Date.now() - startTime;
       logger.debug(
         `GetUserPostsQueryHandler completed with error: userId=${userId}, cursor=${cursor}, pageSize=${pageSize}, ` +
-        `elapsedTime=${elapsed}ms`
+          `elapsedTime=${elapsed}ms`,
       );
       throw error;
     }
@@ -49,7 +51,7 @@ export class GetUserPostsHandler implements IQueryHandler<GetUserPostsQuery, Get
 
     logger.debug(
       `GetUserPostsQueryHandler completed: userId=${userId}, cursor=${cursor}, pageSize=${pageSize}, ` +
-      `receivedItemCount=${mapped.posts.length}, nextCursorExists=${!!mapped.nextCursor}, elapsedTime=${elapsed}ms`
+        `receivedItemCount=${mapped.posts.length}, nextCursorExists=${!!mapped.nextCursor}, elapsedTime=${elapsed}ms`,
     );
 
     return mapped;

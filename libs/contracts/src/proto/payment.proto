@@ -100,14 +100,6 @@ message ToggleAutoRenewResponse {
   bool success = 1;
 }
 
-message PingRequest {
-  string message = 1;
-}
-
-message PingResponse {
-  string reply = 1;
-}
-
 service PaymentService {
   rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
 
@@ -117,7 +109,5 @@ service PaymentService {
 
   rpc GetPaymentHistory(GetPaymentHistoryRequest) returns (GetPaymentHistoryResponse);
 
-  rpc ToggleAutoRenew(ToggleAutoRenewRequest) returns (ToggleAutoRenewResponse);
-
-  rpc Ping(PingRequest) returns (PingResponse);
+  rpc ToggleAutoRenew(ToggleAutoRenewRequest) returns (ToggleAutoRenewResponse);  
 }
