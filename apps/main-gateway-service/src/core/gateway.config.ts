@@ -37,6 +37,10 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable FILE_SERVICE_GRPC_URL, example: localhost:50052' })
   fileServiceGrpcUrl: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable PAYMENT_SERVICE_GRPC_URL, example: localhost:50053' })
+  paymentServiceGrpcUrl: string;
+
   // JWT Configuration
   @IsNotEmpty({ message: 'Set Env variable JWT_SECRET' })
   jwtSecret: string;
@@ -94,6 +98,7 @@ export class GatewayConfig {
     // gRPC Configuration
     this.postServiceGrpcUrl = this.configService.get('POST_SERVICE_GRPC_URL');
     this.fileServiceGrpcUrl = this.configService.get('FILE_SERVICE_GRPC_URL');
+    this.paymentServiceGrpcUrl = this.configService.get('PAYMENT_SERVICE_GRPC_URL');
 
     // JWT Configuration
     this.jwtSecret = this.configService.get('JWT_SECRET');

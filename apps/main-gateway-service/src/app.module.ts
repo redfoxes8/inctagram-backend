@@ -15,6 +15,7 @@ import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { CoreConfig } from '../../../libs/common/src/core.config';
 import { PostsModule } from './modules/posts/posts.module';
 import { FilesModule } from './modules/files/files.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { FilesModule } from './modules/files/files.module';
     SessionsModule,
     PostsModule,
     FilesModule,
+    PaymentsModule,
     GoogleRecaptchaModule.forRootAsync({
       inject: [GatewayConfig, CoreConfig],
       useFactory: (config: GatewayConfig, coreConfig: CoreConfig) => {
