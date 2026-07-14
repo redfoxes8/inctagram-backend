@@ -1,6 +1,6 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { GatewayTimeoutException, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout, TimeoutError } from 'rxjs';
 
 import {
   CreateCheckoutSessionRequest,
@@ -13,6 +13,7 @@ import {
   type PaymentServiceClient,
   type GetPaymentHistoryRequest,
   type GetPaymentHistoryResponse,
+  ProcessWebhookEventRequest,
 } from '../../../../../../libs/contracts/src';
 
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
@@ -62,6 +63,26 @@ export class PaymentGrpcClient implements OnModuleInit {
     try {
       return await firstValueFrom(this.paymentService.toggleAutoRenew(request));
     } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async processWebhookEvent(request: ProcessWebhookEventRequest): Promise<void> {
+    const PAYMENT_GRPC_TIMEOUT = 3000;
+
+    try {
+      await firstValueFrom(
+        this.paymentService.processWebhookEvent(request).pipe(timeout(PAYMENT_GRPC_TIMEOUT)),
+      );
+    } catch (error: unknown) {
+      if (error instanceof TimeoutError) {
+        throw new GatewayTimeoutException('Payment service timeout');
+      }
+
+      // TODO(P-013.2):
+      // Handle DuplicateWebhookEventException once Payment MS
+      // defines the gRPC error contract.
+      // Duplicate events must be translated to HTTP 200 by the controller.
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

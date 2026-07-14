@@ -83,6 +83,16 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable RECAPTCHA_SECRET' })
   recaptchaSecret: string;
 
+  // Stripe Configuration
+
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable STRIPE_SECRET_KEY' })
+  stripeSecretKey: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable STRIPE_WEBHOOK_SECRET' })
+  stripeWebhookSecret: string;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     // General Configuration
     this.port = Number(this.configService.get('PORT'));
@@ -116,6 +126,10 @@ export class GatewayConfig {
 
     // reCAPTCHA Configuration
     this.recaptchaSecret = this.configService.get('RECAPTCHA_SECRET');
+
+    // Stripe Configuration
+    this.stripeSecretKey = this.configService.get('STRIPE_SECRET_KEY');
+    this.stripeWebhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET');
 
     configValidationUtility.validateConfig(this);
   }

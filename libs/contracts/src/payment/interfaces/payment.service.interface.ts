@@ -3,16 +3,14 @@ import { Observable } from 'rxjs';
 import {
   CreateCheckoutSessionRequest,
   CreateCheckoutSessionResponse,
-  ProcessWebhookEventRequest,
-  ProcessWebhookEventResponse,
+  // ProcessWebhookEventRequest,
+  // ProcessWebhookEventResponse,
   GetSubscriptionsRequest,
   GetSubscriptionsResponse,
   GetPaymentHistoryRequest,
   GetPaymentHistoryResponse,
   ToggleAutoRenewRequest,
   ToggleAutoRenewResponse,
-  PingRequest,
-  PingResponse,
 } from '../../generated/payment';
 
 export abstract class IPaymentServiceClient {
@@ -20,9 +18,9 @@ export abstract class IPaymentServiceClient {
     request: CreateCheckoutSessionRequest,
   ): Observable<CreateCheckoutSessionResponse>;
 
-  abstract processWebhookEvent(
-    request: ProcessWebhookEventRequest,
-  ): Observable<ProcessWebhookEventResponse>;
+  // abstract processWebhookEvent(
+  //   request: ProcessWebhookEventRequest,
+  // ): Observable<ProcessWebhookEventResponse>;
 
   abstract getSubscriptions(request: GetSubscriptionsRequest): Observable<GetSubscriptionsResponse>;
 
@@ -31,6 +29,4 @@ export abstract class IPaymentServiceClient {
   ): Observable<GetPaymentHistoryResponse>;
 
   abstract toggleAutoRenew(request: ToggleAutoRenewRequest): Observable<ToggleAutoRenewResponse>;
-
-  abstract ping(request: PingRequest): Observable<PingResponse>;
 }

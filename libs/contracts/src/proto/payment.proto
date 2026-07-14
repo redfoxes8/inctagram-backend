@@ -3,6 +3,15 @@ syntax = "proto3";
 package inctagram.payment.v1;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+enum PaymentProvider {
+  PAYMENT_PROVIDER_UNSPECIFIED = 0;
+
+  STRIPE = 1;
+
+  PAYPAL = 2;
+}
 
 message PaymentSubscription {
   string id = 1;
@@ -49,15 +58,11 @@ message CreateCheckoutSessionResponse {
 }
 
 message ProcessWebhookEventRequest {
-  string provider = 1;
+  PaymentProvider provider = 1;
 
   string event_type = 2;
 
   bytes raw_payload = 3;
-}
-
-message ProcessWebhookEventResponse {
-  bool accepted = 1;
 }
 
 message GetSubscriptionsRequest {
@@ -101,13 +106,18 @@ message ToggleAutoRenewResponse {
 }
 
 service PaymentService {
-  rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse);
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest)
+      returns (CreateCheckoutSessionResponse);
 
-  rpc ProcessWebhookEvent(ProcessWebhookEventRequest) returns (ProcessWebhookEventResponse);
+  rpc ProcessWebhookEvent(ProcessWebhookEventRequest)
+      returns (google.protobuf.Empty);
 
-  rpc GetSubscriptions(GetSubscriptionsRequest) returns (GetSubscriptionsResponse);
+  rpc GetSubscriptions(GetSubscriptionsRequest)
+      returns (GetSubscriptionsResponse);
 
-  rpc GetPaymentHistory(GetPaymentHistoryRequest) returns (GetPaymentHistoryResponse);
+  rpc GetPaymentHistory(GetPaymentHistoryRequest)
+      returns (GetPaymentHistoryResponse);
 
-  rpc ToggleAutoRenew(ToggleAutoRenewRequest) returns (ToggleAutoRenewResponse);  
+  rpc ToggleAutoRenew(ToggleAutoRenewRequest)
+      returns (ToggleAutoRenewResponse);
 }
