@@ -38,10 +38,13 @@ import type { RawBodyRequest } from '@nestjs/common';
 
 import { StripeService } from '../infrastructure/stripe/stripe.service';
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
+import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GatewayConfig } from '../../../core/gateway.config';
 
 @Controller('payments')
 export class PaymentController {
   constructor(
+    private readonly gatewayConfig: GatewayConfig,
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
     private readonly stripeService: StripeService,
@@ -92,6 +95,9 @@ export class PaymentController {
       new CreateCheckoutSessionCommand({
         userId,
         dto,
+
+        successUrl: `${this.gatewayConfig.frontEndUrl}/payment/success`,
+        cancelUrl: `${this.gatewayConfig.frontEndUrl}/payment/cancel`,
       }),
     );
   }
@@ -149,12 +155,24 @@ export class PaymentController {
     // map that specific exception to HTTP 200 OK.
     // Stripe retries every non-2xx response, therefore duplicate
     // webhook deliveries must be acknowledged successfully.
-    await this.commandBus.execute(
-      new ProcessWebhookEventCommand({
-        event,
-        rawBody,
-      }),
-    );
+
+    try {
+      await this.commandBus.execute(
+        new ProcessWebhookEventCommand({
+          event,
+          rawBody,
+        }),
+      );
+    } catch (error) {
+      // Duplicate webhook deliveries are reported by Payment MS
+      // as DomainExceptionCode.Conflict (gRPC ALREADY_EXISTS).
+      // Stripe expects HTTP 2xx for already processed events.
+      if (GrpcErrorMapper.isConflict(error)) {
+        return;
+      }
+
+      throw error;
+    }
 
     return;
   }

@@ -34,11 +34,8 @@ export class PaymentRequestMapper {
       userId: dto.userId,
       productId: dto.dto.productId,
       provider: dto.dto.provider,
-
-      // Пока захардкодим.
-      // Позже вынесем в GatewayConfig.
-      successUrl: 'http://localhost:3000/payment/success',
-      cancelUrl: 'http://localhost:3000/payment/cancel',
+      successUrl: dto.successUrl,
+      cancelUrl: dto.cancelUrl,
     };
   }
 
