@@ -7,6 +7,9 @@ import { CreateCheckoutSessionDto } from '../../api/dto/create-checkout-session.
 export type CreateCheckoutSessionCommandDto = {
   userId: string;
   dto: CreateCheckoutSessionDto;
+
+  successUrl: string;
+  cancelUrl: string;
 };
 
 export class CreateCheckoutSessionCommand implements ICommand {

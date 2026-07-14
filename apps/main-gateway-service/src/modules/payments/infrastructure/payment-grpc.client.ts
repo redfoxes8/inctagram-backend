@@ -79,10 +79,10 @@ export class PaymentGrpcClient implements OnModuleInit {
         throw new GatewayTimeoutException('Payment service timeout');
       }
 
-      // TODO(P-013.2):
-      // Handle DuplicateWebhookEventException once Payment MS
-      // defines the gRPC error contract.
-      // Duplicate events must be translated to HTTP 200 by the controller.
+      // DomainExceptionCode.Conflict is intentionally propagated.
+      // PaymentController translates duplicate webhook deliveries
+      // into HTTP 200 for Stripe.
+
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

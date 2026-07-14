@@ -20,6 +20,10 @@ export class GrpcErrorMapper {
     });
   }
 
+  static isConflict(error: unknown): boolean {
+    return error instanceof DomainException && error.code === DomainExceptionCode.Conflict;
+  }
+
   private static extractMessage(grpcError: GrpcErrorLike): string {
     if (grpcError.message) {
       const match = grpcError.message.match(/^\d+\s+\w+:\s+(.+)$/);
@@ -61,7 +65,7 @@ export class GrpcErrorMapper {
       case status.DEADLINE_EXCEEDED:
         return DomainExceptionCode.GatewayTimeout;
       case status.ALREADY_EXISTS:
-        return DomainExceptionCode.BadRequest;
+        return DomainExceptionCode.Conflict;
       case status.INTERNAL:
       default:
         return DomainExceptionCode.InternalServerError;
