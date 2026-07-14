@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -31,11 +32,19 @@ import { ToggleAutoRenewDto } from './dto/toggle-auto-renew.dto';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import { ToggleAutoRenewCommand } from '../application/commands/toggle-auto-renew.command';
 
+import { Req } from '@nestjs/common';
+import type { Request } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
+
+import { StripeService } from '../infrastructure/stripe/stripe.service';
+import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
+
 @Controller('payments')
 export class PaymentController {
   constructor(
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
+    private readonly stripeService: StripeService,
   ) {}
 
   @Get('history')
@@ -116,6 +125,38 @@ export class PaymentController {
         dto,
       }),
     );
+  }
+
+  @Post('webhook/stripe')
+  @HttpCode(HttpStatus.OK)
+  async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<void> {
+    const signature = req.headers['stripe-signature'];
+
+    if (typeof signature !== 'string') {
+      throw new BadRequestException('Missing Stripe signature');
+    }
+
+    const rawBody = req.rawBody;
+
+    if (!rawBody) {
+      throw new BadRequestException('Missing raw body');
+    }
+
+    const event = this.stripeService.constructWebhookEvent(req.rawBody!, signature);
+
+    // TODO(P-013.2):
+    // When Payment MS introduces DuplicateWebhookEventException,
+    // map that specific exception to HTTP 200 OK.
+    // Stripe retries every non-2xx response, therefore duplicate
+    // webhook deliveries must be acknowledged successfully.
+    await this.commandBus.execute(
+      new ProcessWebhookEventCommand({
+        event,
+        rawBody,
+      }),
+    );
+
+    return;
   }
 
   // GET    /payments/history

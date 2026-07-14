@@ -8,9 +8,17 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
+import { Empty } from "./google/protobuf/empty";
 import { Timestamp } from "./google/protobuf/timestamp";
 
 export const protobufPackage = "inctagram.payment.v1";
+
+export enum PaymentProvider {
+  PAYMENT_PROVIDER_UNSPECIFIED = 0,
+  STRIPE = 1,
+  PAYPAL = 2,
+  UNRECOGNIZED = -1,
+}
 
 export interface PaymentSubscription {
   id: string;
@@ -46,13 +54,9 @@ export interface CreateCheckoutSessionResponse {
 }
 
 export interface ProcessWebhookEventRequest {
-  provider: string;
+  provider: PaymentProvider;
   eventType: string;
   rawPayload: Uint8Array;
-}
-
-export interface ProcessWebhookEventResponse {
-  accepted: boolean;
 }
 
 export interface GetSubscriptionsRequest {
@@ -95,10 +99,7 @@ export interface PaymentServiceClient {
     metadata?: Metadata,
   ): Observable<CreateCheckoutSessionResponse>;
 
-  processWebhookEvent(
-    request: ProcessWebhookEventRequest,
-    metadata?: Metadata,
-  ): Observable<ProcessWebhookEventResponse>;
+  processWebhookEvent(request: ProcessWebhookEventRequest, metadata?: Metadata): Observable<Empty>;
 
   getSubscriptions(request: GetSubscriptionsRequest, metadata?: Metadata): Observable<GetSubscriptionsResponse>;
 
@@ -113,10 +114,7 @@ export interface PaymentServiceController {
     metadata?: Metadata,
   ): Promise<CreateCheckoutSessionResponse> | Observable<CreateCheckoutSessionResponse> | CreateCheckoutSessionResponse;
 
-  processWebhookEvent(
-    request: ProcessWebhookEventRequest,
-    metadata?: Metadata,
-  ): Promise<ProcessWebhookEventResponse> | Observable<ProcessWebhookEventResponse> | ProcessWebhookEventResponse;
+  processWebhookEvent(request: ProcessWebhookEventRequest, metadata?: Metadata): void | Promise<void>;
 
   getSubscriptions(
     request: GetSubscriptionsRequest,

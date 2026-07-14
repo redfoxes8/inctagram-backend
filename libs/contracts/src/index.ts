@@ -41,10 +41,10 @@ export {
 export {
   type PaymentSubscription,
   type PaymentHistoryItemGrpc,
+  PaymentProvider,
   type CreateCheckoutSessionRequest,
   type CreateCheckoutSessionResponse,
   type ProcessWebhookEventRequest,
-  type ProcessWebhookEventResponse,
   type GetSubscriptionsRequest,
   type GetSubscriptionsResponse,
   type GetPaymentHistoryRequest,
@@ -57,6 +57,8 @@ export {
   PAYMENT_SERVICE_NAME,
   INCTAGRAM_PAYMENT_V1_PACKAGE_NAME,
 } from './generated/payment';
+
+export { type Empty } from './generated/google/protobuf/empty';
 
 export * from './post/interfaces/post.service.interface';
 export * from './file/interfaces/file.service.interface';

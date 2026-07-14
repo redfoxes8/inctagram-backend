@@ -44,7 +44,9 @@ const corsExposedHeaders = ['Set-Cookie', 'X-Request-ID', 'X-Trace-ID'];
 async function bootstrap() {
   const dynamicAppModule = await initAppModule();
 
-  const app = await NestFactory.create(dynamicAppModule);
+  const app = await NestFactory.create(dynamicAppModule, {
+    rawBody: true,
+  });
 
   appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {

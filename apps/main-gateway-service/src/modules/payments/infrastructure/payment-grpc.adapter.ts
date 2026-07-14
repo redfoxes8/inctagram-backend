@@ -9,6 +9,7 @@ import { GetSubscriptionsQueryDto } from '../application/queries/get-subscriptio
 import { CreateCheckoutSessionResponseDto } from '../api/dto/create-checkout-session.response';
 import { CreateCheckoutSessionCommandDto } from '../application/commands/create-checkout-session.command';
 import { ToggleAutoRenewCommandDto } from '../application/commands/toggle-auto-renew.command';
+import { ProcessWebhookEventCommandDto } from '../application/commands/process-webhook-event.command';
 
 @Injectable()
 export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
@@ -50,6 +51,14 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
     if (!response.success) {
       throw new InternalServerErrorException('Toggle auto renew failed'); // or DomainError('Toggle auto renew failed');
     }
+
+    return;
+  }
+
+  async processWebhookEvent(dto: ProcessWebhookEventCommandDto): Promise<void> {
+    const request = PaymentRequestMapper.toProcessWebhookEvent(dto);
+
+    await this.paymentGrpcClient.processWebhookEvent(request);
 
     return;
   }
