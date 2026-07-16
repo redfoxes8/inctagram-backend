@@ -7,11 +7,19 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AccountType {
+  PERSONAL
+  BUSINESS
+}
+
 model User {
   id                String             @id @default(uuid())
   email             String             @unique
-  passwordHash      String?
+  passwordHash      String?  
   isConfirmed       Boolean            @default(false)
+
+  accountType       AccountType        @default(PERSONAL)
+  
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @default(now())
   deletedAt         DateTime?

@@ -5,7 +5,7 @@ import { IUsersRepository } from '../domain/interfaces/users.repository.interfac
 import { UserPrismaMapper, type UserRecord } from './mappers/user.prisma.mapper';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
-import { PrismaClient } from '../../../core/prisma/client';
+import { AccountType, PrismaClient } from '../../../core/prisma/client';
 import { Prisma } from '@prisma/client/extension';
 import TransactionClient = Prisma.TransactionClient;
 
@@ -14,6 +14,7 @@ type UserCreateData = {
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  accountType: AccountType;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -23,6 +24,7 @@ type UserUpdateData = {
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  accountType: AccountType;
   updatedAt: Date;
   deletedAt: Date | null;
 };
@@ -99,6 +101,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       email: user.email,
       passwordHash: user.passwordHash,
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
@@ -111,6 +114,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       email: user.email,
       passwordHash: user.passwordHash,
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
     };

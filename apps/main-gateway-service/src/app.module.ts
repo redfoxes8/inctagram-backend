@@ -16,6 +16,7 @@ import { CoreConfig } from '../../../libs/common/src/core.config';
 import { PostsModule } from './modules/posts/posts.module';
 import { FilesModule } from './modules/files/files.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 
 @Module({
   imports: [
@@ -45,12 +46,27 @@ import { PaymentsModule } from './modules/payments/payments.module';
   providers: [FilesHttpClient],
 })
 export class AppModule {
+  // лучше чтобы все инфраструктурные подключения
+  // (RabbitMQ, gRPC и т.д.) находились только внутри forRoot()
   static forRoot(config: GatewayConfig): DynamicModule {
     console.log('TestingModule connected?', config.includeTestingModule);
 
     return {
       module: AppModule,
-      imports: [...(config.includeTestingModule ? [] : [])], // TestingModule
+      imports: [
+        RabbitMQModule.forRoot({
+          exchanges: [
+            {
+              name: 'common_exchange',
+              type: 'topic',
+            },
+          ],
+
+          uri: config.rabbitmqUrl,
+
+          connectionInitOptions: { wait: false },
+        }),
+      ],
       controllers: [GatewayController],
       providers: [FilesHttpClient],
     };

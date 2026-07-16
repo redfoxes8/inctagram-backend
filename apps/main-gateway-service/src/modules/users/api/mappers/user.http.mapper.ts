@@ -10,6 +10,7 @@ export class UserHttpMapper {
       email: user.email,
       username: profile.username,
       aboutMe: profile.aboutMe,
+      accountType: user.accountType,
     };
   }
 }

@@ -10,6 +10,7 @@ import {
 import { ProfileHttpMapper } from '../../api/mappers/profile.http.mapper';
 import { GetProfileResponseDto } from '../../api/dto/get-profile.dto';
 import { IPostGrpcAdapter } from '../../../posts/infrastructure/interfaces/post-grpc-adapter.interface';
+import { IUsersQueryRepository } from '../../domain/interfaces/users.query-repository.interface';
 
 export class GetProfileQuery {
   constructor(public readonly userId: string) {}
@@ -21,6 +22,7 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
   constructor(
     private readonly userProfileQueryRepository: IProfileQueryRepository,
     private readonly postGrpcAdapter: IPostGrpcAdapter,
+    private readonly usersQueryRepository: IUsersQueryRepository,
   ) {}
 
   async execute(query: GetProfileQuery): Promise<GetProfileResponseDto> {
@@ -30,6 +32,7 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
 
     const profile: ProfileViewType | null =
       await this.userProfileQueryRepository.getProfileByUserId(query.userId);
+
     if (!profile) {
       throw new DomainException({
         code: DomainExceptionCode.NotFound,
@@ -38,6 +41,15 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
     }
     this.logger.debug(`Profile loaded: exists=${!!profile}`);
 
+    const user = await this.usersQueryRepository.getUserById(query.userId);
+
+    if (!user) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'User not found',
+      });
+    }
+
     const postsCount: number = await this.postGrpcAdapter.getPostsCount(query.userId);
     this.logger.debug(`postsCount received: count=${postsCount}`);
 
@@ -45,6 +57,6 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
     const elapsed = Date.now() - startTime;
     this.logger.debug(`Handler completed: elapsed=${elapsed}ms`);
 
-    return ProfileHttpMapper.toGetProfile(profile, postsCount);
+    return ProfileHttpMapper.toGetProfile(profile, user.accountType, postsCount);
   }
 }

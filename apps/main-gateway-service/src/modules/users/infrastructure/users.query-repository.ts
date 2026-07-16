@@ -20,6 +20,7 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
         email: true,
         createdAt: true,
         isConfirmed: true,
+        accountType: true,
       },
     });
 
@@ -32,6 +33,7 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
     };
   }
 
@@ -46,6 +48,7 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
         email: true,
         createdAt: true,
         isConfirmed: true,
+        accountType: true,
       },
     });
 
@@ -58,6 +61,7 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
     };
   }
 

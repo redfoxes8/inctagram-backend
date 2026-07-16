@@ -26,6 +26,8 @@ import { AvatarOutboxRelayCron } from './infrastructure/outbox/avatar-outbox-rel
 import { IPostGrpcAdapter } from '../posts/infrastructure/interfaces/post-grpc-adapter.interface';
 import { PostGrpcAdapter } from '../posts/infrastructure/post-grpc.adapter';
 import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
+import { PaymentRabbitConsumer } from './infrastructure/payment.rabbit.consumer';
+import { UpdateAccountTypeHandler } from './application/commands/update-account-type.command';
 
 const adapters = [
   {
@@ -42,6 +44,7 @@ const handlers = [
   GetMeHandler,
   CountUsersHandler,
   GetProfileHandler,
+  UpdateAccountTypeHandler,
 ];
 
 const repositories = [
@@ -61,6 +64,7 @@ const repositories = [
     ...adapters,
     ...handlers,
     ...repositories,
+    PaymentRabbitConsumer,
   ],
   exports: [
     IUsersRepository,

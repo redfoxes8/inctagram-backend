@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AccountType } from '../../../../core/prisma/client';
 
 export class UserMeResponseDto {
   @ApiPropertyOptional({
@@ -27,4 +28,11 @@ export class UserMeResponseDto {
     nullable: true,
   })
   aboutMe: string | null;
+
+  @ApiProperty({
+    description: 'Account type',
+    enum: AccountType,
+    example: AccountType.PERSONAL,
+  })
+  accountType: AccountType;
 }

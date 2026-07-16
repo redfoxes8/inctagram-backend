@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AccountType } from '../../../../core/prisma/client';
 
 export class GetProfileResponseDto {
   @ApiProperty({ description: 'User identifier', example: 'user-id' })
@@ -66,4 +67,11 @@ export class GetProfileResponseDto {
     example: 42,
   })
   postsCount: number;
+
+  @ApiProperty({
+    description: 'Account type',
+    example: AccountType.PERSONAL,
+    enum: AccountType,
+  })
+  accountType: AccountType;
 }
