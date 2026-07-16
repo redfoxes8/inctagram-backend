@@ -9,7 +9,7 @@ import {
   GetPostsCountByUserIdResponse,
 } from '@inctagram/contracts/generated/post';
 import { Injectable } from '@nestjs/common';
-import { GetProfileRequestDto } from '../../users/api/dto/get-profile.dto';
+
 import { IPostGrpcAdapter } from './interfaces/post-grpc-adapter.interface';
 
 @Injectable()
@@ -24,9 +24,9 @@ export class PostGrpcAdapter implements IPostGrpcAdapter {
     return PostResponseMapper.toViewType(response.posts);
   }
 
-  async getPostsCount(dto: GetProfileRequestDto) {
+  async getPostsCount(userId: string) {
     const request: GetPostsCountByUserIdRequest = PostRequestMapper.toGetPostsCount({
-      userId: dto.userId,
+      userId,
     });
     const response: GetPostsCountByUserIdResponse =
       await this.postGrpcClient.getPostsCount(request);
