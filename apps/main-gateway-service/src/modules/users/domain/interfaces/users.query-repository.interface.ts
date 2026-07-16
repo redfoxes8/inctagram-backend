@@ -1,8 +1,11 @@
+import { AccountType } from '../../../../core/prisma/client';
+
 export class UserViewType {
   id: string;
   email: string;
   createdAt: string;
   isConfirmed: boolean;
+  accountType: AccountType;
 }
 
 export type UserMeViewModel = {
