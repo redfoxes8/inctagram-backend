@@ -1,15 +1,4 @@
-import { IsNotEmpty, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class GetProfileRequestDto {
-  @ApiProperty({
-    description: 'Valid user id',
-    example: 'e5f98a28-1b64-4bf8-a428-2d8869b2d8e4',
-  })
-  @IsNotEmpty({ message: 'Field userId is required' })
-  @IsUUID(undefined, { message: 'Field userId must be valid UUID' })
-  userId: string;
-}
 
 export class GetProfileResponseDto {
   @ApiProperty({ description: 'User identifier', example: 'user-id' })

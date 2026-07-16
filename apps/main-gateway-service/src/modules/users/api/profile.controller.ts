@@ -12,6 +12,7 @@ import {
   Put,
   UseGuards,
   Request,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -26,7 +27,7 @@ import {
 } from '@nestjs/swagger';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import { GetProfileQuery } from '../application/queries/get-profile.query';
-import { GetProfileRequestDto, GetProfileResponseDto } from './dto/get-profile.dto';
+import { GetProfileResponseDto } from './dto/get-profile.dto';
 import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
 import { UpdateProfileCommand } from '../application/use-cases/update-profile.use-case';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -67,10 +68,10 @@ export class ProfileController {
   @ApiDomainError(404, 'Profile not found', 'Profile was not found')
   @ApiDomainError(503, 'Service unavailable', 'Service unavailable')
   public async getProfile(
-    @Param('userId') dto: GetProfileRequestDto,
+    @Param('userId', ParseUUIDPipe) userId: string,
   ): Promise<GetProfileResponseDto> {
-    logger.debug(`Incoming request: userId=${dto.userId}`);
-    return this.queryBus.execute(new GetProfileQuery(dto));
+    logger.debug(`Incoming request: userId=${userId}`);
+    return this.queryBus.execute(new GetProfileQuery(userId));
   }
 
   @Put('update')

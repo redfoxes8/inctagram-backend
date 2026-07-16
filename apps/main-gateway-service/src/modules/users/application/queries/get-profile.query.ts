@@ -8,11 +8,11 @@ import {
   ProfileViewType,
 } from '../../domain/interfaces/user-profile.query-repository.interface';
 import { ProfileHttpMapper } from '../../api/mappers/profile.http.mapper';
-import { GetProfileRequestDto, GetProfileResponseDto } from '../../api/dto/get-profile.dto';
+import { GetProfileResponseDto } from '../../api/dto/get-profile.dto';
 import { IPostGrpcAdapter } from '../../../posts/infrastructure/interfaces/post-grpc-adapter.interface';
 
 export class GetProfileQuery {
-  constructor(public readonly dto: GetProfileRequestDto) {}
+  constructor(public readonly userId: string) {}
 }
 
 @QueryHandler(GetProfileQuery)
@@ -23,13 +23,13 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
     private readonly postGrpcAdapter: IPostGrpcAdapter,
   ) {}
 
-  async execute({ dto }: GetProfileQuery): Promise<GetProfileResponseDto> {
+  async execute(query: GetProfileQuery): Promise<GetProfileResponseDto> {
     const startTime = Date.now();
 
-    this.logger.debug(`Handler started: userId=${dto.userId}`);
+    this.logger.debug(`Handler started: userId=${query.userId}`);
 
     const profile: ProfileViewType | null =
-      await this.userProfileQueryRepository.getProfileByUserId(dto.userId);
+      await this.userProfileQueryRepository.getProfileByUserId(query.userId);
     if (!profile) {
       throw new DomainException({
         code: DomainExceptionCode.NotFound,
@@ -38,7 +38,7 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
     }
     this.logger.debug(`Profile loaded: exists=${!!profile}`);
 
-    const postsCount: number = await this.postGrpcAdapter.getPostsCount(dto);
+    const postsCount: number = await this.postGrpcAdapter.getPostsCount(query.userId);
     this.logger.debug(`postsCount received: count=${postsCount}`);
 
     this.logger.debug('Aggregation completed');
