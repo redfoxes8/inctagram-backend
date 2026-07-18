@@ -16,8 +16,6 @@ export abstract class IFilesRepository {
 
   abstract deleteManyByS3Key(s3Keys: string[]): Promise<void>;
 
-  abstract updateStatus(fileId: string, fileStatus: FileStatusDomain): Promise<void>;
-
   abstract updateStatusManyById(ids: string[], status: FileStatusDomain): Promise<void>;
 
   abstract updateStatusManyByS3Key(s3Keys: string[], status: FileStatusDomain): Promise<void>;

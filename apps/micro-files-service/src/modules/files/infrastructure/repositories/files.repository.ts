@@ -88,15 +88,6 @@ export class FilesRepository implements IFilesRepository {
     return;
   }
 
-  async updateStatus(fileId: string, fileStatus: FileStatusDomain): Promise<void> {
-    const prismaStatus: FileStatus = PrismaMapper.statusToPrismaRecord(fileStatus);
-    await this.prisma.file.update({
-      where: { id: fileId },
-      data: { status: prismaStatus },
-    });
-    return;
-  }
-
   async updateStatusManyById(ids: string[], fileStatus: FileStatusDomain): Promise<void> {
     const prismaStatus: FileStatus = PrismaMapper.statusToPrismaRecord(fileStatus);
     await this.prisma.file.updateMany({

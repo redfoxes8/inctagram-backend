@@ -34,7 +34,7 @@ export class FileUploadedUseCase implements ICommandHandler<FileUploadedCommand,
       return;
     } else {
       fileEntity.updateStatus(FileStatusDomain.UPLOADED);
-      await this.fileRepository.updateStatus(fileEntity.id, fileEntity.getStatus());
+      await this.fileRepository.save(fileEntity);
       await this.eventPublisher.sendFileUploadedEvent({
         fileId: fileEntity.id,
         userId: fileEntity.getUserId(),

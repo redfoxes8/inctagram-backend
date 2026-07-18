@@ -49,18 +49,19 @@ describe('FileUploadedUseCase - Unit Tests', () => {
       const file = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
       file.setS3Props('s3-key', 'bucket');
 
       jest.spyOn(filesRepository, 'findFileByKey').mockResolvedValue(file);
-      const updateStatusSpy = jest.spyOn(filesRepository, 'updateStatus');
+      const updateStatusSpy = jest.spyOn(filesRepository, 'save');
       const sendFileUploadedEventSpy = jest.spyOn(eventPublisher, 'sendFileUploadedEvent');
 
       await useCase.execute(new FileUploadedCommand('s3-key'));
 
-      expect(updateStatusSpy).toHaveBeenCalledWith(file.id, FileStatusDomain.UPLOADED);
+      expect(updateStatusSpy).toHaveBeenCalledWith(file);
       expect(sendFileUploadedEventSpy).toHaveBeenCalledWith({
         fileId: file.id,
         userId: file.getUserId(),
@@ -75,6 +76,7 @@ describe('FileUploadedUseCase - Unit Tests', () => {
       const file = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -82,7 +84,7 @@ describe('FileUploadedUseCase - Unit Tests', () => {
       file.updateStatus(FileStatusDomain.UPLOADED);
 
       jest.spyOn(filesRepository, 'findFileByKey').mockResolvedValue(file);
-      const updateStatusSpy = jest.spyOn(filesRepository, 'updateStatus');
+      const updateStatusSpy = jest.spyOn(filesRepository, 'save');
       const sendFileUploadedEventSpy = jest.spyOn(eventPublisher, 'sendFileUploadedEvent');
 
       await useCase.execute(new FileUploadedCommand('s3-key'));
