@@ -1,5 +1,5 @@
-import { UserViewType } from '../../domain/interfaces/users.query-repository.interface';
-import { ProfileViewType } from '../../domain/interfaces/user-profile.query-repository.interface';
+import { UserViewType } from '../../../domain/interfaces/users.query-repository.interface';
+import { ProfileViewType } from '../../../domain/interfaces/user-profile.query-repository.interface';
 import { UserMeResponseDto } from '../dto/user-me.dto';
 
 export class UserHttpMapper {

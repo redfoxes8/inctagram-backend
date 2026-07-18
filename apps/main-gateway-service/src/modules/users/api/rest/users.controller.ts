@@ -2,13 +2,13 @@ import { Controller, Get, Inject, Query, UseGuards, Request } from '@nestjs/comm
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
-import { ApiDomainError } from '../../../../../../libs/common/src';
-import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
-import { CheckUsernameQuery } from '../application/queries/check-username.query';
-import { GetMeQuery } from '../application/queries/get-me.query';
+import { ApiDomainError } from '../../../../../../../libs/common/src';
+import { JwtGuard } from '../../../../common/guards/jwt-auth.guard';
+import { CheckUsernameQuery } from '../../application/queries/check-username.query';
+import { GetMeQuery } from '../../application/queries/get-me.query';
 import { UserMeResponseDto } from './dto/user-me.dto';
-import { CountUsersQuery } from '../application/queries/count-users.query';
-import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
+import { CountUsersQuery } from '../../application/queries/count-users.query';
+import type { IAuthRequestInfo } from '../../../../common/interfaces/auth-request-info.interface';
 
 @ApiTags('Users')
 @Controller('users')

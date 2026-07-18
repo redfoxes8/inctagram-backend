@@ -5,6 +5,9 @@ import { initAppModule } from './init-app-module';
 import { GLOBAL_PREFIX, appSetup } from '../../../libs/common/src';
 import { GatewayConfig } from './core/gateway.config';
 import { swaggerSetup } from './core/config/swagger.setup';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { INCTAGRAM_USER_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
+import { join } from 'path';
 
 const corsAllowedOrigins = [
   'http://localhost:3000',
@@ -48,6 +51,17 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
+
+  const grpcOptions: MicroserviceOptions = {
+    transport: Transport.GRPC,
+    options: {
+      package: INCTAGRAM_USER_V1_PACKAGE_NAME,
+      protoPath: join(process.cwd(), 'libs/contracts/src/proto/user.proto'),
+      url: `${gatewayConfig.grpcHost}:${gatewayConfig.grpcPort}`,
+    },
+  };
+
   appSetup(app, dynamicAppModule as unknown as Type<any>, {
     httpConfig: {
       enabled: true,
@@ -65,11 +79,16 @@ async function bootstrap() {
       enableSwagger: false,
       globalPrefix: GLOBAL_PREFIX,
     },
+    rpcConfig: {
+      enabled: true,
+      grpcPipes: true,
+      options: grpcOptions,
+    },
   });
+
   swaggerSetup(app);
 
-  const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
-
+  await app.startAllMicroservices();
   await app.listen(gatewayConfig.port);
 
   console.log(`Gateway is running on port ${gatewayConfig.port}`);

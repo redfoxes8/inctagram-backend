@@ -1,5 +1,5 @@
-import { AccountType } from '../../../../core/prisma/client';
-import { type ProfileViewType } from '../../domain/interfaces/user-profile.query-repository.interface';
+import { AccountType } from '../../../../../core/prisma/client';
+import { type ProfileViewType } from '../../../domain/interfaces/user-profile.query-repository.interface';
 
 import { GetProfileResponseDto } from '../dto/get-profile.dto';
 

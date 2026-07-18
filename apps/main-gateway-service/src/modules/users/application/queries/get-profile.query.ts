@@ -7,8 +7,8 @@ import {
   IProfileQueryRepository,
   ProfileViewType,
 } from '../../domain/interfaces/user-profile.query-repository.interface';
-import { ProfileHttpMapper } from '../../api/mappers/profile.http.mapper';
-import { GetProfileResponseDto } from '../../api/dto/get-profile.dto';
+import { ProfileHttpMapper } from '../../api/rest/mappers/profile.http.mapper';
+import { GetProfileResponseDto } from '../../api/rest/dto/get-profile.dto';
 import { IPostGrpcAdapter } from '../../../posts/infrastructure/interfaces/post-grpc-adapter.interface';
 import { IUsersQueryRepository } from '../../domain/interfaces/users.query-repository.interface';
 

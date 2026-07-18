@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package inctagram.user.v1;
+
+message GetUserByIdRequest {
+  string user_id = 1;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+}
+
+message GetUserByIdResponse {
+  User user = 1;
+}
+
+service UserService {
+  rpc GetUserById(GetUserByIdRequest)
+      returns (GetUserByIdResponse);
+}
