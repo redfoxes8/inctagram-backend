@@ -10,7 +10,7 @@ import {
   type GetFileStatusRequest,
   type GetFileStatusResponse,
 } from '../../../../../../libs/contracts/src';
-import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { FILE_SERVICE_GRPC_CLIENT } from './file-grpc.constants';
 import {
   GetFileStatusBatchRequest,

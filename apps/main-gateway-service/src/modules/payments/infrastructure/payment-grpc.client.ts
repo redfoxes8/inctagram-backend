@@ -18,7 +18,7 @@ import {
 
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
 
-import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 
 @Injectable()
 export class PaymentGrpcClient implements OnModuleInit {

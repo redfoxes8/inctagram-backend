@@ -50,6 +50,10 @@ export class NotificationConfig {
 
   private readonly smtpFromNameValue: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable GATEWAY_SERVICE_GRPC_URL, example: localhost:50050' })
+  gatewayServiceGrpcUrl: string;
+
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
     this.frontEndUrl = this.configService.get(NOTIFICATION_ENV_KEYS.FRONTEND_URL);
@@ -66,6 +70,9 @@ export class NotificationConfig {
     this.smtpPassword = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_PASSWORD);
     this.smtpFromEmailValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_EMAIL);
     this.smtpFromNameValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_NAME);
+    this.gatewayServiceGrpcUrl = this.configService.get(
+      NOTIFICATION_ENV_KEYS.GATEWAY_SERVICE_GRPC_URL,
+    );
 
     configValidationUtility.validateConfig(this);
   }
