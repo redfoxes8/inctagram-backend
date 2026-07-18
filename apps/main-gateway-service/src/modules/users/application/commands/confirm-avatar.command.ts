@@ -7,7 +7,7 @@ import { DomainExceptionCode } from '../../../../../../../libs/common/src/except
 import { FileStatus, FileType } from '../../../../../../../libs/contracts/src/generated/file';
 import { PrismaService } from '../../../../core/prisma/prisma.service';
 import { FileGrpcClient } from '../../../files/infrastructure/file-grpc.client';
-import { ConfirmAvatarResponseDto } from '../../api/dto/confirm-avatar-response.dto';
+import { ConfirmAvatarResponseDto } from '../../api/rest/dto/confirm-avatar-response.dto';
 import { AVATAR_DELETED_EVENT_TYPE } from '../../domain/constants/avatar-outbox.constants';
 import { IProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';
 import { ProfileEntity } from '../../domain/profile.entity';

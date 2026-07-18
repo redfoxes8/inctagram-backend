@@ -1,7 +1,7 @@
 import { status } from '@grpc/grpc-js';
 
-import { DomainException } from '../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { DomainException } from '../exceptions/domain-exception';
+import { DomainExceptionCode } from '../exceptions/domain-exception-codes';
 
 type GrpcErrorLike = {
   code?: number;

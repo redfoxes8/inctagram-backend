@@ -6,7 +6,7 @@ import {
   GetFilesDataResponse,
 } from '../../../../../../../libs/contracts/src/';
 import { firstValueFrom } from 'rxjs';
-import { GrpcErrorMapper } from '../../../../../../main-gateway-service/src/common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../../libs/common/src/grpc/grpc-error.mapper';
 
 @Injectable()
 export class FileGrpcClient {

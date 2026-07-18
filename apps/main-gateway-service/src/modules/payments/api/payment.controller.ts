@@ -38,7 +38,7 @@ import type { RawBodyRequest } from '@nestjs/common';
 
 import { StripeService } from '../infrastructure/stripe/stripe.service';
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
-import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { GatewayConfig } from '../../../core/gateway.config';
 
 @Controller('payments')

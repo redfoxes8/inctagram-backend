@@ -2,29 +2,30 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
-import { UserMeResponseDto } from '../../api/rest/dto/user-me.dto';
+
 import {
   IUsersQueryRepository,
   UserViewType,
 } from '../../domain/interfaces/users.query-repository.interface';
+
 import {
   IProfileQueryRepository,
   ProfileViewType,
 } from '../../domain/interfaces/user-profile.query-repository.interface';
-import { UserHttpMapper } from '../../api/rest/mappers/user.http.mapper';
+import { UserGrpcDto } from '../../api/grpc/dto/user-grpc.dto';
 
-export class GetMeQuery {
+export class GetUserByIdGrpcQuery {
   constructor(public readonly userId: string) {}
 }
 
-@QueryHandler(GetMeQuery)
-export class GetMeHandler implements IQueryHandler<GetMeQuery, UserMeResponseDto> {
+@QueryHandler(GetUserByIdGrpcQuery)
+export class GetUserByIdGrpcHandler implements IQueryHandler<GetUserByIdGrpcQuery, UserGrpcDto> {
   constructor(
     private readonly usersQueryRepository: IUsersQueryRepository,
-    private readonly userProfileQueryRepository: IProfileQueryRepository,
+    private readonly profileQueryRepository: IProfileQueryRepository,
   ) {}
 
-  public async execute(query: GetMeQuery): Promise<UserMeResponseDto> {
+  async execute(query: GetUserByIdGrpcQuery): Promise<UserGrpcDto> {
     const user: UserViewType | null = await this.usersQueryRepository.getUserById(query.userId);
 
     if (!user) {
@@ -34,14 +35,21 @@ export class GetMeHandler implements IQueryHandler<GetMeQuery, UserMeResponseDto
       });
     }
 
-    const profile: ProfileViewType | null =
-      await this.userProfileQueryRepository.getProfileByUserId(query.userId);
+    const profile: ProfileViewType | null = await this.profileQueryRepository.getProfileByUserId(
+      query.userId,
+    );
+
     if (!profile) {
       throw new DomainException({
         code: DomainExceptionCode.NotFound,
         message: 'Profile was not found',
       });
     }
-    return UserHttpMapper.toGetMe(user, profile);
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: profile.username,
+    };
   }
 }

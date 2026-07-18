@@ -11,6 +11,14 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable PORT, example: 3000' })
   port: number;
 
+  @IsString({ message: 'Env variable GATEWAY_GRPC_HOST must be a string' })
+  @IsNotEmpty({ message: 'Set Env variable GATEWAY_GRPC_HOST, example: 0.0.0.0' })
+  grpcHost: string;
+
+  @IsNumber({}, { message: 'Env variable GATEWAY_GRPC_PORT must be a number' })
+  @IsNotEmpty({ message: 'Set Env variable GATEWAY_GRPC_PORT, example: 50050' })
+  grpcPort: number;
+
   @IsBoolean({ message: 'INCLUDE_TESTING_MODULE must be a boolean value' })
   @IsNotEmpty({ message: 'Set Env variable INCLUDE_TESTING_MODULE, example: false' })
   includeTestingModule: boolean;
@@ -96,6 +104,10 @@ export class GatewayConfig {
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     // General Configuration
     this.port = Number(this.configService.get('PORT'));
+
+    this.grpcHost = this.configService.get('GATEWAY_GRPC_HOST') || '0.0.0.0';
+    this.grpcPort = Number(this.configService.get('GATEWAY_GRPC_PORT'));
+
     this.includeTestingModule = configValidationUtility.convertToBoolean(
       this.configService.get('INCLUDE_TESTING_MODULE'),
     );

@@ -8,8 +8,8 @@ import { PrismaUsersQueryRepository } from './infrastructure/users.query-reposit
 import { CheckUsernameHandler } from './application/queries/check-username.query';
 import { GetMeHandler } from './application/queries/get-me.query';
 import { CqrsModule } from '@nestjs/cqrs';
-import { UsersController } from './api/users.controller';
-import { ProfileController } from './api/profile.controller';
+import { UsersController } from './api/rest/users.controller';
+import { ProfileController } from './api/rest/profile.controller';
 import { CountUsersHandler } from './application/queries/count-users.query';
 import { GetProfileHandler } from './application/queries/get-profile.query';
 import { IProfileRepository } from './domain/interfaces/user-profile.repository.interface';
@@ -28,6 +28,8 @@ import { PostGrpcAdapter } from '../posts/infrastructure/post-grpc.adapter';
 import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
 import { PaymentRabbitConsumer } from './infrastructure/payment.rabbit.consumer';
 import { UpdateAccountTypeHandler } from './application/commands/update-account-type.command';
+import { GetUserByIdGrpcHandler } from './application/queries/get-user-by-id-grpc.query';
+import { UserGrpcController } from './api/grpc/user.grpc.controller';
 
 const adapters = [
   {
@@ -45,6 +47,7 @@ const handlers = [
   CountUsersHandler,
   GetProfileHandler,
   UpdateAccountTypeHandler,
+  GetUserByIdGrpcHandler,
 ];
 
 const repositories = [
@@ -56,7 +59,7 @@ const repositories = [
 
 @Module({
   imports: [CqrsModule, PostGrpcClientModule, FileGrpcClientModule, ScheduleModule],
-  controllers: [UsersController, ProfileController],
+  controllers: [UsersController, ProfileController, UserGrpcController],
   providers: [
     UpdateProfileUseCase,
     AvatarOutboxRelayCron,

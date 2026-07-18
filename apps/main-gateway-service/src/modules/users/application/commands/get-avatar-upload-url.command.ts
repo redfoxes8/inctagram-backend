@@ -3,7 +3,7 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 
 import { FileType } from '../../../../../../../libs/contracts/src/generated/file';
 import { FileGrpcClient } from '../../../files/infrastructure/file-grpc.client';
-import { GetAvatarUploadUrlResponseDto } from '../../api/dto/get-avatar-upload-url-response.dto';
+import { GetAvatarUploadUrlResponseDto } from '../../api/rest/dto/get-avatar-upload-url-response.dto';
 
 type GetAvatarUploadUrlCommandParams = {
   userId: string;
