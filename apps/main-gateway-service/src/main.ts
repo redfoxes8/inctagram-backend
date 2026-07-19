@@ -87,7 +87,6 @@ async function bootstrap() {
   });
 
   swaggerSetup(app);
-
   await app.startAllMicroservices();
   await app.listen(gatewayConfig.port);
 
