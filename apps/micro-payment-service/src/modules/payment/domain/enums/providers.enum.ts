@@ -1,4 +1,4 @@
-export enum Providers {
+export enum PaymentTransactionProvidersDomain {
   PAYPAL = 'PAYPAL',
   STRIPE = 'STRIPE',
 }

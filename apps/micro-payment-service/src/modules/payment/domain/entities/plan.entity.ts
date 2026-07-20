@@ -1,8 +1,8 @@
 import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
-import { PlanType } from '../enums/plan-type.enum';
+import { PlanTypeDomain } from '../enums/plan-type.enum';
 
 type PlanEntityProps = BaseDomainEntityProps & {
-  type: PlanType;
+  type: PlanTypeDomain;
   duration: number;
   price: number;
   stripeId: string;
@@ -11,7 +11,7 @@ type PlanEntityProps = BaseDomainEntityProps & {
 };
 
 export class PlanEntity extends BaseDomainEntity {
-  private readonly type: PlanType;
+  private readonly type: PlanTypeDomain;
   private readonly duration: number;
   private readonly price: number;
   private readonly stripeId: string;
@@ -28,7 +28,7 @@ export class PlanEntity extends BaseDomainEntity {
     this.isActive = data.isActive;
   }
 
-  public getType(): PlanType {
+  public getType(): PlanTypeDomain {
     return this.type;
   }
 

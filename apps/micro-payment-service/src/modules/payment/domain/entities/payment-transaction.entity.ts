@@ -1,23 +1,23 @@
 import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
-import { Providers } from '../enums/providers.enum';
-import { PaymentTransactionStatus } from '../enums/payment-transaction-status.enum';
+import { PaymentTransactionProvidersDomain } from '../enums/providers.enum';
+import { PaymentTransactionStatusDomain } from '../enums/payment-transaction-status.enum';
 
 type PaymentTransactionProps = BaseDomainEntityProps & {
-  provider: Providers;
+  provider: PaymentTransactionProvidersDomain;
   eventId: string;
   eventType: string;
   subscriptionId: string;
-  status: PaymentTransactionStatus;
+  status: PaymentTransactionStatusDomain;
   payload: Record<string, any> | null;
   error: string | null;
 };
 
 export class PaymentTransactionEntity extends BaseDomainEntity {
-  private readonly provider: Providers;
+  private readonly provider: PaymentTransactionProvidersDomain;
   private readonly eventId: string;
   private readonly eventType: string;
   private readonly subscriptionId: string;
-  private readonly status: PaymentTransactionStatus;
+  private readonly status: PaymentTransactionStatusDomain;
   private readonly payload: Record<string, any> | null;
   private readonly error: string | null;
 
@@ -32,7 +32,7 @@ export class PaymentTransactionEntity extends BaseDomainEntity {
     this.error = data.error;
   }
 
-  public getProvider(): Providers {
+  public getProvider(): PaymentTransactionProvidersDomain {
     return this.provider;
   }
 
@@ -48,7 +48,7 @@ export class PaymentTransactionEntity extends BaseDomainEntity {
     return this.subscriptionId;
   }
 
-  public getStatus(): PaymentTransactionStatus {
+  public getStatus(): PaymentTransactionStatusDomain {
     return this.status;
   }
 
