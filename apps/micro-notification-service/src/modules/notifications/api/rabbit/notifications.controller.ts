@@ -1,20 +1,20 @@
 import { Controller, Logger } from '@nestjs/common';
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 
-import { NotificationsService } from '../application/notifications.service';
-import { PasswordRecoveryEmailSentDto } from '../application/dto/password-recovery-email-sent.dto';
-import { RegistrationEmailSentDto } from '../application/dto/registration-email-sent.dto';
+import { NotificationsService } from '../../application/notifications.service';
+import { PasswordRecoveryEmailSentDto } from './dto/password-recovery-email-sent.dto';
+import { RegistrationEmailSentDto } from './dto/registration-email-sent.dto';
 import {
   NOTIFICATION_MESSAGE_REGISTRY,
   NotificationEvents,
-} from '../../../core/notification.constants';
-import { NotificationConfig } from '../../../core/notification.config';
-import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
+} from '../../../../core/notification.constants';
+import { NotificationConfig } from '../../../../core/notification.config';
+import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import {
   SendEmailParams,
   MailTemplateContext,
-} from '../../../application/interfaces/mail-adapter.interface';
+} from '../../../../application/interfaces/mail-adapter.interface';
 
 @Controller()
 export class NotificationsController {

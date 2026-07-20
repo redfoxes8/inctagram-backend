@@ -25,21 +25,21 @@ import {
   ApiTags,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
-import { ApiDomainError } from '../../../../../../libs/common/src';
-import { GetProfileQuery } from '../application/queries/get-profile.query';
+import { ApiDomainError } from '../../../../../../../libs/common/src';
+import { GetProfileQuery } from '../../application/queries/get-profile.query';
 import { GetProfileResponseDto } from './dto/get-profile.dto';
-import type { IAuthRequestInfo } from '../../../common/interfaces/auth-request-info.interface';
-import { UpdateProfileCommand } from '../application/use-cases/update-profile.use-case';
+import type { IAuthRequestInfo } from '../../../../common/interfaces/auth-request-info.interface';
+import { UpdateProfileCommand } from '../../application/use-cases/update-profile.use-case';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
-import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
-import { ConfirmAvatarCommand } from '../application/commands/confirm-avatar.command';
-import { GetAvatarUploadUrlCommand } from '../application/commands/get-avatar-upload-url.command';
+import { JwtGuard } from '../../../../common/guards/jwt-auth.guard';
+import { CurrentUserId } from '../../../auth/api/decorators/current-user-id.decorator';
+import { ConfirmAvatarCommand } from '../../application/commands/confirm-avatar.command';
+import { GetAvatarUploadUrlCommand } from '../../application/commands/get-avatar-upload-url.command';
 import { ConfirmAvatarRequestDto } from './dto/confirm-avatar-request.dto';
 import { ConfirmAvatarResponseDto } from './dto/confirm-avatar-response.dto';
 import { GetAvatarUploadUrlRequestDto } from './dto/get-avatar-upload-url-request.dto';
 import { GetAvatarUploadUrlResponseDto } from './dto/get-avatar-upload-url-response.dto';
-import { DeleteAvatarCommand } from '../application/commands/delete-avatar.command';
+import { DeleteAvatarCommand } from '../../application/commands/delete-avatar.command';
 
 const logger = new Logger('ProfileController');
 

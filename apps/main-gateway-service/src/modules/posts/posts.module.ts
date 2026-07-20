@@ -22,7 +22,12 @@ const commandHandlers = [
   DeletePostHandler,
   GeneratePostImageUploadUrlHandler,
 ];
-const queryHandlers = [GetFeedHandler, GetLatestPostsHandler, GetPostByIdHandler, GetUserPostsHandler];
+const queryHandlers = [
+  GetFeedHandler,
+  GetLatestPostsHandler,
+  GetPostByIdHandler,
+  GetUserPostsHandler,
+];
 const adapters = [
   {
     provide: IPostGrpcAdapter,

@@ -63,7 +63,12 @@ export class NodemailerMailAdapter implements IMailAdapter {
   }
 
   private async renderLayout(body: string, context: Record<string, unknown>): Promise<string> {
-    const layoutPath = join(__dirname, 'infrastructure', 'templates', `${MailTemplates.BaseLayout}.hbs`);
+    const layoutPath = join(
+      __dirname,
+      'infrastructure',
+      'templates',
+      `${MailTemplates.BaseLayout}.hbs`,
+    );
     const layoutSource = await readFile(layoutPath, 'utf8');
     const layoutTemplate = Handlebars.compile(layoutSource);
 

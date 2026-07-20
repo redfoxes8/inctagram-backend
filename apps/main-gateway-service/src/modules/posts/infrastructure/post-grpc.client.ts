@@ -16,7 +16,7 @@ import {
   POST_SERVICE_NAME,
   type PostServiceClient,
 } from '../../../../../../libs/contracts/src';
-import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { POST_SERVICE_GRPC_CLIENT } from './post-grpc.constants';
 import { GetLatestPostsRequest, GetLatestPostsResponse } from '@inctagram/contracts/generated/post';
 

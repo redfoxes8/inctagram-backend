@@ -60,6 +60,17 @@ export {
 
 export { type Empty } from './generated/google/protobuf/empty';
 
+export {
+  type GetUserByIdRequest,
+  type GetUserByIdResponse,
+  type User,
+  type UserServiceClient,
+  type UserServiceController,
+  UserServiceControllerMethods,
+  USER_SERVICE_NAME,
+  INCTAGRAM_USER_V1_PACKAGE_NAME,
+} from './generated/user';
+
 export * from './post/interfaces/post.service.interface';
 export * from './file/interfaces/file.service.interface';
 export * from './payment/interfaces/payment.service.interface';

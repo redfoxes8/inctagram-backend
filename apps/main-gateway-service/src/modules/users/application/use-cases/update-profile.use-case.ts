@@ -1,4 +1,4 @@
-import { UpdateProfileDto } from '../../api/dto/update-profile.dto';
+import { UpdateProfileDto } from '../../api/rest/dto/update-profile.dto';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { ProfileEntity } from '../../domain/profile.entity';
 import { IProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AccountType } from '../../../../core/prisma/client';
+import { AccountType } from '../../../../../core/prisma/client';
 
 export class GetProfileResponseDto {
   @ApiProperty({ description: 'User identifier', example: 'user-id' })

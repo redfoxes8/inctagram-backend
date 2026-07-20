@@ -11,7 +11,9 @@ describe('MicroNotificationServiceController', () => {
       providers: [MicroNotificationServiceService],
     }).compile();
 
-    microNotificationServiceController = app.get<MicroNotificationServiceController>(MicroNotificationServiceController);
+    microNotificationServiceController = app.get<MicroNotificationServiceController>(
+      MicroNotificationServiceController,
+    );
   });
 
   describe('root', () => {
