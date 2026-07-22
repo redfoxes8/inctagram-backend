@@ -11,6 +11,18 @@ export class PaymentConfig {
   @IsNotEmpty({ message: 'Set Env variable PORT, example: 3001' })
   port: number;
 
+  @IsString({ message: 'Env variable SUCCESS_PAYMENT_URL must be a string' })
+  @IsNotEmpty({
+    message: 'Set Env variable SUCCESS_PAYMENT_URL, example: https://example.com/success',
+  })
+  successPaymentUrl: string;
+
+  @IsString({ message: 'Env variable UNSECCESS_PAYMENT_URL must be a string' })
+  @IsNotEmpty({
+    message: 'Set Env variable UNSECCESS_PAYMENT_URL, example: https://example.com/success',
+  })
+  unsuccessPaymentUrl: string;
+
   // gRPC Configuration
   @IsString({ message: 'Env variable GRPC_HOST must be a string' })
   @IsNotEmpty({ message: 'Set Env variable GRPC_HOST, example: 0.0.0.0' })
@@ -70,6 +82,10 @@ export class PaymentConfig {
 
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
+
+    this.successPaymentUrl = this.configService.get('SUCCESS_PAYMENT_URL');
+
+    this.unsuccessPaymentUrl = this.configService.get('UNSUCCESS_PAYMENT_URL');
 
     this.grpcHost = this.configService.get('GRPC_HOST');
 
