@@ -10,7 +10,7 @@ import {
   CycleExecution,
 } from '@paypal/paypal-server-sdk';
 import { PaymentConfig } from '../../../../core/payment.config';
-import { UserInfoForProviderType } from './user-info.type';
+import { UserInfoForProviderType } from './user-info-for-provder.type';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { CreateCheckoutResponseType } from '../../domain/types/create-checkout-respone.type';

@@ -23,6 +23,13 @@ export class GetProfileResponseDto {
   lastName: string | null;
 
   @ApiPropertyOptional({
+    description: 'Date of birth',
+    example: '2026-07-04T12:30:00Z',
+    nullable: true,
+  })
+  dateOfBirth: string | null;
+
+  @ApiPropertyOptional({
     description: 'Country',
     example: 'USA',
     nullable: true,

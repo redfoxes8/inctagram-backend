@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentConfig } from '../../../../core/payment.config';
 import Stripe, { Customer, Response, Checkout } from 'stripe';
-import { UserInfoForProviderType } from './user-info.type';
+import { UserInfoForProviderType } from './user-info-for-provder.type';
 import { CreateCheckoutResponseType } from '../../domain/types/create-checkout-respone.type';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';

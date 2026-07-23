@@ -1,4 +1,4 @@
-import { UserInfoForProviderType } from '../../infrastructure/providers/user-info.type';
+import { UserInfoForProviderType } from '../../infrastructure/providers/user-info-for-provder.type';
 import { CreateCheckoutResponseType } from '../types/create-checkout-respone.type';
 
 export interface IPaymentProvider {

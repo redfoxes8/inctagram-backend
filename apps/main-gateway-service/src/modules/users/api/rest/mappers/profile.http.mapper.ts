@@ -14,6 +14,7 @@ export class ProfileHttpMapper {
       username: profile.username,
       firstName: profile.firstName ?? null,
       lastName: profile.lastName ?? null,
+      dateOfBirth: profile.dateOfBirth ?? null,
       country: profile.country ?? null,
       city: profile.city ?? null,
       aboutMe: profile.aboutMe ?? null,
