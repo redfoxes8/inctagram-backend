@@ -10,7 +10,6 @@ datasource db {
 model Plan {
   id            String         @id @default(uuid())
   type          PlanType
-  duration      Int
   price         Int
   stripeId      String         @map("stripe_id")
   paypalId      String         @map("paypal_id")
@@ -37,7 +36,7 @@ model Subscription {
   createdAt   DateTime                    @default(now()) @map("created_at")
   updatedAt   DateTime                    @updatedAt @map("updated_at")
   deletedAt   DateTime?
-  transaction PaymentTransaction?
+  transaction PaymentTransaction[]
 
   plan Plan @relation(fields: [planId], references: [id])
 

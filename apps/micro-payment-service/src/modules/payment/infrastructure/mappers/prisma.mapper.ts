@@ -98,7 +98,6 @@ export class PrismaMapper {
     return new PlanEntity({
       id: prismaEntity.id,
       type: type,
-      duration: prismaEntity.duration,
       price: prismaEntity.price,
       stripeId: prismaEntity.stripeId,
       paypalId: prismaEntity.paypalId,
