@@ -1,6 +1,9 @@
-import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
 import { PaymentTransactionProvidersDomain } from '../enums/providers.enum';
 import { PaymentTransactionStatusDomain } from '../enums/payment-transaction-status.enum';
+import {
+  BaseDomainEntity,
+  BaseDomainEntityProps,
+} from '../../../../../../../libs/common/src/domain/base.domain.entity';
 
 type PaymentTransactionProps = BaseDomainEntityProps & {
   provider: PaymentTransactionProvidersDomain;
