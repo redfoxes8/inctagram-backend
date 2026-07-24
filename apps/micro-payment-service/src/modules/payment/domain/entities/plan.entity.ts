@@ -1,4 +1,7 @@
-import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
+import {
+  BaseDomainEntity,
+  BaseDomainEntityProps,
+} from '../../../../../../../libs/common/src/domain/base.domain.entity';
 import { PlanTypeDomain } from '../enums/plan-type.enum';
 
 type PlanEntityProps = BaseDomainEntityProps & {

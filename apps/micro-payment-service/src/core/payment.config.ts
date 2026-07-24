@@ -17,9 +17,9 @@ export class PaymentConfig {
   })
   successPaymentUrl: string;
 
-  @IsString({ message: 'Env variable UNSECCESS_PAYMENT_URL must be a string' })
+  @IsString({ message: 'Env variable UNSUCCESS_PAYMENT_URL must be a string' })
   @IsNotEmpty({
-    message: 'Set Env variable UNSECCESS_PAYMENT_URL, example: https://example.com/success',
+    message: 'Set Env variable UNSUCCESS_PAYMENT_URL, example: https://example.com/success',
   })
   unsuccessPaymentUrl: string;
 

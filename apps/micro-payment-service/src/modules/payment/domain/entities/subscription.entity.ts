@@ -1,4 +1,7 @@
-import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
+import {
+  BaseDomainEntity,
+  BaseDomainEntityProps,
+} from '../../../../../../../libs/common/src/domain/base.domain.entity';
 import { PaymentTransactionProvidersDomain } from '../enums/providers.enum';
 import { randomUUID } from 'crypto';
 
