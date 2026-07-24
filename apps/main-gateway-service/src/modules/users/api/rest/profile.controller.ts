@@ -82,11 +82,6 @@ export class ProfileController {
     summary: 'Update profile info',
     description: 'Update whole profile info with received data',
   })
-  @ApiParam({
-    name: 'userId',
-    description: 'User identifier',
-    example: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
-  })
   @ApiNoContentResponse({
     description: 'Profile updated successfully',
   })
