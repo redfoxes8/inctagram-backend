@@ -10,7 +10,6 @@ datasource db {
 model Plan {
   id            String         @id @default(uuid())
   type          PlanType
-  duration      Int
   price         Int
   stripeId      String         @map("stripe_id")
   paypalId      String         @map("paypal_id")
@@ -26,17 +25,18 @@ model Plan {
 }
 
 model Subscription {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id") @db.Uuid
-  planId      String    @map("plan_id") @db.Uuid
-  startsAt    DateTime? @map("starts_at")
-  endsAt      DateTime? @map("ends_at")
-  isActive    Boolean   @default(false) @map("is_active")
-  autoRenewal Boolean   @map("auto_renewal")
-  provider    Providers @map("payment_service")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          String                      @id @default(uuid())
+  userId      String                      @map("user_id") @db.Uuid
+  planId      String                      @map("plan_id") @db.Uuid
+  startsAt    DateTime?                   @map("starts_at")
+  endsAt      DateTime?                   @map("ends_at")
+  isActive    Boolean                     @default(false) @map("is_active")
+  autoRenewal Boolean                     @map("auto_renewal")
+  provider    PaymentTransactionProviders @map("provider")
+  createdAt   DateTime                    @default(now()) @map("created_at")
+  updatedAt   DateTime                    @updatedAt @map("updated_at")
   deletedAt   DateTime?
+  transaction PaymentTransaction[]
 
   plan Plan @relation(fields: [planId], references: [id])
 
@@ -45,14 +45,14 @@ model Subscription {
 }
 
 model PaymentTransaction {
-  id             String                   @id @default(uuid())
-  provider       Providers
-  eventId        String                   @unique @map("event_id")
-  eventType      String                   @map("event_type")
-  subscriptionId String                   @map("subscription_id") @db.Uuid
-  status         PaymentTransactionStatus @default(PENDING)
-  createdAt      DateTime                 @default(now()) @map("created_at")
-  updatedAt      DateTime                 @updatedAt @map("updated_at")
+  id             String                      @id @default(uuid())
+  provider       PaymentTransactionProviders
+  eventId        String                      @unique @map("event_id")
+  eventType      String                      @map("event_type")
+  subscriptionId String                      @unique @map("subscription_id") @db.Uuid
+  status         PaymentTransactionStatus    @default(PENDING)
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  updatedAt      DateTime                    @updatedAt @map("updated_at")
   payload        Json?
   error          String?
 
@@ -65,7 +65,7 @@ model PaymentTransaction {
   @@index([status])
 }
 
-enum Providers {
+enum PaymentTransactionProviders {
   PAYPAL
   STRIPE
 }

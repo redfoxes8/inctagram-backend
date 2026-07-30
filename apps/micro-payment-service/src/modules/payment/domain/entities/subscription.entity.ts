@@ -1,11 +1,14 @@
-import { BaseDomainEntity, BaseDomainEntityProps } from '@inctagram/common';
-import { Providers } from '../enums/providers.enum';
+import {
+  BaseDomainEntity,
+  BaseDomainEntityProps,
+} from '../../../../../../../libs/common/src/domain/base.domain.entity';
+import { PaymentTransactionProvidersDomain } from '../enums/providers.enum';
 import { randomUUID } from 'crypto';
 
 export type CreateNewSubscriptionDTO = {
   userId: string;
   planId: string;
-  provider: Providers;
+  provider: PaymentTransactionProvidersDomain;
 };
 
 export type ActivateSubscriptionDTO = {
@@ -20,7 +23,7 @@ type SubscriptionEntityProps = BaseDomainEntityProps & {
   endsAt: Date | null;
   isActive: boolean;
   autoRenewal: boolean;
-  provider: Providers;
+  provider: PaymentTransactionProvidersDomain;
 };
 
 export class SubscriptionEntity extends BaseDomainEntity {
@@ -30,7 +33,7 @@ export class SubscriptionEntity extends BaseDomainEntity {
   private endsAt: Date | null;
   private isActive: boolean;
   private autoRenewal: boolean;
-  private provider: Providers;
+  private provider: PaymentTransactionProvidersDomain;
 
   constructor(data: SubscriptionEntityProps) {
     super(data);
@@ -88,7 +91,7 @@ export class SubscriptionEntity extends BaseDomainEntity {
     return;
   }
 
-  public setProvider(provider: Providers): void {
+  public setProvider(provider: PaymentTransactionProvidersDomain): void {
     this.provider = provider;
     return;
   }
@@ -117,7 +120,7 @@ export class SubscriptionEntity extends BaseDomainEntity {
     return this.autoRenewal;
   }
 
-  public getProvider(): Providers {
+  public getProvider(): PaymentTransactionProvidersDomain {
     return this.provider;
   }
 }

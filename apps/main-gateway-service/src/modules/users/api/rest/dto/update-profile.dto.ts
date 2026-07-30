@@ -43,7 +43,7 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({
     description: 'Date of birth',
-    example: '2026-07-04T12:30:00Z',
+    example: '16.12.2001',
   })
   @IsOptional()
   @IsString({ message: 'dateOfBirth value must be a string' })
@@ -74,13 +74,13 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({
     description: 'Info about user',
-    example: 'Chill guy',
+    example: 'Chill guy!',
   })
   @IsOptional()
   @IsString({ message: 'AboutMe value must be a string' })
   @MinLength(10, { message: 'AboutMe length must be more then 10' })
   @MaxLength(200, { message: 'AboutMe length must be less then 200' })
-  @Matches(/^[A-Za-zА-Яа-яЁё0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]+$/, {
+  @Matches(/^[A-Za-zА-Яа-яЁё0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~\s]+$/, {
     message: 'aboutMe can contain only letters, numbers and special symbols',
   })
   aboutMe: string | null;

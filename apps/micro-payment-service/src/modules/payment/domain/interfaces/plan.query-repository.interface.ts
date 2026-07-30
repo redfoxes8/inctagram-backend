@@ -1,7 +1,7 @@
 import { PlanEntity } from '../entities/plan.entity';
 
 export abstract class IPlanQueryRepository {
-  abstract getById(id: string): PlanEntity;
+  abstract getById(id: string): Promise<PlanEntity | null>;
 
-  abstract getActivePlans(): PlanEntity[];
+  abstract getActivePlans(): Promise<PlanEntity[] | null>;
 }

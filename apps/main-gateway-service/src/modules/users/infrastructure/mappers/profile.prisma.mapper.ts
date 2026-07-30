@@ -1,6 +1,7 @@
 import { type Profile } from '../../../../core/prisma/client';
 import { ProfileEntity } from '../../domain/profile.entity';
 import { ProfileViewType } from '../../domain/interfaces/user-profile.query-repository.interface';
+import { format } from 'date-fns';
 
 export type UserProfileRecord = Profile;
 
@@ -47,7 +48,7 @@ export class ProfilePrismaMapper {
       username: model.username,
       firstName: model.firstName,
       lastName: model.lastName,
-      dateOfBirth: model.dateOfBirth ? model.dateOfBirth.toISOString() : null,
+      dateOfBirth: model.dateOfBirth ? format(model.dateOfBirth, 'dd.MM.yyyy') : null,
       country: model.country,
       city: model.city,
       aboutMe: model.aboutMe,

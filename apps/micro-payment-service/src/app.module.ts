@@ -8,6 +8,7 @@ import { PaymentConfig } from './core/payment.config';
 import { PaymentConfigModule } from './core/payment-config.module';
 import { PaymentRootModule } from './modules/payment-root.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { PrismaModule } from './core/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -17,6 +18,8 @@ import { PaymentModule } from './modules/payment/payment.module';
     }),
 
     PaymentConfigModule,
+
+    PrismaModule,
 
     CoreModule,
 

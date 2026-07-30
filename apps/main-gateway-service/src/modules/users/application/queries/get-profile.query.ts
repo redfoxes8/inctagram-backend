@@ -10,7 +10,10 @@ import {
 import { ProfileHttpMapper } from '../../api/rest/mappers/profile.http.mapper';
 import { GetProfileResponseDto } from '../../api/rest/dto/get-profile.dto';
 import { IPostGrpcAdapter } from '../../../posts/infrastructure/interfaces/post-grpc-adapter.interface';
-import { IUsersQueryRepository } from '../../domain/interfaces/users.query-repository.interface';
+import {
+  IUsersQueryRepository,
+  UserViewType,
+} from '../../domain/interfaces/users.query-repository.interface';
 
 export class GetProfileQuery {
   constructor(public readonly userId: string) {}
@@ -41,7 +44,7 @@ export class GetProfileHandler implements IQueryHandler<GetProfileQuery, GetProf
     }
     this.logger.debug(`Profile loaded: exists=${!!profile}`);
 
-    const user = await this.usersQueryRepository.getUserById(query.userId);
+    const user: UserViewType | null = await this.usersQueryRepository.getUserById(query.userId);
 
     if (!user) {
       throw new DomainException({
