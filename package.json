@@ -5,6 +5,7 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "localhost:run:lt": "npx localtunnel --port 3000",
     "infra:up": "docker-compose up -d",
@@ -24,7 +25,7 @@
     "start:notification": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-notification-service/.env.development nest start micro-notification-service --watch",
     "start:post": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-post-service/.env.development nest start micro-post-service --watch",
     "start:payment": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-payment-service/.env.development nest start micro-payment-service --watch",
-    "start:all": "concurrently \"pnpm run start:dev\" \"pnpm run start:files\" \"pnpm run start:notification\" \"pnpm run start:post\"",
+    "start:all": "concurrently \"pnpm run start:dev\" \"pnpm run start:files\" \"pnpm run start:notification\" \"pnpm run start:post\" \"pnpm run start:payment\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/main-gateway-service/main",
     "start:main-gateway-service": "node dist/apps/main-gateway-service/main",
