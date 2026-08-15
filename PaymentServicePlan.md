@@ -62,16 +62,16 @@ Rules:
 
 | Slice | Name | Status | Commit SHA | Validation evidence | Completed at | Notes |
 |---:|---|---|---|---|---|---|
-| 1 | Repair Payment bootstrap, pnpm build, and start integration | IN_PROGRESS | — | Baseline/final `pnpm run build:micro-payment-service`: PASS; package.json/script checks: PASS; `git diff --check`: PASS; scope/generated-file checks: PASS; Docker build not run (base image absent locally; network pull excluded). | — | Implementation and validation complete; awaiting authorized commit. |
-| 2 | Validate Stripe checkout and billing alignment for prepaid queued subscriptions | NOT_STARTED | — | — | — | — |
-| 3 | Perform read-only Payment database preflight | NOT_STARTED | — | — | — | — |
-| 4 | Add compile-safe payment value objects and specifications | NOT_STARTED | — | — | — | — |
-| 5 | Implement ProductEntity | NOT_STARTED | — | — | — | — |
-| 6 | Implement CheckoutSessionEntity state machine | NOT_STARTED | — | — | — | — |
-| 7 | Specify target PaymentTransaction lifecycle without replacing legacy entity | NOT_STARTED | — | — | — | — |
-| 8 | Specify paid-period and queue rules without replacing legacy SubscriptionEntity | NOT_STARTED | — | — | — | — |
-| 9 | Implement ProviderWebhookEventEntity | NOT_STARTED | — | — | — | — |
-| 10 | Add compile-safe transaction and new-aggregate ports | NOT_STARTED | — | — | — | — |
+| 1 | Repair Payment bootstrap, pnpm build, and start integration | DONE | ded1a37 | Baseline/final `pnpm run build:micro-payment-service`: PASS; package.json/script checks: PASS; `git diff --check`: PASS; scope/generated-file checks: PASS; Docker build not run (base image absent locally; network pull excluded). | 2026-08-15T16:54:54+03:00 | Dedicated implementation commit confirmed in branch history. |
+| 2 | Validate Stripe checkout and billing alignment for prepaid queued subscriptions | DONE | — | Stripe test-mode spike `SUPPORTED_WITH_CONSTRAINTS`: verified initial/additional/declined Checkout webhooks; Test Clock boundary, autoRenew lifecycle, queue rescheduling, idempotent finalize/pay, automatic fallback, renewal failure/cancellation; marker-scoped cleanup and final build/diff/security checks passed. | 2026-08-15T22:22:45+03:00 | Acceptance criteria complete. Commit SHA intentionally pending future authorized commit; Slice 3 not started. |
+| 3 | Perform read-only Payment database preflight | DONE | — | Authorized local provisioning created only `payment_db`; final transaction read-only=`on` and rolled back; PostgreSQL 16.14, public schema only, no tables/enums/indexes/constraints/migrations/data; diff and secret checks passed. | 2026-08-15T22:45:53+03:00 | `EMPTY_REPLACEABLE` for current local development only. Commit SHA intentionally pending; deployed environments require separate preflight. |
+| 4 | Add compile-safe payment value objects and specifications | DONE | — | 13 additive Domain files formatted; targeted ESLint PASS; Payment build PASS; diff/forbidden-import/`any`/legacy/restricted-artifact checks PASS. | 2026-08-15T23:14:50+03:00 | Acceptance criteria complete; commit SHA pending future authorized commit. Legacy imports remain unchanged; Slice 5 not started. |
+| 5 | Implement ProductEntity | DONE | — | ProductEntity plus shared interval-count specification formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/mutator/legacy/restricted-artifact checks PASS. | 2026-08-15T23:22:44+03:00 | Acceptance criteria complete; commit SHA pending. Product remains additive beside legacy Plan; Slice 6 not started. |
+| 6 | Implement CheckoutSessionEntity state machine | DONE | — | CheckoutSessionEntity and concrete UUID/provider-ID/date validators formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/field/setter/legacy checks PASS. | 2026-08-15T23:29:20+03:00 | Acceptance criteria complete; commit SHA pending. Entity remains additive/unwired; Slice 7 not started. |
+| 7 | Specify target PaymentTransaction lifecycle without replacing legacy entity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-15 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
+| 8 | Specify paid-period and queue rules without replacing legacy SubscriptionEntity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
+| 9 | Implement ProviderWebhookEventEntity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. |
+| 10 | Add compile-safe transaction and new-aggregate ports | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static architecture scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Legacy replacement remains atomic in Slice 11. |
 | 11 | Atomically cut over Payment domain and persistence | NOT_STARTED | — | — | — | — |
 | 12 | Add transactional outbox writer and event contracts | NOT_STARTED | — | — | — | — |
 | 13 | Define provider-neutral Strategy port | NOT_STARTED | — | — | — | — |
@@ -141,7 +141,7 @@ If a slice cannot meet these conditions without touching undeclared files, it re
 22. The concrete Stripe mechanism—Subscription Schedule, billing-cycle anchor, stored payment method, Checkout/setup combination, or another supported mechanism—is not selected until the dedicated technical spike validates it.
 23. The local Subscription queue is the source of truth for Business entitlement; provider state is the source of truth for external charging/billing state.
 24. Disabling auto-renew does not shorten an already paid period. Business remains until `endsAt`.
-25. Auto-renew may be enabled again only while the Subscription is ACTIVE and the provider subscription can be restored. Otherwise return a controlled error and require a new checkout.
+25. Auto-renew belongs to the last Subscription in the paid unfinished queue: ACTIVE when no QUEUED row exists, otherwise the last QUEUED row with the greatest sequence. Enable/disable is allowed for that ACTIVE or QUEUED tail after provider confirmation; prior unfinished rows must have `autoRenew=false`. Tail ownership is verified by the Application transaction under a user lock and additionally protected by the Slice 11 partial unique index. If provider recurring state cannot be restored, return a controlled error and require a new checkout.
 26. Disabling provider auto-renew changes `autoRenew` and confirmed provider state only; it does not change Subscription status or `endsAt`.
 27. In the current scope ACTIVE normally transitions to EXPIRED. `CANCELED` is reserved for a future explicit cancel/refund use case; ordinary ACTIVE → CANCELED is not implemented by current slices.
 28. A failed recurring charge does not remove already paid Business access before `endsAt`.
@@ -335,12 +335,12 @@ All primary and foreign identifiers are PostgreSQL UUIDs unless the identifier i
 ### ProductProvider
 
 - Purpose: Product mapping for a provider environment.
-- Fields: `id`, `productId`, `provider`, nullable `providerProductId`, `providerPlanId`, `environment`, `isActive`, `createdAt`, `updatedAt`.
+- Fields: `id`, `productId`, `provider`, nullable `providerProductId`, required provider-owned `providerBillingId`, `environment`, `isActive`, `createdAt`, `updatedAt`.
 - Relations: N:1 Product.
-- Constraints: unique `(provider, providerPlanId, environment)` and `(productId, provider, environment)`; index `productId`; optional index `(provider, environment, isActive)`.
+- Constraints: unique `(provider, providerBillingId, environment)` and `(productId, provider, environment)`; index `productId`; optional index `(provider, environment, isActive)`.
 - Lifecycle: deactivate old mapping; create a new mapping when provider price/plan changes.
 - Forbidden storage: credentials, webhook secrets, arbitrary provider JSON.
-- Stripe mapping: Product ID + recurring Price ID. PayPal mapping: Product ID + Plan ID.
+- Provider billing mapping: `providerBillingId` stores a Stripe Price ID, PayPal Plan ID, or equivalent recurring billing configuration identifier for a future provider; lookup scope is provider + billing identifier + environment.
 
 ### ProviderCustomer
 
@@ -391,7 +391,7 @@ All primary and foreign identifiers are PostgreSQL UUIDs unless the identifier i
 ### ProviderWebhookEvent
 
 - Purpose: idempotent journal of incoming provider events.
-- Fields: `id`, `provider`, `providerEventId`, `eventType`, `status`, JSON `payload`, `attempts`, nullable `lastError`, `receivedAt`, nullable `processedAt`, timestamps.
+- Fields: `id`, `provider`, `providerEventId`, `eventType`, `status`, JSON `payload`, `attempts`, nullable `processingError`, nullable `ignoredReason`, `receivedAt`, nullable `processedAt`, timestamps. `processingError` is exclusive to FAILED; `ignoredReason` is exclusive to the normal IGNORED outcome.
 - Enum: `ProviderWebhookEventStatus { RECEIVED, PROCESSING, PROCESSED, FAILED, IGNORED }`.
 - Constraint/indexes: unique `(provider, providerEventId)`; indexes `(status, receivedAt)` and `(provider, eventType, receivedAt)`.
 - Lifecycle: RECEIVED → PROCESSING → PROCESSED/FAILED/IGNORED; timed-out PROCESSING can be reclaimed safely.
@@ -443,7 +443,7 @@ All invalid transitions throw `DomainException`. `BadRequest` is used for malfor
 | new paid → QUEUED | Verified additional payment; existing unfinished queue | start at queue end; switch prior autoRenew only in same transaction | failed/unverified payment: Conflict |
 | QUEUED → ACTIVE | Previous ACTIVE reaches endsAt; this is first queue row | Previous → EXPIRED, this → ACTIVE, entitlement events | any charge at activation; non-head queue activation: Conflict |
 | ACTIVE → EXPIRED | `now >= endsAt` | activate next queue or emit entitlement loss | before endsAt: BadRequest; repeat is no-op/idempotent |
-| ACTIVE autoRenew false/true | owned active subscription; provider operation confirmed | persist desired/provider state only; status and endsAt remain unchanged | enable on EXPIRED/CANCELED/QUEUED non-last: Conflict |
+| ACTIVE/QUEUED tail autoRenew false/true | owned last paid unfinished subscription; tail verified under user lock; provider operation confirmed | persist desired/provider state only; status and endsAt remain unchanged | non-tail, EXPIRED, or CANCELED: Conflict |
 
 Current-scope Domain methods are `createPaidActive`, `createPaidQueued`, `activateQueued`, `expire`, `enableAutoRenew`, and `disableAutoRenew`. Product/provider/period fields have no public setters. Every mutation calls `touch()`. A future explicit cancel/refund slice may add a guarded `cancel` transition; no current slice calls ACTIVE → CANCELED.
 
