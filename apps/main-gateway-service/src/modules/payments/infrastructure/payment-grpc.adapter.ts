@@ -9,7 +9,10 @@ import { GetSubscriptionsQueryDto } from '../application/queries/get-subscriptio
 import { CreateCheckoutSessionResponseDto } from '../api/dto/create-checkout-session.response';
 import { CreateCheckoutSessionCommandDto } from '../application/commands/create-checkout-session.command';
 import { ToggleAutoRenewCommandDto } from '../application/commands/toggle-auto-renew.command';
-import { ProcessWebhookEventCommandDto } from '../application/commands/process-webhook-event.command';
+import {
+  ProcessWebhookEventCommandDto,
+  ProcessWebhookEventResult,
+} from '../application/commands/process-webhook-event.command';
 import { GetPaymentHistoryResponseDto } from '../api/dto/get-payment-history.response';
 import { GetSubscriptionsResponseDto } from '../api/dto/get-subscriptions.response';
 import { ToggleAutoRenewResponseDto } from '../api/dto/toggle-auto-renew.response';
@@ -60,12 +63,12 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
     return PaymentResponseMapper.toToggleAutoRenew(response);
   }
 
-  async processWebhookEvent(dto: ProcessWebhookEventCommandDto): Promise<void> {
+  async processWebhookEvent(
+    dto: ProcessWebhookEventCommandDto,
+  ): Promise<ProcessWebhookEventResult> {
     const request = PaymentRequestMapper.toProcessWebhookEvent(dto);
-
-    await this.paymentGrpcClient.processWebhookEvent(request);
-
-    return;
+    const response = await this.paymentGrpcClient.processWebhookEvent(request);
+    return PaymentResponseMapper.toProcessWebhookEvent(response);
   }
 
   async getCheckoutSessionStatus(

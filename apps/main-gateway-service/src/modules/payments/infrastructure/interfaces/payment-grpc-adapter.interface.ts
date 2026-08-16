@@ -4,7 +4,10 @@ import { GetPaymentHistoryResponseDto } from '../../api/dto/get-payment-history.
 import { GetCheckoutSessionStatusResponseDto } from '../../api/dto/get-checkout-session-status.response';
 import { ToggleAutoRenewResponseDto } from '../../api/dto/toggle-auto-renew.response';
 import { CreateCheckoutSessionCommandDto } from '../../application/commands/create-checkout-session.command';
-import { ProcessWebhookEventCommandDto } from '../../application/commands/process-webhook-event.command';
+import {
+  ProcessWebhookEventCommandDto,
+  ProcessWebhookEventResult,
+} from '../../application/commands/process-webhook-event.command';
 import { ToggleAutoRenewCommandDto } from '../../application/commands/toggle-auto-renew.command';
 import { GetPaymentHistoryQueryDto } from '../../application/queries/get-payment-history.query';
 import { GetSubscriptionsQueryDto } from '../../application/queries/get-subscriptions.query';
@@ -21,7 +24,9 @@ export abstract class IPaymentGrpcAdapter {
 
   abstract toggleAutoRenew(dto: ToggleAutoRenewCommandDto): Promise<ToggleAutoRenewResponseDto>;
 
-  abstract processWebhookEvent(dto: ProcessWebhookEventCommandDto): Promise<void>;
+  abstract processWebhookEvent(
+    dto: ProcessWebhookEventCommandDto,
+  ): Promise<ProcessWebhookEventResult>;
 
   abstract getCheckoutSessionStatus(
     dto: GetCheckoutSessionStatusQueryDto,

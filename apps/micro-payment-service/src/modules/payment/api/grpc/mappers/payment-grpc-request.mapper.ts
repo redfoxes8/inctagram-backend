@@ -108,14 +108,15 @@ export class PaymentGrpcRequestMapper {
   }
 
   private static timestamp(timestamp: Timestamp | undefined, message: string): Date {
-    if (
-      !timestamp ||
-      !Number.isSafeInteger(timestamp.seconds) ||
-      !Number.isInteger(timestamp.nanos)
-    ) {
+    if (!timestamp) {
       throw this.badRequest(message);
     }
-    const value = new Date(timestamp.seconds * 1_000 + timestamp.nanos / 1_000_000);
+    const seconds = Number(timestamp.seconds);
+    const nanos = Number(timestamp.nanos);
+    if (!Number.isSafeInteger(seconds) || !Number.isInteger(nanos)) {
+      throw this.badRequest(message);
+    }
+    const value = new Date(seconds * 1_000 + nanos / 1_000_000);
     if (!Number.isFinite(value.getTime())) throw this.badRequest(message);
     return value;
   }

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -40,7 +39,7 @@ import type { RawBodyRequest } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
-import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
+import { ProcessWebhookEventResult } from '../application/commands/process-webhook-event.command';
 import { GatewayConfig } from '../../../core/gateway.config';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
@@ -153,46 +152,33 @@ export class PaymentController {
 
   @Post('webhook/stripe')
   @HttpCode(HttpStatus.OK)
-  async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<void> {
+  async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<ProcessWebhookEventResult> {
     const signature = req.headers['stripe-signature'];
 
     if (typeof signature !== 'string') {
-      throw new BadRequestException('Missing Stripe signature');
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Stripe signature header is required',
+      });
     }
 
     const rawBody = req.rawBody;
 
     if (!rawBody) {
-      throw new BadRequestException('Missing raw body');
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Webhook raw body is required',
+      });
     }
 
-    // TODO(P-013.2):
-    // When Payment MS introduces DuplicateWebhookEventException,
-    // map that specific exception to HTTP 200 OK.
-    // Stripe retries every non-2xx response, therefore duplicate
-    // webhook deliveries must be acknowledged successfully.
-
-    try {
-      await this.commandBus.execute(
-        new ProcessWebhookEventCommand({
-          provider: 'STRIPE',
-          rawBody,
-          signatureHeaders: [{ name: 'stripe-signature', value: signature }],
-          receivedAt: new Date().toISOString(),
-        }),
-      );
-    } catch (error) {
-      // Duplicate webhook deliveries are reported by Payment MS
-      // as DomainExceptionCode.Conflict (gRPC ALREADY_EXISTS).
-      // Stripe expects HTTP 2xx for already processed events.
-      if (GrpcErrorMapper.isConflict(error)) {
-        return;
-      }
-
-      throw error;
-    }
-
-    return;
+    return this.commandBus.execute(
+      new ProcessWebhookEventCommand({
+        provider: 'STRIPE',
+        rawBody,
+        signatureHeaders: [{ name: 'stripe-signature', value: signature }],
+        receivedAt: new Date().toISOString(),
+      }),
+    );
   }
 
   // GET    /payments/history

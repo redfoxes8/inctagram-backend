@@ -15,15 +15,24 @@ export type ProcessWebhookEventCommandDto = {
   receivedAt: string;
 };
 
+export type ProcessWebhookEventResult = Readonly<{
+  accepted: boolean;
+  duplicate: boolean;
+  status: 'RECEIVED' | 'PROCESSED' | 'IGNORED' | 'FAILED';
+}>;
+
 export class ProcessWebhookEventCommand implements ICommand {
   constructor(public readonly dto: ProcessWebhookEventCommandDto) {}
 }
 
 @CommandHandler(ProcessWebhookEventCommand)
-export class ProcessWebhookEventHandler implements ICommandHandler<ProcessWebhookEventCommand> {
+export class ProcessWebhookEventHandler implements ICommandHandler<
+  ProcessWebhookEventCommand,
+  ProcessWebhookEventResult
+> {
   constructor(private readonly paymentAdapter: PaymentGrpcAdapter) {}
 
-  async execute(command: ProcessWebhookEventCommand): Promise<void> {
-    await this.paymentAdapter.processWebhookEvent(command.dto);
+  async execute(command: ProcessWebhookEventCommand): Promise<ProcessWebhookEventResult> {
+    return this.paymentAdapter.processWebhookEvent(command.dto);
   }
 }

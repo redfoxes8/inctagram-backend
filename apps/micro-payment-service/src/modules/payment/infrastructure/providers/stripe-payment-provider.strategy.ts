@@ -21,6 +21,7 @@ import { ProviderCode } from '../../domain/value-objects/provider-code.value-obj
 import { STRIPE_CLIENT, STRIPE_STRATEGY_CONFIGURATION } from './stripe-client.provider';
 import type { StripeStrategyConfiguration } from './stripe-client.provider';
 import { StripeErrorMapper } from './stripe-error.mapper';
+import { StripeWebhookNormalizer } from './stripe-webhook.normalizer';
 
 @Injectable()
 export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
@@ -128,8 +129,49 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
   public verifyAndParseWebhook(
     command: VerifyProviderWebhookCommand,
   ): Promise<NormalizedProviderEvent> {
-    void command;
-    return Promise.reject(this.operationNotReadyException());
+    this.assertOperational();
+    const signature = this.signature(command);
+    let event: Stripe.Event;
+    try {
+      event = this.client.webhooks.constructEvent(
+        command.rawBody,
+        signature,
+        this.configuration.webhookSecret,
+      );
+    } catch (error: unknown) {
+      void error;
+      throw this.invalidWebhookSignature();
+    }
+    if (event.livemode) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Live-mode Stripe webhooks are not accepted in test environment',
+      });
+    }
+    return Promise.resolve(StripeWebhookNormalizer.normalize(event, this.code));
+  }
+
+  private signature(command: VerifyProviderWebhookCommand): string {
+    const signatures = command.signatureHeaders.filter(
+      (header) => header.name.toLowerCase() === 'stripe-signature',
+    );
+    if (signatures.length !== 1 || signatures[0].value.length === 0) {
+      throw this.invalidWebhookSignature();
+    }
+    return signatures[0].value;
+  }
+
+  private invalidWebhookSignature(): DomainException {
+    return new DomainException({
+      code: DomainExceptionCode.BadRequest,
+      message: 'Stripe webhook signature is invalid',
+      extensions: [
+        {
+          field: 'reason',
+          message: PAYMENT_PROVIDER_ERROR_REASON.INVALID_WEBHOOK_SIGNATURE,
+        },
+      ],
+    });
   }
 
   private operationNotReadyException(): DomainException {

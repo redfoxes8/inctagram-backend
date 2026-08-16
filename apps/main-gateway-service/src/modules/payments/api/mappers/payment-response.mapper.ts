@@ -12,6 +12,11 @@ import {
   Timestamp,
   ToggleAutoRenewResponse,
 } from '../../../../../../../libs/contracts/src';
+import {
+  ProcessWebhookEventResponse,
+  WebhookProcessingStatus,
+} from '../../../../../../../libs/contracts/src';
+import { ProcessWebhookEventResult } from '../../application/commands/process-webhook-event.command';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { GetCheckoutSessionStatusResponseDto } from '../dto/get-checkout-session-status.response';
@@ -23,6 +28,28 @@ import {
 import { ToggleAutoRenewResponseDto } from '../dto/toggle-auto-renew.response';
 
 export class PaymentResponseMapper {
+  public static toProcessWebhookEvent(
+    response: ProcessWebhookEventResponse,
+  ): ProcessWebhookEventResult {
+    const statuses: Readonly<
+      Record<WebhookProcessingStatus, ProcessWebhookEventResult['status'] | null>
+    > = {
+      [WebhookProcessingStatus.UNRECOGNIZED]: null,
+      [WebhookProcessingStatus.WEBHOOK_PROCESSING_STATUS_UNSPECIFIED]: null,
+      [WebhookProcessingStatus.WEBHOOK_PROCESSING_STATUS_RECEIVED]: 'RECEIVED',
+      [WebhookProcessingStatus.WEBHOOK_PROCESSING_STATUS_PROCESSED]: 'PROCESSED',
+      [WebhookProcessingStatus.WEBHOOK_PROCESSING_STATUS_IGNORED]: 'IGNORED',
+      [WebhookProcessingStatus.WEBHOOK_PROCESSING_STATUS_FAILED]: 'FAILED',
+    };
+    const status = statuses[response.status];
+    if (!status) {
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'Payment service returned an invalid webhook status',
+      });
+    }
+    return { accepted: response.accepted, duplicate: response.duplicate, status };
+  }
   public static toGetPaymentHistory(
     response: GetPaymentHistoryResponse,
   ): GetPaymentHistoryResponseDto {

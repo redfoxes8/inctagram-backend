@@ -7,6 +7,7 @@ export const STRIPE_STRATEGY_CONFIGURATION = Symbol('STRIPE_STRATEGY_CONFIGURATI
 
 export type StripeStrategyConfiguration = Readonly<{
   environment: 'test';
+  webhookSecret: string;
 }>;
 
 export const stripeClientProvider: Provider = {
@@ -21,5 +22,6 @@ export const stripeStrategyConfigurationProvider: Provider = {
   inject: [PaymentConfig],
   useFactory: (config: PaymentConfig): StripeStrategyConfiguration => ({
     environment: config.providerEnvironment,
+    webhookSecret: config.stripeWebhookSecret,
   }),
 };
