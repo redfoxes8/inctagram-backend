@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsBoolean, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsString, Matches, Min } from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -47,6 +47,12 @@ export class GatewayConfig {
 
   @IsString()
   @IsNotEmpty({ message: 'Set Env variable PAYMENT_SERVICE_GRPC_URL, example: localhost:50053' })
+  @Matches(
+    /^(?!.*:\/\/)[A-Za-z0-9.-]+:(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/,
+    {
+      message: 'Env variable PAYMENT_SERVICE_GRPC_URL must use host:port format',
+    },
+  )
   paymentServiceGrpcUrl: string;
 
   // JWT Configuration

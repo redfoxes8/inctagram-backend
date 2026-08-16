@@ -1,4 +1,12 @@
 import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
+import { PaymentGrpcController } from './api/grpc/payment-grpc.controller';
+import { CreateCheckoutSessionHandler } from './application/commands/create-checkout-session.command';
+import { ProcessWebhookEventHandler } from './application/commands/process-webhook-event.command';
+import { ToggleAutoRenewHandler } from './application/commands/toggle-auto-renew.command';
+import { GetCheckoutSessionStatusHandler } from './application/queries/get-checkout-session-status.query';
+import { GetPaymentHistoryHandler } from './application/queries/get-payment-history.query';
+import { GetSubscriptionsHandler } from './application/queries/get-subscriptions.query';
 import {
   ICheckoutStatusQueryPort,
   IPaymentHistoryQueryPort,
@@ -65,10 +73,19 @@ const providerStrategies = [
   { provide: PaymentProviderResolver, useExisting: PaymentProviderResolverService },
 ];
 
+const grpcHandlers = [
+  CreateCheckoutSessionHandler,
+  ProcessWebhookEventHandler,
+  ToggleAutoRenewHandler,
+  GetSubscriptionsHandler,
+  GetPaymentHistoryHandler,
+  GetCheckoutSessionStatusHandler,
+];
+
 @Module({
-  imports: [],
-  providers: [...repositories, ...queries, ...providerStrategies],
-  controllers: [],
+  imports: [CqrsModule],
+  providers: [...repositories, ...queries, ...providerStrategies, ...grpcHandlers],
+  controllers: [PaymentGrpcController],
   exports: [
     IProductRepository,
     IProductProviderRepository,

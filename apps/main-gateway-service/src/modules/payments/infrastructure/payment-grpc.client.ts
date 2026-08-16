@@ -1,4 +1,4 @@
-import { GatewayTimeoutException, Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, timeout, TimeoutError } from 'rxjs';
 
@@ -22,6 +22,8 @@ import {
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
 
 import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 @Injectable()
 export class PaymentGrpcClient implements OnModuleInit {
@@ -81,7 +83,10 @@ export class PaymentGrpcClient implements OnModuleInit {
       );
     } catch (error: unknown) {
       if (error instanceof TimeoutError) {
-        throw new GatewayTimeoutException('Payment service timeout');
+        throw new DomainException({
+          code: DomainExceptionCode.GatewayTimeout,
+          message: 'Payment service timeout',
+        });
       }
 
       // DomainExceptionCode.Conflict is intentionally propagated.
