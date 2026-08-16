@@ -1,81 +1,111 @@
-import { ISubscriptionRepository } from '../../domain/interfaces/subscription.repository.interface';
-import { Injectable } from '@nestjs/common';
-import { SubscriptionEntity } from '../../domain/entities/subscription.entity';
+import { Inject, Injectable } from '@nestjs/common';
+import { Prisma, SubscriptionStatus } from '../../../../core/prisma/client';
 import { PrismaService } from '../../../../core/prisma/prisma.service';
-import { Subscription } from '../../../../core/prisma/client';
-import { PrismaMapper } from '../mappers/prisma.mapper';
-type SubscriptionPrismaRecord = Subscription;
+import { SubscriptionEntity } from '../../domain/entities/subscription.entity';
+import {
+  DueActiveSubscriptionClaim,
+  ISubscriptionRepository,
+  OwnedSubscriptionLookup,
+  SubscriptionProviderIdentifierLookup,
+} from '../../domain/interfaces/subscription.repository.interface';
+import { PaymentPrismaMapper } from '../mappers/payment-prisma.mapper';
+import type { PaymentPrismaClient } from './payment-prisma-client.type';
+
+type ClaimedSubscriptionId = { id: string };
 
 @Injectable()
 export class SubscriptionRepository implements ISubscriptionRepository {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PaymentPrismaClient) {}
 
-  async save(subscriptionDomain: SubscriptionEntity): Promise<void> {
-    const prismaRecord: SubscriptionPrismaRecord =
-      PrismaMapper.subscriptionToPrismaRecord(subscriptionDomain);
-    await this.prismaService.subscription.upsert({
-      where: { id: prismaRecord.id },
-      update: prismaRecord,
-      create: prismaRecord,
+  public async insert(subscription: SubscriptionEntity): Promise<void> {
+    await this.prisma.subscription.create({
+      data: PaymentPrismaMapper.subscriptionToPrisma(subscription),
     });
-    return;
   }
 
-  async findById(id: string): Promise<SubscriptionEntity | null> {
-    const result: SubscriptionPrismaRecord | null =
-      await this.prismaService.subscription.findUnique({
-        where: { id: id },
-      });
-    if (!result) {
-      return null;
-    }
-    return PrismaMapper.subscriptionToDomain(result);
+  public async save(subscription: SubscriptionEntity): Promise<void> {
+    const data = PaymentPrismaMapper.subscriptionToPrisma(subscription);
+    await this.prisma.subscription.update({ where: { id: subscription.id }, data });
   }
 
-  async findAllByUserId(id: string): Promise<SubscriptionEntity[] | null> {
-    const result: SubscriptionPrismaRecord[] | [] = await this.prismaService.subscription.findMany({
-      where: { userId: id },
+  public async findOwnedById(lookup: OwnedSubscriptionLookup): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findFirst({
+      where: { id: lookup.id, userId: lookup.userId },
+      include: { product: true },
     });
-    if (result.length === 0) {
-      return null;
-    }
-    return PrismaMapper.subscriptionToDomainMany(result);
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
   }
 
-  async findActiveByUserId(id: string): Promise<SubscriptionEntity[] | null> {
-    const result: SubscriptionPrismaRecord[] | [] = await this.prismaService.subscription.findMany({
-      where: { userId: id, isActive: true },
+  public async findActiveByUserId(userId: string): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findFirst({
+      where: { userId, status: SubscriptionStatus.ACTIVE },
+      include: { product: true },
     });
-    if (result.length === 0) {
-      return null;
-    }
-    return PrismaMapper.subscriptionToDomainMany(result);
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
   }
 
-  async findByPlanId(id: string): Promise<SubscriptionEntity[] | null> {
-    const result: SubscriptionPrismaRecord[] | [] = await this.prismaService.subscription.findMany({
-      where: { planId: id },
+  public async findOrderedUnfinishedByUserId(userId: string): Promise<SubscriptionEntity[]> {
+    const records = await this.prisma.subscription.findMany({
+      where: { userId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.QUEUED] } },
+      include: { product: true },
+      orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
     });
-    if (result.length === 0) {
-      return null;
-    }
-    return PrismaMapper.subscriptionToDomainMany(result);
+    return records.map((record) => PaymentPrismaMapper.subscriptionToDomain(record));
   }
 
-  async findExpired(): Promise<SubscriptionEntity[] | null> {
-    const result: SubscriptionPrismaRecord[] | [] = await this.prismaService.subscription.findMany({
-      where: { endsAt: { lt: new Date() } },
+  public async findTailByUserId(userId: string): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findFirst({
+      where: { userId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.QUEUED] } },
+      include: { product: true },
+      orderBy: [{ sequence: 'desc' }, { id: 'desc' }],
     });
-    if (result.length === 0) {
-      return null;
-    }
-    return PrismaMapper.subscriptionToDomainMany(result);
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
   }
 
-  async deleteById(id: string): Promise<void> {
-    await this.prismaService.subscription.delete({
-      where: { id: id },
+  public async claimDueActive(claim: DueActiveSubscriptionClaim): Promise<SubscriptionEntity[]> {
+    const ids = await this.prisma.$queryRaw<ClaimedSubscriptionId[]>(Prisma.sql`
+      SELECT "id" FROM "subscriptions"
+      WHERE "status" = 'ACTIVE'::"SubscriptionStatus" AND "ends_at" <= ${claim.dueAt}
+      ORDER BY "ends_at" ASC, "id" ASC
+      LIMIT ${claim.limit}
+      FOR UPDATE SKIP LOCKED
+    `);
+    if (ids.length === 0) return [];
+    const records = await this.prisma.subscription.findMany({
+      where: { id: { in: ids.map(({ id }) => id) } },
+      include: { product: true },
+      orderBy: [{ endsAt: 'asc' }, { id: 'asc' }],
     });
-    return;
+    return records.map((record) => PaymentPrismaMapper.subscriptionToDomain(record));
+  }
+
+  public async findByProviderSubscriptionId(
+    lookup: SubscriptionProviderIdentifierLookup,
+  ): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findUnique({
+      where: {
+        provider_providerSubscriptionId: {
+          provider: lookup.provider.getValue(),
+          providerSubscriptionId: lookup.providerIdentifier,
+        },
+      },
+      include: { product: true },
+    });
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
+  }
+
+  public async findByProviderScheduleId(
+    lookup: SubscriptionProviderIdentifierLookup,
+  ): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findUnique({
+      where: {
+        provider_providerScheduleId: {
+          provider: lookup.provider.getValue(),
+          providerScheduleId: lookup.providerIdentifier,
+        },
+      },
+      include: { product: true },
+    });
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
   }
 }

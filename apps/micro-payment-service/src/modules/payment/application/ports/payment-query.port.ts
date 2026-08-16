@@ -3,7 +3,7 @@ import { CheckoutPurpose } from '../../domain/enums/checkout-purpose.enum';
 import { CheckoutStatus } from '../../domain/enums/checkout-status.enum';
 import { PaymentKind } from '../../domain/enums/payment-kind.enum';
 import { SubscriptionStatus } from '../../domain/enums/subscription-status.enum';
-import { PaymentTransactionStatus } from '../../domain/enums/target-payment-transaction-status.enum';
+import { PaymentTransactionStatus } from '../../domain/enums/payment-transaction-status.enum';
 
 export type PageRequest = Readonly<{
   page: number;

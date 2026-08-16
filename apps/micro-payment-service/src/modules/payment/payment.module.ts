@@ -1,24 +1,87 @@
 import { Module } from '@nestjs/common';
+import {
+  ICheckoutStatusQueryPort,
+  IPaymentHistoryQueryPort,
+  ISubscriptionQueryPort,
+} from './application/ports/payment-query.port';
+import { IPaymentUnitOfWork } from './application/ports/payment-unit-of-work.port';
+import { PaymentProviderResolver } from './application/ports/payment-provider-resolver.port';
+import { PaymentProviderStrategy } from './application/ports/payment-provider.strategy';
+import { PAYMENT_PROVIDER_STRATEGIES } from './application/ports/payment-provider.tokens';
+import { ICheckoutSessionRepository } from './domain/interfaces/checkout-session.repository.interface';
 import { IPaymentTransactionRepository } from './domain/interfaces/payment-transaction.repository.interface';
-import { PaymentTransactionRepository } from './infrastructure/repositories/payment-transaction.repository';
-import { IPlanQueryRepository } from './domain/interfaces/plan.query-repository.interface';
-import { PlanQueryRepository } from './infrastructure/repositories/plan.query-repository';
-import { ISubscriptionQueryRepository } from './domain/interfaces/subscription.query-repository.interface';
-import { SubscriptionQueryRepository } from './infrastructure/repositories/subscription.query-repository';
+import { IProductRepository } from './domain/interfaces/product.repository.interface';
+import { IProductProviderRepository } from './domain/interfaces/product-provider.repository.interface';
+import { IProviderCustomerRepository } from './domain/interfaces/provider-customer.repository.interface';
+import { IProviderWebhookEventRepository } from './domain/interfaces/provider-webhook-event.repository.interface';
 import { ISubscriptionRepository } from './domain/interfaces/subscription.repository.interface';
+import { CheckoutSessionRepository } from './infrastructure/repositories/checkout-session.repository';
+import { PaymentQueryRepository } from './infrastructure/repositories/payment-query.repository';
+import { PaymentTransactionRepository } from './infrastructure/repositories/payment-transaction.repository';
+import { PaymentUnitOfWork } from './infrastructure/repositories/payment-unit-of-work';
+import { ProductRepository } from './infrastructure/repositories/product.repository';
+import { ProductProviderRepository } from './infrastructure/repositories/product-provider.repository';
+import { ProviderCustomerRepository } from './infrastructure/repositories/provider-customer.repository';
+import { ProviderWebhookEventRepository } from './infrastructure/repositories/provider-webhook-event.repository';
 import { SubscriptionRepository } from './infrastructure/repositories/subscription.repository';
+import { PaymentProviderResolverService } from './infrastructure/providers/payment-provider.resolver';
+import { PayPalPaymentProviderStrategy } from './infrastructure/providers/paypal-payment-provider.strategy';
+import {
+  stripeClientProvider,
+  stripeStrategyConfigurationProvider,
+} from './infrastructure/providers/stripe-client.provider';
+import { StripePaymentProviderStrategy } from './infrastructure/providers/stripe-payment-provider.strategy';
 
 const repositories = [
+  { provide: IProductRepository, useClass: ProductRepository },
+  { provide: IProductProviderRepository, useClass: ProductProviderRepository },
+  { provide: IProviderCustomerRepository, useClass: ProviderCustomerRepository },
+  { provide: ICheckoutSessionRepository, useClass: CheckoutSessionRepository },
   { provide: IPaymentTransactionRepository, useClass: PaymentTransactionRepository },
-  { provide: IPlanQueryRepository, useClass: PlanQueryRepository },
-  { provide: ISubscriptionQueryRepository, useClass: SubscriptionQueryRepository },
   { provide: ISubscriptionRepository, useClass: SubscriptionRepository },
+  { provide: IProviderWebhookEventRepository, useClass: ProviderWebhookEventRepository },
+  { provide: IPaymentUnitOfWork, useClass: PaymentUnitOfWork },
+];
+
+const queries = [
+  PaymentQueryRepository,
+  { provide: ISubscriptionQueryPort, useExisting: PaymentQueryRepository },
+  { provide: IPaymentHistoryQueryPort, useExisting: PaymentQueryRepository },
+  { provide: ICheckoutStatusQueryPort, useExisting: PaymentQueryRepository },
+];
+
+const providerStrategies = [
+  stripeClientProvider,
+  stripeStrategyConfigurationProvider,
+  StripePaymentProviderStrategy,
+  PayPalPaymentProviderStrategy,
+  {
+    provide: PAYMENT_PROVIDER_STRATEGIES,
+    inject: [StripePaymentProviderStrategy, PayPalPaymentProviderStrategy],
+    useFactory: (...strategies: PaymentProviderStrategy[]): readonly PaymentProviderStrategy[] =>
+      Object.freeze(strategies),
+  },
+  PaymentProviderResolverService,
+  { provide: PaymentProviderResolver, useExisting: PaymentProviderResolverService },
 ];
 
 @Module({
   imports: [],
-  providers: [...repositories],
+  providers: [...repositories, ...queries, ...providerStrategies],
   controllers: [],
-  exports: [],
+  exports: [
+    IProductRepository,
+    IProductProviderRepository,
+    IProviderCustomerRepository,
+    ICheckoutSessionRepository,
+    IPaymentTransactionRepository,
+    ISubscriptionRepository,
+    IProviderWebhookEventRepository,
+    IPaymentUnitOfWork,
+    ISubscriptionQueryPort,
+    IPaymentHistoryQueryPort,
+    ICheckoutStatusQueryPort,
+    PaymentProviderResolver,
+  ],
 })
 export class PaymentModule {}

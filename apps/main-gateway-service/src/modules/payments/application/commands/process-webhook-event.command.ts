@@ -1,12 +1,18 @@
 import { ICommand, ICommandHandler, CommandHandler } from '@nestjs/cqrs';
 
-import Stripe from 'stripe';
-
 import { PaymentGrpcAdapter } from '../../infrastructure/payment-grpc.adapter';
+import { PaymentProviderCode } from '../types/payment-provider-code.type';
+
+export type ProviderSignatureHeader = Readonly<{
+  name: string;
+  value: string;
+}>;
 
 export type ProcessWebhookEventCommandDto = {
-  event: Stripe.Event;
-  rawBody: Buffer;
+  provider: PaymentProviderCode;
+  rawBody: Uint8Array;
+  signatureHeaders: readonly ProviderSignatureHeader[];
+  receivedAt: string;
 };
 
 export class ProcessWebhookEventCommand implements ICommand {

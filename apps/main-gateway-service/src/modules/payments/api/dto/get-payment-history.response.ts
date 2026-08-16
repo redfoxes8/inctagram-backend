@@ -1,27 +1,22 @@
 export class PaymentHistoryItemResponseDto {
-  id: string;
-
-  productName: string;
-
-  provider: string;
-
-  amount: string;
-
+  transactionId: string;
+  createdAt: string;
+  paidAt: string | null;
+  amountMinor: number;
   currency: string;
-
-  paymentDate: string;
-
-  subscriptionEndDate: string;
+  productId: string;
+  productName: string;
+  billingInterval: string;
+  billingIntervalCount: number;
+  provider: string;
+  kind: string;
+  status: string;
 }
 
 export class GetPaymentHistoryResponseDto {
   items: PaymentHistoryItemResponseDto[];
-
   totalCount: number;
-
   page: number;
-
   pageSize: number;
-
   pagesCount: number;
 }

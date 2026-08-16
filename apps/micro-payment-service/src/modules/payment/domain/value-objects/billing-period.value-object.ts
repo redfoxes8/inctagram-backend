@@ -10,23 +10,25 @@ export type BillingPeriodProps = {
   billingIntervalCount: number;
 };
 
+export type BillingPeriodBoundaryProps = {
+  startsAt: Date;
+  endsAt: Date;
+};
+
 export class BillingPeriod {
   private readonly startsAt: Date;
   private readonly endsAt: Date;
 
-  constructor(props: BillingPeriodProps) {
+  constructor(props: BillingPeriodProps | BillingPeriodBoundaryProps) {
     assertValidDate({
       value: props.startsAt,
       message: 'Billing period startsAt must be a valid Date',
     });
-    assertPositiveBillingIntervalCount(props.billingIntervalCount);
-
     const startsAt = new Date(props.startsAt.getTime());
-    const endsAt = BillingPeriod.calculateEndsAt(
-      startsAt,
-      props.billingInterval,
-      props.billingIntervalCount,
-    );
+    const endsAt =
+      'endsAt' in props
+        ? BillingPeriod.copyRestoredEndsAt(props.endsAt)
+        : BillingPeriod.calculateValidatedEndsAt(startsAt, props);
 
     if (endsAt.getTime() <= startsAt.getTime()) {
       throw new DomainException({
@@ -37,6 +39,10 @@ export class BillingPeriod {
 
     this.startsAt = startsAt;
     this.endsAt = endsAt;
+  }
+
+  public static fromBoundaries(props: BillingPeriodBoundaryProps): BillingPeriod {
+    return new BillingPeriod(props);
   }
 
   public getStartsAt(): Date {
@@ -70,6 +76,20 @@ export class BillingPeriod {
       code: DomainExceptionCode.BadRequest,
       message: 'Billing interval is not supported',
     });
+  }
+
+  private static calculateValidatedEndsAt(startsAt: Date, props: BillingPeriodProps): Date {
+    assertPositiveBillingIntervalCount(props.billingIntervalCount);
+    return BillingPeriod.calculateEndsAt(
+      startsAt,
+      props.billingInterval,
+      props.billingIntervalCount,
+    );
+  }
+
+  private static copyRestoredEndsAt(endsAt: Date): Date {
+    assertValidDate({ value: endsAt, message: 'Billing period endsAt must be a valid Date' });
+    return new Date(endsAt.getTime());
   }
 
   private static addUtcWeeks(startsAt: Date, count: number): Date {

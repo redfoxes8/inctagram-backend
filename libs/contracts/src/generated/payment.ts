@@ -8,7 +8,6 @@
 import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
-import { Empty } from "./google/protobuf/empty";
 import { Timestamp } from "./google/protobuf/timestamp";
 
 export const protobufPackage = "inctagram.payment.v1";
@@ -20,43 +19,125 @@ export enum PaymentProvider {
   UNRECOGNIZED = -1,
 }
 
-export interface PaymentSubscription {
-  id: string;
-  userId: string;
-  productId: string;
-  provider: string;
-  status: string;
-  autoRenew: boolean;
-  startDate: Timestamp | undefined;
-  endDate: Timestamp | undefined;
+export enum BillingInterval {
+  BILLING_INTERVAL_UNSPECIFIED = 0,
+  BILLING_INTERVAL_WEEK = 1,
+  BILLING_INTERVAL_MONTH = 2,
+  UNRECOGNIZED = -1,
 }
 
-export interface PaymentHistoryItemGrpc {
+export enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0,
+  SUBSCRIPTION_STATUS_ACTIVE = 1,
+  SUBSCRIPTION_STATUS_QUEUED = 2,
+  SUBSCRIPTION_STATUS_EXPIRED = 3,
+  SUBSCRIPTION_STATUS_CANCELED = 4,
+  UNRECOGNIZED = -1,
+}
+
+export enum PaymentKind {
+  PAYMENT_KIND_UNSPECIFIED = 0,
+  PAYMENT_KIND_PURCHASE = 1,
+  PAYMENT_KIND_RENEWAL = 2,
+  UNRECOGNIZED = -1,
+}
+
+export enum PaymentTransactionStatus {
+  PAYMENT_TRANSACTION_STATUS_UNSPECIFIED = 0,
+  PAYMENT_TRANSACTION_STATUS_PENDING = 1,
+  PAYMENT_TRANSACTION_STATUS_PROCESSING = 2,
+  PAYMENT_TRANSACTION_STATUS_SUCCEEDED = 3,
+  PAYMENT_TRANSACTION_STATUS_FAILED = 4,
+  PAYMENT_TRANSACTION_STATUS_REFUNDED = 5,
+  PAYMENT_TRANSACTION_STATUS_PARTIALLY_REFUNDED = 6,
+  UNRECOGNIZED = -1,
+}
+
+export enum CheckoutSessionStatus {
+  CHECKOUT_SESSION_STATUS_UNSPECIFIED = 0,
+  CHECKOUT_SESSION_STATUS_CREATED = 1,
+  CHECKOUT_SESSION_STATUS_COMPLETED = 2,
+  CHECKOUT_SESSION_STATUS_EXPIRED = 3,
+  CHECKOUT_SESSION_STATUS_FAILED = 4,
+  UNRECOGNIZED = -1,
+}
+
+export enum WebhookProcessingStatus {
+  WEBHOOK_PROCESSING_STATUS_UNSPECIFIED = 0,
+  WEBHOOK_PROCESSING_STATUS_RECEIVED = 1,
+  WEBHOOK_PROCESSING_STATUS_PROCESSED = 2,
+  WEBHOOK_PROCESSING_STATUS_IGNORED = 3,
+  WEBHOOK_PROCESSING_STATUS_FAILED = 4,
+  UNRECOGNIZED = -1,
+}
+
+export interface ProductSummary {
   id: string;
+  code: string;
+  name: string;
+  billingInterval: BillingInterval;
+  billingIntervalCount: number;
+}
+
+export interface SubscriptionView {
+  id: string;
+  sequence: number;
+  product: ProductSummary | undefined;
+  startsAt: Timestamp | undefined;
+  endsAt: Timestamp | undefined;
+  nextBillingAt?: Timestamp | undefined;
+  autoRenew: boolean;
+  provider: PaymentProvider;
+  status: SubscriptionStatus;
+}
+
+export interface PaymentHistoryItem {
+  transactionId: string;
   productName: string;
-  provider: string;
-  amount: string;
   currency: string;
-  paymentDate: Timestamp | undefined;
-  subscriptionEndDate: Timestamp | undefined;
+  paidAt?: Timestamp | undefined;
+  createdAt: Timestamp | undefined;
+  productId: string;
+  billingInterval: BillingInterval;
+  billingIntervalCount: number;
+  paymentProvider: PaymentProvider;
+  kind: PaymentKind;
+  status: PaymentTransactionStatus;
+  amountMinor: number;
 }
 
 export interface CreateCheckoutSessionRequest {
   userId: string;
   productId: string;
-  provider: string;
   successUrl: string;
   cancelUrl: string;
+  autoRenewConsent: boolean;
+  idempotencyKey: string;
+  paymentProvider: PaymentProvider;
 }
 
 export interface CreateCheckoutSessionResponse {
   checkoutUrl: string;
+  checkoutSessionId: string;
+  expiresAt?: Timestamp | undefined;
+}
+
+export interface ProviderSignatureHeader {
+  name: string;
+  value: string;
 }
 
 export interface ProcessWebhookEventRequest {
   provider: PaymentProvider;
-  eventType: string;
   rawPayload: Uint8Array;
+  signatureHeaders: ProviderSignatureHeader[];
+  receivedAt: Timestamp | undefined;
+}
+
+export interface ProcessWebhookEventResponse {
+  accepted: boolean;
+  duplicate: boolean;
+  status: WebhookProcessingStatus;
 }
 
 export interface GetSubscriptionsRequest {
@@ -64,7 +145,8 @@ export interface GetSubscriptionsRequest {
 }
 
 export interface GetSubscriptionsResponse {
-  subscriptions: PaymentSubscription[];
+  current?: SubscriptionView | undefined;
+  queued: SubscriptionView[];
 }
 
 export interface GetPaymentHistoryRequest {
@@ -74,7 +156,7 @@ export interface GetPaymentHistoryRequest {
 }
 
 export interface GetPaymentHistoryResponse {
-  items: PaymentHistoryItemGrpc[];
+  items: PaymentHistoryItem[];
   totalCount: number;
   page: number;
   pageSize: number;
@@ -89,6 +171,19 @@ export interface ToggleAutoRenewRequest {
 
 export interface ToggleAutoRenewResponse {
   success: boolean;
+  autoRenew: boolean;
+  nextBillingAt?: Timestamp | undefined;
+  providerStatus?: string | undefined;
+}
+
+export interface GetCheckoutSessionStatusRequest {
+  userId: string;
+  checkoutSessionId: string;
+}
+
+export interface GetCheckoutSessionStatusResponse {
+  status: CheckoutSessionStatus;
+  subscriptionId?: string | undefined;
 }
 
 export const INCTAGRAM_PAYMENT_V1_PACKAGE_NAME = "inctagram.payment.v1";
@@ -99,13 +194,21 @@ export interface PaymentServiceClient {
     metadata?: Metadata,
   ): Observable<CreateCheckoutSessionResponse>;
 
-  processWebhookEvent(request: ProcessWebhookEventRequest, metadata?: Metadata): Observable<Empty>;
+  processWebhookEvent(
+    request: ProcessWebhookEventRequest,
+    metadata?: Metadata,
+  ): Observable<ProcessWebhookEventResponse>;
 
   getSubscriptions(request: GetSubscriptionsRequest, metadata?: Metadata): Observable<GetSubscriptionsResponse>;
 
   getPaymentHistory(request: GetPaymentHistoryRequest, metadata?: Metadata): Observable<GetPaymentHistoryResponse>;
 
   toggleAutoRenew(request: ToggleAutoRenewRequest, metadata?: Metadata): Observable<ToggleAutoRenewResponse>;
+
+  getCheckoutSessionStatus(
+    request: GetCheckoutSessionStatusRequest,
+    metadata?: Metadata,
+  ): Observable<GetCheckoutSessionStatusResponse>;
 }
 
 export interface PaymentServiceController {
@@ -114,7 +217,10 @@ export interface PaymentServiceController {
     metadata?: Metadata,
   ): Promise<CreateCheckoutSessionResponse> | Observable<CreateCheckoutSessionResponse> | CreateCheckoutSessionResponse;
 
-  processWebhookEvent(request: ProcessWebhookEventRequest, metadata?: Metadata): void | Promise<void>;
+  processWebhookEvent(
+    request: ProcessWebhookEventRequest,
+    metadata?: Metadata,
+  ): Promise<ProcessWebhookEventResponse> | Observable<ProcessWebhookEventResponse> | ProcessWebhookEventResponse;
 
   getSubscriptions(
     request: GetSubscriptionsRequest,
@@ -130,6 +236,14 @@ export interface PaymentServiceController {
     request: ToggleAutoRenewRequest,
     metadata?: Metadata,
   ): Promise<ToggleAutoRenewResponse> | Observable<ToggleAutoRenewResponse> | ToggleAutoRenewResponse;
+
+  getCheckoutSessionStatus(
+    request: GetCheckoutSessionStatusRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetCheckoutSessionStatusResponse>
+    | Observable<GetCheckoutSessionStatusResponse>
+    | GetCheckoutSessionStatusResponse;
 }
 
 export function PaymentServiceControllerMethods() {
@@ -140,6 +254,7 @@ export function PaymentServiceControllerMethods() {
       "getSubscriptions",
       "getPaymentHistory",
       "toggleAutoRenew",
+      "getCheckoutSessionStatus",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

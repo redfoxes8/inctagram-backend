@@ -1,11 +1,12 @@
 import { IQuery } from '@nestjs/cqrs';
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { PaymentGrpcAdapter } from '../../infrastructure/payment-grpc.adapter';
-import { GetPaymentHistoryQueryParams } from '../../api/dto/get-payment-history.query-params';
+import { GetPaymentHistoryResponseDto } from '../../api/dto/get-payment-history.response';
 
 export type GetPaymentHistoryQueryDto = {
   userId: string;
-  query: GetPaymentHistoryQueryParams;
+  page: number;
+  pageSize: number;
 };
 
 export class GetPaymentHistoryQuery implements IQuery {
@@ -16,9 +17,7 @@ export class GetPaymentHistoryQuery implements IQuery {
 export class GetPaymentHistoryHandler implements IQueryHandler<GetPaymentHistoryQuery> {
   constructor(private readonly paymentAdapter: PaymentGrpcAdapter) {}
 
-  async execute(query: GetPaymentHistoryQuery) {
-    await Promise.resolve();
-
+  async execute(query: GetPaymentHistoryQuery): Promise<GetPaymentHistoryResponseDto> {
     return this.paymentAdapter.getPaymentHistory(query.dto);
   }
 }

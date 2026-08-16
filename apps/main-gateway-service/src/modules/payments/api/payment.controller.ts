@@ -36,7 +36,6 @@ import { Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { RawBodyRequest } from '@nestjs/common';
 
-import { StripeService } from '../infrastructure/stripe/stripe.service';
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
 import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { GatewayConfig } from '../../../core/gateway.config';
@@ -47,7 +46,6 @@ export class PaymentController {
     private readonly gatewayConfig: GatewayConfig,
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
-    private readonly stripeService: StripeService,
   ) {}
 
   @Get('history')
@@ -66,7 +64,8 @@ export class PaymentController {
     return this.queryBus.execute(
       new GetPaymentHistoryQuery({
         userId,
-        query,
+        page: query.pageNumber,
+        pageSize: query.pageSize,
       }),
     );
   }
@@ -94,10 +93,12 @@ export class PaymentController {
     return this.commandBus.execute(
       new CreateCheckoutSessionCommand({
         userId,
-        dto,
-
+        productId: dto.productId,
+        provider: dto.provider,
+        autoRenewConsent: dto.autoRenewConsent,
         successUrl: `${this.gatewayConfig.frontEndUrl}/payment/success`,
         cancelUrl: `${this.gatewayConfig.frontEndUrl}/payment/cancel`,
+        idempotencyKey: null,
       }),
     );
   }
@@ -128,7 +129,7 @@ export class PaymentController {
       new ToggleAutoRenewCommand({
         userId,
         subscriptionId,
-        dto,
+        enabled: dto.enabled,
       }),
     );
   }
@@ -148,8 +149,6 @@ export class PaymentController {
       throw new BadRequestException('Missing raw body');
     }
 
-    const event = this.stripeService.constructWebhookEvent(req.rawBody!, signature);
-
     // TODO(P-013.2):
     // When Payment MS introduces DuplicateWebhookEventException,
     // map that specific exception to HTTP 200 OK.
@@ -159,8 +158,10 @@ export class PaymentController {
     try {
       await this.commandBus.execute(
         new ProcessWebhookEventCommand({
-          event,
+          provider: 'STRIPE',
           rawBody,
+          signatureHeaders: [{ name: 'stripe-signature', value: signature }],
+          receivedAt: new Date().toISOString(),
         }),
       );
     } catch (error) {

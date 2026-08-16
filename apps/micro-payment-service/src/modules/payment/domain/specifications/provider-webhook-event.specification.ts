@@ -1,6 +1,10 @@
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { ProviderWebhookEventStatus } from '../enums/provider-webhook-event-status.enum';
+import {
+  assertNonNegativePersistedInteger,
+  assertPositivePersistedInteger,
+} from './persisted-integer.specification';
 
 const EVENT_TYPE_FORMAT = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$/;
 const MAX_DIAGNOSTIC_LENGTH = 500;
@@ -29,15 +33,11 @@ export function assertWebhookDiagnostic(diagnostic: string): void {
 }
 
 export function assertNonNegativeAttempts(attempts: number): void {
-  if (!Number.isSafeInteger(attempts) || attempts < 0) {
-    throw badRequest('Webhook attempts must be a non-negative safe integer');
-  }
+  assertNonNegativePersistedInteger(attempts, 'Webhook attempts');
 }
 
 export function assertPositiveMaxAttempts(maxAttempts: number): void {
-  if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
-    throw badRequest('Maximum webhook attempts must be a positive safe integer');
-  }
+  assertPositivePersistedInteger(maxAttempts, 'Maximum webhook attempts');
 }
 
 function containsControlCharacters(value: string): boolean {

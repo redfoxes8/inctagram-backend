@@ -1,21 +1,23 @@
 import { PaymentTransactionEntity } from '../entities/payment-transaction.entity';
-import { PaymentTransactionStatusDomain } from '../enums/payment-transaction-status.enum';
-import { PaymentTransactionProvidersDomain } from '../enums/providers.enum';
+import { IdempotencyKey } from '../value-objects/idempotency-key.value-object';
+import { ProviderCode } from '../value-objects/provider-code.value-object';
+
+export type PaymentProviderIdentifierLookup = {
+  provider: ProviderCode;
+  providerIdentifier: string;
+};
 
 export abstract class IPaymentTransactionRepository {
-  abstract save(paymentTransaction: PaymentTransactionEntity): Promise<void>;
-
+  abstract insert(transaction: PaymentTransactionEntity): Promise<void>;
+  abstract save(transaction: PaymentTransactionEntity): Promise<void>;
   abstract findById(id: string): Promise<PaymentTransactionEntity | null>;
-
-  abstract findBySubscriptionId(id: string): Promise<PaymentTransactionEntity | null>;
-
-  abstract findByStatus(
-    status: PaymentTransactionStatusDomain,
-  ): Promise<PaymentTransactionEntity[] | null>;
-
-  abstract findByProvider(
-    provider: PaymentTransactionProvidersDomain,
-  ): Promise<PaymentTransactionEntity[] | null>;
-
-  abstract deleteById(id: string): Promise<void>;
+  abstract findByIdempotencyKey(key: IdempotencyKey): Promise<PaymentTransactionEntity | null>;
+  abstract findByProviderTransactionId(
+    lookup: PaymentProviderIdentifierLookup,
+  ): Promise<PaymentTransactionEntity | null>;
+  abstract findByProviderInvoiceId(
+    lookup: PaymentProviderIdentifierLookup,
+  ): Promise<PaymentTransactionEntity | null>;
+  abstract findByCheckoutSessionId(checkoutSessionId: string): Promise<PaymentTransactionEntity[]>;
+  abstract findBySubscriptionId(subscriptionId: string): Promise<PaymentTransactionEntity[]>;
 }

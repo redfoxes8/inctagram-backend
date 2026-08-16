@@ -1,16 +1,5 @@
-import { JsonValue } from '../../domain/types/json-value.type';
-
-export type PendingPaymentOutboxEvent = Readonly<{
-  id: string;
-  aggregateType: string;
-  aggregateId: string;
-  eventType: string;
-  eventVersion: number;
-  routingKey: string;
-  payload: JsonValue;
-  occurredAt: Date;
-}>;
+import { PaymentIntegrationEventV1 } from '../../../../../../../libs/contracts/src/events/payment-integration-events-v1.event';
 
 export abstract class IPaymentOutboxWriter {
-  abstract insert(event: PendingPaymentOutboxEvent): Promise<void>;
+  abstract write(event: PaymentIntegrationEventV1): Promise<void>;
 }

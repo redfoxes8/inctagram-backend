@@ -39,18 +39,29 @@ export {
 } from './generated/file';
 
 export {
-  type PaymentSubscription,
-  type PaymentHistoryItemGrpc,
+  BillingInterval,
+  CheckoutSessionStatus,
+  PaymentKind,
   PaymentProvider,
+  PaymentTransactionStatus,
+  SubscriptionStatus,
+  WebhookProcessingStatus,
+  type ProductSummary,
+  type SubscriptionView,
+  type PaymentHistoryItem,
   type CreateCheckoutSessionRequest,
   type CreateCheckoutSessionResponse,
   type ProcessWebhookEventRequest,
+  type ProcessWebhookEventResponse,
+  type ProviderSignatureHeader,
   type GetSubscriptionsRequest,
   type GetSubscriptionsResponse,
   type GetPaymentHistoryRequest,
   type GetPaymentHistoryResponse,
   type ToggleAutoRenewRequest,
   type ToggleAutoRenewResponse,
+  type GetCheckoutSessionStatusRequest,
+  type GetCheckoutSessionStatusResponse,
   type PaymentServiceClient,
   type PaymentServiceController,
   PaymentServiceControllerMethods,
@@ -59,6 +70,7 @@ export {
 } from './generated/payment';
 
 export { type Empty } from './generated/google/protobuf/empty';
+export { type Timestamp } from './generated/google/protobuf/timestamp';
 
 export {
   type GetUserByIdRequest,
@@ -79,3 +91,4 @@ export * from './events/avatar-deleted.event';
 export * from './events/payment-subscription-expired.event';
 export * from './events/payment-succeeded.event';
 export * from './events/payment-failed.event';
+export * from './events/payment-integration-events-v1.event';

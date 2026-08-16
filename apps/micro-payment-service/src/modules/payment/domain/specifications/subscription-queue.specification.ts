@@ -1,14 +1,10 @@
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { SubscriptionStatus } from '../enums/subscription-status.enum';
+import { assertPositivePersistedInteger } from './persisted-integer.specification';
 
 export function assertSubscriptionSequence(sequence: number): void {
-  if (!Number.isSafeInteger(sequence) || sequence <= 0) {
-    throw new DomainException({
-      code: DomainExceptionCode.BadRequest,
-      message: 'Subscription sequence must be a positive safe integer',
-    });
-  }
+  assertPositivePersistedInteger(sequence, 'Subscription sequence');
 }
 
 export function assertSubscriptionStatus(status: SubscriptionStatus): void {

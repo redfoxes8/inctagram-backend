@@ -7,77 +7,233 @@ datasource db {
   provider = "postgresql"
 }
 
-model Plan {
-  id            String         @id @default(uuid())
-  type          PlanType
-  price         Int
-  stripeId      String         @map("stripe_id")
-  paypalId      String         @map("paypal_id")
-  isActive      Boolean        @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  deletedAt     DateTime?
-  subscriptions Subscription[]
+model Product {
+  id                   String               @id @default(uuid()) @db.Uuid
+  code                 String               @unique @db.VarChar(64)
+  name                 String               @db.VarChar(120)
+  billingInterval      BillingInterval      @map("billing_interval")
+  billingIntervalCount Int                  @map("billing_interval_count")
+  priceMinor           Int                  @map("price_minor")
+  currency             String               @db.VarChar(3)
+  isActive             Boolean              @default(true) @map("is_active")
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  providerMappings     ProductProvider[]
+  checkoutSessions     CheckoutSession[]
+  subscriptions        Subscription[]
+  paymentTransactions  PaymentTransaction[]
 
-  @@index([type])
-  @@index([paypalId])
-  @@index([stripeId])
+  @@index([isActive, billingInterval], map: "products_active_billing_interval_idx")
+  @@map("products")
+}
+
+model ProductProvider {
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  provider          String   @db.VarChar(32)
+  providerProductId String?  @map("provider_product_id") @db.VarChar(255)
+  providerBillingId String   @map("provider_billing_id") @db.VarChar(255)
+  environment       String   @db.VarChar(32)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerBillingId, environment], map: "product_providers_billing_environment_key")
+  @@unique([productId, provider, environment], map: "product_providers_product_environment_key")
+  @@index([productId], map: "product_providers_product_id_idx")
+  @@index([provider, environment, isActive], map: "product_providers_active_environment_idx")
+  @@map("product_providers")
+}
+
+model ProviderCustomer {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  provider           String   @db.VarChar(32)
+  providerCustomerId String   @map("provider_customer_id") @db.VarChar(255)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([userId, provider], map: "provider_customers_user_provider_key")
+  @@unique([provider, providerCustomerId], map: "provider_customers_provider_customer_key")
+  @@map("provider_customers")
+}
+
+model CheckoutSession {
+  id                  String               @id @default(uuid()) @db.Uuid
+  userId              String               @map("user_id") @db.Uuid
+  productId           String               @map("product_id") @db.Uuid
+  provider            String               @db.VarChar(32)
+  purpose             CheckoutPurpose
+  status              CheckoutStatus       @default(CREATED)
+  providerCheckoutId  String?              @map("provider_checkout_id") @db.VarChar(255)
+  idempotencyKey      String               @unique @map("idempotency_key") @db.VarChar(255)
+  expiresAt           DateTime?            @map("expires_at") @db.Timestamptz(3)
+  completedAt         DateTime?            @map("completed_at") @db.Timestamptz(3)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  paymentTransactions PaymentTransaction[]
+
+  @@unique([provider, providerCheckoutId], map: "checkout_sessions_provider_checkout_key")
+  @@index([userId, createdAt], map: "checkout_sessions_user_created_idx")
+  @@index([status, expiresAt], map: "checkout_sessions_status_expires_idx")
+  @@map("checkout_sessions")
 }
 
 model Subscription {
-  id          String                      @id @default(uuid())
-  userId      String                      @map("user_id") @db.Uuid
-  planId      String                      @map("plan_id") @db.Uuid
-  startsAt    DateTime?                   @map("starts_at")
-  endsAt      DateTime?                   @map("ends_at")
-  isActive    Boolean                     @default(false) @map("is_active")
-  autoRenewal Boolean                     @map("auto_renewal")
-  provider    PaymentTransactionProviders @map("provider")
-  createdAt   DateTime                    @default(now()) @map("created_at")
-  updatedAt   DateTime                    @updatedAt @map("updated_at")
-  deletedAt   DateTime?
-  transaction PaymentTransaction[]
+  id                     String               @id @default(uuid()) @db.Uuid
+  userId                 String               @map("user_id") @db.Uuid
+  productId              String               @map("product_id") @db.Uuid
+  provider               String               @db.VarChar(32)
+  providerSubscriptionId String?              @map("provider_subscription_id") @db.VarChar(255)
+  providerScheduleId     String?              @map("provider_schedule_id") @db.VarChar(255)
+  providerStatus         String?              @map("provider_status") @db.VarChar(255)
+  sequence               Int
+  status                 SubscriptionStatus
+  autoRenew              Boolean              @map("auto_renew")
+  startsAt               DateTime             @map("starts_at") @db.Timestamptz(3)
+  endsAt                 DateTime             @map("ends_at") @db.Timestamptz(3)
+  nextBillingAt          DateTime?            @map("next_billing_at") @db.Timestamptz(3)
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product                Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  paymentTransactions    PaymentTransaction[]
 
-  plan Plan @relation(fields: [planId], references: [id])
-
-  @@index([userId])
-  @@index([planId])
+  @@unique([userId, sequence], map: "subscriptions_user_sequence_key")
+  @@unique([provider, providerSubscriptionId], map: "subscriptions_provider_subscription_key")
+  @@unique([provider, providerScheduleId], map: "subscriptions_provider_schedule_key")
+  @@index([userId, status, sequence], map: "subscriptions_user_status_sequence_idx")
+  @@index([status, endsAt], map: "subscriptions_status_ends_idx")
+  @@map("subscriptions")
 }
 
 model PaymentTransaction {
-  id             String                      @id @default(uuid())
-  provider       PaymentTransactionProviders
-  eventId        String                      @unique @map("event_id")
-  eventType      String                      @map("event_type")
-  subscriptionId String                      @unique @map("subscription_id") @db.Uuid
-  status         PaymentTransactionStatus    @default(PENDING)
-  createdAt      DateTime                    @default(now()) @map("created_at")
-  updatedAt      DateTime                    @updatedAt @map("updated_at")
-  payload        Json?
-  error          String?
+  id                    String                   @id @default(uuid()) @db.Uuid
+  userId                String                   @map("user_id") @db.Uuid
+  productId             String                   @map("product_id") @db.Uuid
+  subscriptionId        String?                  @map("subscription_id") @db.Uuid
+  checkoutSessionId     String?                  @map("checkout_session_id") @db.Uuid
+  provider              String                   @db.VarChar(32)
+  kind                  PaymentKind
+  status                PaymentTransactionStatus @default(PENDING)
+  amountMinor           Int                      @map("amount_minor")
+  currency              String                   @db.VarChar(3)
+  idempotencyKey        String                   @unique @map("idempotency_key") @db.VarChar(255)
+  providerTransactionId String?                  @map("provider_transaction_id") @db.VarChar(255)
+  providerInvoiceId     String?                  @map("provider_invoice_id") @db.VarChar(255)
+  failureCode           String?                  @map("failure_code") @db.VarChar(100)
+  failureMessage        String?                  @map("failure_message") @db.VarChar(500)
+  paidAt                DateTime?                @map("paid_at") @db.Timestamptz(3)
+  refundedAt            DateTime?                @map("refunded_at") @db.Timestamptz(3)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product               Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  subscription          Subscription?            @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  checkoutSession       CheckoutSession?         @relation(fields: [checkoutSessionId], references: [id], onDelete: SetNull)
 
-  subscription Subscription @relation(fields: [subscriptionId], references: [id])
-
-  @@index([provider])
-  @@index([eventId])
-  @@index([eventType])
-  @@index([subscriptionId])
-  @@index([status])
+  @@unique([provider, providerTransactionId], map: "payment_transactions_provider_transaction_key")
+  @@unique([provider, providerInvoiceId], map: "payment_transactions_provider_invoice_key")
+  @@index([userId, createdAt], map: "payment_transactions_user_created_idx")
+  @@index([subscriptionId, createdAt], map: "payment_transactions_subscription_created_idx")
+  @@index([checkoutSessionId], map: "payment_transactions_checkout_session_idx")
+  @@index([status, createdAt], map: "payment_transactions_status_created_idx")
+  @@map("payment_transactions")
 }
 
-enum PaymentTransactionProviders {
-  PAYPAL
-  STRIPE
+model ProviderWebhookEvent {
+  id              String                     @id @default(uuid()) @db.Uuid
+  provider        String                     @db.VarChar(32)
+  providerEventId String                     @map("provider_event_id") @db.VarChar(255)
+  eventType       String                     @map("event_type") @db.VarChar(255)
+  status          ProviderWebhookEventStatus @default(RECEIVED)
+  payload         Json
+  attempts        Int                        @default(0)
+  processingError String?                    @map("processing_error") @db.VarChar(500)
+  ignoredReason   String?                    @map("ignored_reason") @db.VarChar(500)
+  receivedAt      DateTime                   @map("received_at") @db.Timestamptz(3)
+  processedAt     DateTime?                  @map("processed_at") @db.Timestamptz(3)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([provider, providerEventId], map: "provider_webhook_events_provider_event_key")
+  @@index([status, receivedAt], map: "provider_webhook_events_status_received_idx")
+  @@index([provider, eventType, receivedAt], map: "provider_webhook_events_provider_type_received_idx")
+  @@map("provider_webhook_events")
 }
 
-enum PlanType {
-  DAILY
-  WEEKLY
-  MONTHLY
+model OutboxEvent {
+  id            String       @id @default(uuid()) @db.Uuid
+  aggregateType String       @map("aggregate_type") @db.VarChar(100)
+  aggregateId   String       @map("aggregate_id") @db.Uuid
+  eventType     String       @map("event_type") @db.VarChar(150)
+  eventVersion  Int          @map("event_version")
+  routingKey    String       @map("routing_key") @db.VarChar(255)
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @map("available_at") @db.Timestamptz(3)
+  lockedAt      DateTime?    @map("locked_at") @db.Timestamptz(3)
+  lockedBy      String?      @map("locked_by") @db.VarChar(100)
+  lastError     String?      @map("last_error") @db.VarChar(500)
+  occurredAt    DateTime     @map("occurred_at") @db.Timestamptz(3)
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([status, availableAt, occurredAt], map: "outbox_events_delivery_idx")
+  @@index([aggregateType, aggregateId, eventVersion], map: "outbox_events_aggregate_version_idx")
+  @@map("outbox_events")
+}
+
+enum BillingInterval {
+  WEEK
+  MONTH
+}
+
+enum CheckoutPurpose {
+  INITIAL_SUBSCRIPTION
+  ADDITIONAL_SUBSCRIPTION
+}
+
+enum CheckoutStatus {
+  CREATED
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  QUEUED
+  EXPIRED
+  CANCELED
+}
+
+enum PaymentKind {
+  PURCHASE
+  RENEWAL
 }
 
 enum PaymentTransactionStatus {
   PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ProviderWebhookEventStatus {
+  RECEIVED
+  PROCESSING
   PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
   FAILED
 }

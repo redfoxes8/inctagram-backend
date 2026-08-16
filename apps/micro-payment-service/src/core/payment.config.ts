@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsIn, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumber, IsString, Matches } from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -51,29 +51,30 @@ export class PaymentConfig {
 
   // Stripe Configuration
   @IsString({ message: 'Env variable STRIPE_SECRET_KEY must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable STRIPE_SECRET_KEY, example: xxx123' })
+  @IsNotEmpty({ message: 'Env variable STRIPE_SECRET_KEY is required' })
+  @Matches(/^sk_test_/, {
+    message: 'Env variable STRIPE_SECRET_KEY must be a Stripe test key',
+  })
   stripeSecretKey: string;
 
   @IsString({ message: 'Env variable STRIPE_WEBHOOK_SECRET must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable STRIPE_WEBHOOK_SECRET, example: xxx123' })
+  @IsNotEmpty({ message: 'Env variable STRIPE_WEBHOOK_SECRET is required' })
+  @Matches(/^whsec_/, {
+    message: 'Env variable STRIPE_WEBHOOK_SECRET must be a webhook signing secret',
+  })
   stripeWebhookSecret: string;
 
+  @IsIn(['test'], {
+    message: 'Env variable PAYMENT_PROVIDER_ENVIRONMENT must be test',
+  })
+  @IsNotEmpty({ message: 'Env variable PAYMENT_PROVIDER_ENVIRONMENT is required' })
+  providerEnvironment: 'test';
+
   // PayPal Configuration
-  @IsString({ message: 'Env variable PAYPAL_CLIENT_ID must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable PAYPAL_CLIENT_ID, example: xxx123' })
-  paypalClientId: string;
-
-  @IsString({ message: 'Env variable PAYPAL_CLIENT_SECRET must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable PAYPAL_CLIENT_SECRET, example: xxx123' })
-  paypalClientSecret: string;
-
-  @IsString({ message: 'Env variable PAYPAL_WEBHOOK_ID must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable PAYPAL_WEBHOOK_ID, example: xxx123' })
-  paypalWebhookId: string;
-
-  @IsIn(['sandbox', 'live'], { message: "Env variable PAYPAL_MODE must be in ['sandbox', 'live']" })
-  @IsNotEmpty({ message: 'Set Env variable PAYPAL_MODE, example: sandbox' })
-  paypalMode: string;
+  paypalClientId: string | null;
+  paypalClientSecret: string | null;
+  paypalWebhookId: string | null;
+  paypalMode: string | null;
 
   // ?? Configuration
   @IsString({ message: 'Env variable SUBSCRIPTION_CHECK_CRON must be a string' })
@@ -101,13 +102,15 @@ export class PaymentConfig {
 
     this.stripeWebhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET');
 
-    this.paypalClientId = this.configService.get('PAYPAL_CLIENT_ID');
+    this.providerEnvironment = this.configService.get('PAYMENT_PROVIDER_ENVIRONMENT') as 'test';
 
-    this.paypalClientSecret = this.configService.get('PAYPAL_CLIENT_SECRET');
+    this.paypalClientId = this.configService.get('PAYPAL_CLIENT_ID') ?? null;
 
-    this.paypalWebhookId = this.configService.get('PAYPAL_WEBHOOK_ID');
+    this.paypalClientSecret = this.configService.get('PAYPAL_CLIENT_SECRET') ?? null;
 
-    this.paypalMode = this.configService.get('PAYPAL_MODE');
+    this.paypalWebhookId = this.configService.get('PAYPAL_WEBHOOK_ID') ?? null;
+
+    this.paypalMode = this.configService.get('PAYPAL_MODE') ?? null;
 
     this.subscriptionCheckCron = this.configService.get('SUBSCRIPTION_CHECK_CRON');
 

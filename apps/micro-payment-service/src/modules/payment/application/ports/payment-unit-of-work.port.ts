@@ -3,8 +3,8 @@ import { IProductRepository } from '../../domain/interfaces/product.repository.i
 import { IProductProviderRepository } from '../../domain/interfaces/product-provider.repository.interface';
 import { IProviderCustomerRepository } from '../../domain/interfaces/provider-customer.repository.interface';
 import { IProviderWebhookEventRepository } from '../../domain/interfaces/provider-webhook-event.repository.interface';
-import { ITargetPaymentTransactionRepository } from '../../domain/interfaces/target-payment-transaction.repository.interface';
-import { ITargetSubscriptionRepository } from '../../domain/interfaces/target-subscription.repository.interface';
+import { IPaymentTransactionRepository } from '../../domain/interfaces/payment-transaction.repository.interface';
+import { ISubscriptionRepository } from '../../domain/interfaces/subscription.repository.interface';
 import { IPaymentOutboxWriter } from './payment-outbox-writer.port';
 
 export type PaymentUnitOfWorkContext = Readonly<{
@@ -12,8 +12,8 @@ export type PaymentUnitOfWorkContext = Readonly<{
   productProviders: IProductProviderRepository;
   providerCustomers: IProviderCustomerRepository;
   checkoutSessions: ICheckoutSessionRepository;
-  paymentTransactions: ITargetPaymentTransactionRepository;
-  subscriptions: ITargetSubscriptionRepository;
+  paymentTransactions: IPaymentTransactionRepository;
+  subscriptions: ISubscriptionRepository;
   providerWebhookEvents: IProviderWebhookEventRepository;
   outbox: IPaymentOutboxWriter;
   lockUser(userId: string): Promise<void>;

@@ -14,6 +14,9 @@ import {
   type GetPaymentHistoryRequest,
   type GetPaymentHistoryResponse,
   ProcessWebhookEventRequest,
+  ProcessWebhookEventResponse,
+  GetCheckoutSessionStatusRequest,
+  GetCheckoutSessionStatusResponse,
 } from '../../../../../../libs/contracts/src';
 
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
@@ -67,11 +70,13 @@ export class PaymentGrpcClient implements OnModuleInit {
     }
   }
 
-  async processWebhookEvent(request: ProcessWebhookEventRequest): Promise<void> {
+  async processWebhookEvent(
+    request: ProcessWebhookEventRequest,
+  ): Promise<ProcessWebhookEventResponse> {
     const PAYMENT_GRPC_TIMEOUT = 3000;
 
     try {
-      await firstValueFrom(
+      return await firstValueFrom(
         this.paymentService.processWebhookEvent(request).pipe(timeout(PAYMENT_GRPC_TIMEOUT)),
       );
     } catch (error: unknown) {
@@ -83,6 +88,16 @@ export class PaymentGrpcClient implements OnModuleInit {
       // PaymentController translates duplicate webhook deliveries
       // into HTTP 200 for Stripe.
 
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getCheckoutSessionStatus(
+    request: GetCheckoutSessionStatusRequest,
+  ): Promise<GetCheckoutSessionStatusResponse> {
+    try {
+      return await firstValueFrom(this.paymentService.getCheckoutSessionStatus(request));
+    } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

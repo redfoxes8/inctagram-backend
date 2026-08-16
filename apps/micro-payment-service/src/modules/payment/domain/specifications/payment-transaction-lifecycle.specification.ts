@@ -1,7 +1,7 @@
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { PaymentKind } from '../enums/payment-kind.enum';
-import { PaymentTransactionStatus } from '../enums/target-payment-transaction-status.enum';
+import { PaymentTransactionStatus } from '../enums/payment-transaction-status.enum';
 
 const FAILURE_CODE_FORMAT = /^[A-Z][A-Z0-9_.:-]{0,99}$/;
 const MAX_FAILURE_MESSAGE_LENGTH = 500;

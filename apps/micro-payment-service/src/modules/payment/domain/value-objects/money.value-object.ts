@@ -1,5 +1,4 @@
-import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { assertPositivePersistedInteger } from '../specifications/persisted-integer.specification';
 import { Currency } from './currency.value-object';
 
 export type MoneyProps = {
@@ -12,12 +11,7 @@ export class Money {
   private readonly currency: Currency;
 
   constructor(props: MoneyProps) {
-    if (!Number.isSafeInteger(props.amountMinor) || props.amountMinor <= 0) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: 'Money amountMinor must be a positive safe integer',
-      });
-    }
+    assertPositivePersistedInteger(props.amountMinor, 'Money amountMinor');
 
     this.amountMinor = props.amountMinor;
     this.currency = props.currency;

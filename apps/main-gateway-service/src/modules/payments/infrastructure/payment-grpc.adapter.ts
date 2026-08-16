@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { PaymentGrpcClient } from './payment-grpc.client';
 import { IPaymentGrpcAdapter } from './interfaces/payment-grpc-adapter.interface';
@@ -10,12 +10,17 @@ import { CreateCheckoutSessionResponseDto } from '../api/dto/create-checkout-ses
 import { CreateCheckoutSessionCommandDto } from '../application/commands/create-checkout-session.command';
 import { ToggleAutoRenewCommandDto } from '../application/commands/toggle-auto-renew.command';
 import { ProcessWebhookEventCommandDto } from '../application/commands/process-webhook-event.command';
+import { GetPaymentHistoryResponseDto } from '../api/dto/get-payment-history.response';
+import { GetSubscriptionsResponseDto } from '../api/dto/get-subscriptions.response';
+import { ToggleAutoRenewResponseDto } from '../api/dto/toggle-auto-renew.response';
+import { GetCheckoutSessionStatusResponseDto } from '../api/dto/get-checkout-session-status.response';
+import { GetCheckoutSessionStatusQueryDto } from '../application/queries/get-checkout-session-status.query';
 
 @Injectable()
 export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
   constructor(private readonly paymentGrpcClient: PaymentGrpcClient) {}
 
-  async getPaymentHistory(dto: GetPaymentHistoryQueryDto): Promise<any> {
+  async getPaymentHistory(dto: GetPaymentHistoryQueryDto): Promise<GetPaymentHistoryResponseDto> {
     const request = PaymentRequestMapper.toGetPaymentHistory(dto);
 
     const response = await this.paymentGrpcClient.getPaymentHistory(request);
@@ -23,7 +28,7 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
     return PaymentResponseMapper.toGetPaymentHistory(response);
   }
 
-  async getSubscriptions(dto: GetSubscriptionsQueryDto) {
+  async getSubscriptions(dto: GetSubscriptionsQueryDto): Promise<GetSubscriptionsResponseDto> {
     const request = PaymentRequestMapper.toGetSubscriptions(dto);
 
     const response = await this.paymentGrpcClient.getSubscriptions(request);
@@ -39,20 +44,20 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
     const response = await this.paymentGrpcClient.createCheckoutSession(request);
 
     return {
+      checkoutSessionId: response.checkoutSessionId,
       checkoutUrl: response.checkoutUrl,
+      expiresAt: response.expiresAt
+        ? PaymentResponseMapper.timestampToIso(response.expiresAt)
+        : null,
     };
   }
 
-  async toggleAutoRenew(dto: ToggleAutoRenewCommandDto): Promise<void> {
+  async toggleAutoRenew(dto: ToggleAutoRenewCommandDto): Promise<ToggleAutoRenewResponseDto> {
     const request = PaymentRequestMapper.toToggleAutoRenew(dto);
 
     const response = await this.paymentGrpcClient.toggleAutoRenew(request);
 
-    if (!response.success) {
-      throw new InternalServerErrorException('Toggle auto renew failed'); // or DomainError('Toggle auto renew failed');
-    }
-
-    return;
+    return PaymentResponseMapper.toToggleAutoRenew(response);
   }
 
   async processWebhookEvent(dto: ProcessWebhookEventCommandDto): Promise<void> {
@@ -61,5 +66,13 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
     await this.paymentGrpcClient.processWebhookEvent(request);
 
     return;
+  }
+
+  async getCheckoutSessionStatus(
+    dto: GetCheckoutSessionStatusQueryDto,
+  ): Promise<GetCheckoutSessionStatusResponseDto> {
+    const request = PaymentRequestMapper.toGetCheckoutSessionStatus(dto);
+    const response = await this.paymentGrpcClient.getCheckoutSessionStatus(request);
+    return PaymentResponseMapper.toGetCheckoutSessionStatus(response);
   }
 }
