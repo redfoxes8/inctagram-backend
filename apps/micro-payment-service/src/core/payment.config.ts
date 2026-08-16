@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsIn, IsNotEmpty, IsNumber, IsString, Matches } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsNumber, IsString, Matches, Max, Min } from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -58,6 +58,11 @@ export class PaymentConfig {
   @IsNotEmpty({ message: 'Env variable PAYMENT_PROVIDER_ENVIRONMENT is required' })
   providerEnvironment: 'test';
 
+  @IsInt({ message: 'PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS must be an integer' })
+  @Min(10, { message: 'PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS must be at least 10' })
+  @Max(900, { message: 'PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS must not exceed 900' })
+  webhookProcessingTimeoutSeconds: number;
+
   // PayPal Configuration
   paypalClientId: string | null;
   paypalClientSecret: string | null;
@@ -87,6 +92,10 @@ export class PaymentConfig {
     this.stripeWebhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET');
 
     this.providerEnvironment = this.configService.get('PAYMENT_PROVIDER_ENVIRONMENT') as 'test';
+
+    this.webhookProcessingTimeoutSeconds = Number(
+      this.configService.get('PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS'),
+    );
 
     this.paypalClientId = this.configService.get('PAYPAL_CLIENT_ID') ?? null;
 

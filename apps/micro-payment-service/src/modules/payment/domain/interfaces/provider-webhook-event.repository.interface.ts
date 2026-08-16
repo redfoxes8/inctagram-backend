@@ -8,7 +8,13 @@ export type ProviderEventLookup = {
 
 export type ProviderEventClaim = ProviderEventLookup & {
   maxAttempts: number;
+  staleBefore: Date;
 };
+
+export type ProviderEventRegistration = Readonly<{
+  event: ProviderWebhookEventEntity;
+  inserted: boolean;
+}>;
 
 export type TimedOutProviderEventClaim = {
   staleBefore: Date;
@@ -18,6 +24,7 @@ export type TimedOutProviderEventClaim = {
 
 export abstract class IProviderWebhookEventRepository {
   abstract insert(event: ProviderWebhookEventEntity): Promise<void>;
+  abstract insertOrGet(event: ProviderWebhookEventEntity): Promise<ProviderEventRegistration>;
   abstract save(event: ProviderWebhookEventEntity): Promise<void>;
   abstract findByProviderEventId(
     lookup: ProviderEventLookup,

@@ -6,6 +6,7 @@ import {
   IProviderWebhookEventRepository,
   ProviderEventClaim,
   ProviderEventLookup,
+  ProviderEventRegistration,
   TimedOutProviderEventClaim,
 } from '../../domain/interfaces/provider-webhook-event.repository.interface';
 import { PaymentPrismaMapper } from '../mappers/payment-prisma.mapper';
@@ -21,6 +22,23 @@ export class ProviderWebhookEventRepository implements IProviderWebhookEventRepo
     await this.prisma.providerWebhookEvent.create({
       data: PaymentPrismaMapper.webhookEventToPrisma(event),
     });
+  }
+
+  public async insertOrGet(event: ProviderWebhookEventEntity): Promise<ProviderEventRegistration> {
+    try {
+      await this.insert(event);
+      return { event, inserted: true };
+    } catch (error: unknown) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+        throw error;
+      }
+      const existing = await this.findByProviderEventId({
+        provider: event.getProvider(),
+        providerEventId: event.getProviderEventId(),
+      });
+      if (!existing) throw error;
+      return { event: existing, inserted: false };
+    }
   }
 
   public async save(event: ProviderWebhookEventEntity): Promise<void> {
@@ -60,13 +78,24 @@ export class ProviderWebhookEventRepository implements IProviderWebhookEventRepo
     const updated = await this.prisma.providerWebhookEvent.updateMany({
       where: {
         id: existing.id,
-        status: { in: [ProviderWebhookEventStatus.RECEIVED, ProviderWebhookEventStatus.FAILED] },
+        OR: [
+          {
+            status: {
+              in: [ProviderWebhookEventStatus.RECEIVED, ProviderWebhookEventStatus.FAILED],
+            },
+          },
+          {
+            status: ProviderWebhookEventStatus.PROCESSING,
+            updatedAt: { lte: claim.staleBefore },
+          },
+        ],
         attempts: { lt: claim.maxAttempts },
       },
       data: {
         status: ProviderWebhookEventStatus.PROCESSING,
         attempts: { increment: 1 },
         processingError: null,
+        updatedAt: new Date(),
       },
     });
     if (updated.count !== 1) return null;

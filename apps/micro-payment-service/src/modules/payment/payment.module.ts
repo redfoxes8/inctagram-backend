@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { PaymentConfig } from '../../core/payment.config';
 import { PaymentGrpcController } from './api/grpc/payment-grpc.controller';
 import { CreateCheckoutSessionHandler } from './application/commands/create-checkout-session.command';
 import { ProcessWebhookEventHandler } from './application/commands/process-webhook-event.command';
@@ -15,7 +16,11 @@ import {
 import { IPaymentUnitOfWork } from './application/ports/payment-unit-of-work.port';
 import { PaymentProviderResolver } from './application/ports/payment-provider-resolver.port';
 import { PaymentProviderStrategy } from './application/ports/payment-provider.strategy';
-import { PAYMENT_PROVIDER_STRATEGIES } from './application/ports/payment-provider.tokens';
+import { PaymentWebhookProcessor } from './application/ports/payment-webhook-processor.port';
+import {
+  PAYMENT_PROVIDER_STRATEGIES,
+  PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS,
+} from './application/ports/payment-provider.tokens';
 import { ICheckoutSessionRepository } from './domain/interfaces/checkout-session.repository.interface';
 import { IPaymentTransactionRepository } from './domain/interfaces/payment-transaction.repository.interface';
 import { IProductRepository } from './domain/interfaces/product.repository.interface';
@@ -39,6 +44,7 @@ import {
   stripeStrategyConfigurationProvider,
 } from './infrastructure/providers/stripe-client.provider';
 import { StripePaymentProviderStrategy } from './infrastructure/providers/stripe-payment-provider.strategy';
+import { GuardedPaymentWebhookProcessor } from './application/services/guarded-payment-webhook.processor';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -82,9 +88,25 @@ const grpcHandlers = [
   GetCheckoutSessionStatusHandler,
 ];
 
+const webhookProcessor = [
+  {
+    provide: PAYMENT_WEBHOOK_PROCESSING_TIMEOUT_SECONDS,
+    inject: [PaymentConfig],
+    useFactory: (config: PaymentConfig): number => config.webhookProcessingTimeoutSeconds,
+  },
+  GuardedPaymentWebhookProcessor,
+  { provide: PaymentWebhookProcessor, useExisting: GuardedPaymentWebhookProcessor },
+];
+
 @Module({
   imports: [CqrsModule],
-  providers: [...repositories, ...queries, ...providerStrategies, ...grpcHandlers],
+  providers: [
+    ...repositories,
+    ...queries,
+    ...providerStrategies,
+    ...webhookProcessor,
+    ...grpcHandlers,
+  ],
   controllers: [PaymentGrpcController],
   exports: [
     IProductRepository,
