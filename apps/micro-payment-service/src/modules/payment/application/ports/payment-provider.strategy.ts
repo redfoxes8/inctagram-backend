@@ -8,6 +8,7 @@ import {
   GetProviderSubscriptionStateCommand,
   NormalizedProviderEvent,
   ProviderSubscriptionState,
+  RetrieveProviderCheckoutCommand,
   SynchronizeProviderNextBillingCommand,
   VerifyProviderWebhookCommand,
 } from './payment-provider.types';
@@ -23,8 +24,14 @@ import {
 export abstract class PaymentProviderStrategy {
   abstract readonly code: ProviderCode;
 
+  abstract assertOperational(): void;
+
   abstract createInitialSubscriptionCheckout(
     command: CreateInitialSubscriptionCheckoutCommand,
+  ): Promise<CheckoutCreationResult>;
+
+  abstract retrieveCheckout(
+    command: RetrieveProviderCheckoutCommand,
   ): Promise<CheckoutCreationResult>;
 
   abstract createAdditionalSubscriptionCheckout(

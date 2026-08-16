@@ -27,6 +27,18 @@ export class GatewayConfig {
   @IsNotEmpty({ message: 'Set Env variable FRONTEND_URL, example: https://inctagram.com' })
   frontEndUrl: string;
 
+  @IsString({ message: 'Env variable SUCCESS_PAYMENT_URL must be a string' })
+  @Matches(/^(?:https:\/\/[^\s]+|http:\/\/localhost(?::[1-9][0-9]{0,4})?(?:\/[^\s]*)?)$/, {
+    message: 'Env variable SUCCESS_PAYMENT_URL must be an absolute trusted URL',
+  })
+  successPaymentUrl: string;
+
+  @IsString({ message: 'Env variable CANCEL_PAYMENT_URL must be a string' })
+  @Matches(/^(?:https:\/\/[^\s]+|http:\/\/localhost(?::[1-9][0-9]{0,4})?(?:\/[^\s]*)?)$/, {
+    message: 'Env variable CANCEL_PAYMENT_URL must be an absolute trusted URL',
+  })
+  cancelPaymentUrl: string;
+
   @IsString()
   @IsNotEmpty({ message: 'Set Env variable FILES_SERVICE_URL, example: http://localhost:3001' })
   filesServiceUrl: string;
@@ -119,6 +131,8 @@ export class GatewayConfig {
     );
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
     this.frontEndUrl = this.configService.get('FRONTEND_URL');
+    this.successPaymentUrl = this.configService.get('SUCCESS_PAYMENT_URL');
+    this.cancelPaymentUrl = this.configService.get('CANCEL_PAYMENT_URL');
 
     // Prisma Configuration
     this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');

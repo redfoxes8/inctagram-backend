@@ -40,7 +40,7 @@ export class CheckoutSessionEntity extends BaseDomainEntity<string> {
   private status: CheckoutStatus;
   private providerCheckoutId: string | null;
   private readonly idempotencyKey: IdempotencyKey;
-  private readonly expiresAt: Date | null;
+  private expiresAt: Date | null;
   private completedAt: Date | null;
 
   constructor(props: CheckoutSessionEntityProps) {
@@ -108,10 +108,22 @@ export class CheckoutSessionEntity extends BaseDomainEntity<string> {
     return this.completedAt ? new Date(this.completedAt.getTime()) : null;
   }
 
-  public attachProviderCheckoutId(providerCheckoutId: string): void {
-    assertProviderIdentifier(providerCheckoutId);
+  public attachProviderCheckout(result: {
+    providerCheckoutId: string;
+    expiresAt: Date | null;
+  }): void {
+    assertProviderIdentifier(result.providerCheckoutId);
+    if (result.expiresAt !== null) {
+      assertValidDate({
+        value: result.expiresAt,
+        message: 'Checkout expiration timestamp must be a valid Date',
+      });
+    }
 
-    if (this.providerCheckoutId === providerCheckoutId) {
+    if (
+      this.providerCheckoutId === result.providerCheckoutId &&
+      this.expiresAt?.getTime() === result.expiresAt?.getTime()
+    ) {
       return;
     }
 
@@ -127,7 +139,8 @@ export class CheckoutSessionEntity extends BaseDomainEntity<string> {
       );
     }
 
-    this.providerCheckoutId = providerCheckoutId;
+    this.providerCheckoutId = result.providerCheckoutId;
+    this.expiresAt = result.expiresAt ? new Date(result.expiresAt.getTime()) : null;
     this.touch();
   }
 

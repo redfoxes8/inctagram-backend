@@ -12,6 +12,7 @@ import {
   NormalizedProviderEvent,
   PAYMENT_PROVIDER_ERROR_REASON,
   ProviderSubscriptionState,
+  RetrieveProviderCheckoutCommand,
   SynchronizeProviderNextBillingCommand,
   VerifyProviderWebhookCommand,
 } from '../../application/ports/payment-provider.types';
@@ -21,8 +22,19 @@ import { ProviderCode } from '../../domain/value-objects/provider-code.value-obj
 export class PayPalPaymentProviderStrategy implements PaymentProviderStrategy {
   public readonly code = new ProviderCode('PAYPAL');
 
+  public assertOperational(): void {
+    throw this.providerNotSupportedException();
+  }
+
   public createInitialSubscriptionCheckout(
     command: CreateInitialSubscriptionCheckoutCommand,
+  ): Promise<CheckoutCreationResult> {
+    void command;
+    return Promise.reject(this.providerNotSupportedException());
+  }
+
+  public retrieveCheckout(
+    command: RetrieveProviderCheckoutCommand,
   ): Promise<CheckoutCreationResult> {
     void command;
     return Promise.reject(this.providerNotSupportedException());

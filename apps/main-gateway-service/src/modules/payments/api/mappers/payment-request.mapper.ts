@@ -8,8 +8,6 @@ import {
   Timestamp,
   ToggleAutoRenewRequest,
 } from '../../../../../../../libs/contracts/src';
-import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
-import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { CreateCheckoutSessionCommandDto } from '../../application/commands/create-checkout-session.command';
 import { ProcessWebhookEventCommandDto } from '../../application/commands/process-webhook-event.command';
 import { ToggleAutoRenewCommandDto } from '../../application/commands/toggle-auto-renew.command';
@@ -30,13 +28,6 @@ export class PaymentRequestMapper {
   public static toCreateCheckoutSession(
     dto: CreateCheckoutSessionCommandDto,
   ): CreateCheckoutSessionRequest {
-    if (!dto.idempotencyKey) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: 'Checkout idempotency key binding is not available yet',
-      });
-    }
-
     return {
       userId: dto.userId,
       productId: dto.productId,

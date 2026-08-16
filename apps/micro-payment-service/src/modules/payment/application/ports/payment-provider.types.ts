@@ -30,6 +30,7 @@ type CheckoutCommand = Readonly<{
   successUrl: string;
   cancelUrl: string;
   providerIdempotencyKey: string;
+  providerCustomerIdempotencyKey: string;
 }>;
 
 export type CreateInitialSubscriptionCheckoutCommand = CheckoutCommand &
@@ -50,6 +51,15 @@ export type CheckoutCreationResult = Readonly<{
   checkoutUrl: string;
   providerCustomerId: string;
   expiresAt: string | null;
+}>;
+
+export type RetrieveProviderCheckoutCommand = Readonly<{
+  provider: ProviderCode;
+  providerCheckoutId: string;
+  expectedProviderCustomerId: string;
+  expectedProviderBillingId: string;
+  amountMinor: number;
+  currency: string;
 }>;
 
 type ProviderSubscriptionCorrelation = Readonly<{

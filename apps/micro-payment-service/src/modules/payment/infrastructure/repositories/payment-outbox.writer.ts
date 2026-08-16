@@ -8,13 +8,10 @@ import { PaymentPrismaMapper } from '../mappers/payment-prisma.mapper';
 import type { PaymentPrismaClient } from './payment-prisma-client.type';
 
 export class PaymentOutboxWriter implements IPaymentOutboxWriter {
-  constructor(private readonly transaction: PaymentPrismaClient) {
-    if ('$transaction' in transaction || '$connect' in transaction) {
-      throw new DomainException({
-        code: DomainExceptionCode.InternalServerError,
-        message: 'Payment outbox writer requires an active transaction context',
-      });
-    }
+  private constructor(private readonly transaction: PaymentPrismaClient) {}
+
+  public static forTransaction(transaction: PaymentPrismaClient): PaymentOutboxWriter {
+    return new PaymentOutboxWriter(transaction);
   }
 
   public async write(event: PaymentIntegrationEventV1): Promise<void> {

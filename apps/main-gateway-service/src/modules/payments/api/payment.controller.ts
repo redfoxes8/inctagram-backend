@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -16,6 +17,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
@@ -35,10 +37,13 @@ import { ToggleAutoRenewCommand } from '../application/commands/toggle-auto-rene
 import { Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { RawBodyRequest } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
 import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { GatewayConfig } from '../../../core/gateway.config';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 @Controller('payments')
 export class PaymentController {
@@ -86,19 +91,31 @@ export class PaymentController {
   @ApiCreatedResponse({
     type: CreateCheckoutSessionResponseDto,
   })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    description: 'UUID reused for retries of the same logical checkout request.',
+  })
   async createCheckoutSession(
     @CurrentUserId() userId: string,
     @Body() dto: CreateCheckoutSessionDto,
+    @Headers('idempotency-key') idempotencyKey: string,
   ): Promise<CreateCheckoutSessionResponseDto> {
+    if (!isUUID(idempotencyKey, '4')) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Idempotency-Key must be a UUID v4',
+      });
+    }
     return this.commandBus.execute(
       new CreateCheckoutSessionCommand({
         userId,
         productId: dto.productId,
         provider: dto.provider,
         autoRenewConsent: dto.autoRenewConsent,
-        successUrl: `${this.gatewayConfig.frontEndUrl}/payment/success`,
-        cancelUrl: `${this.gatewayConfig.frontEndUrl}/payment/cancel`,
-        idempotencyKey: null,
+        successUrl: this.gatewayConfig.successPaymentUrl,
+        cancelUrl: this.gatewayConfig.cancelPaymentUrl,
+        idempotencyKey,
       }),
     );
   }

@@ -16,7 +16,7 @@ import { ProviderCustomerRepository } from './provider-customer.repository';
 import { ProviderWebhookEventRepository } from './provider-webhook-event.repository';
 import { SubscriptionRepository } from './subscription.repository';
 
-type AdvisoryLockResult = { pg_advisory_xact_lock: null };
+type AdvisoryLockResult = { acquired: number };
 
 @Injectable()
 export class PaymentUnitOfWork implements IPaymentUnitOfWork {
@@ -32,11 +32,12 @@ export class PaymentUnitOfWork implements IPaymentUnitOfWork {
         paymentTransactions: new PaymentTransactionRepository(transaction),
         subscriptions: new SubscriptionRepository(transaction),
         providerWebhookEvents: new ProviderWebhookEventRepository(transaction),
-        outbox: new PaymentOutboxWriter(transaction),
+        outbox: PaymentOutboxWriter.forTransaction(transaction),
         lockUser: async (userId: string): Promise<void> => {
           assertUuidIdentifier(userId);
           await transaction.$queryRaw<AdvisoryLockResult[]>(Prisma.sql`
-            SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))
+            SELECT 1::integer AS acquired
+            FROM (SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))) AS locked
           `);
         },
       };

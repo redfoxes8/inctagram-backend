@@ -12,7 +12,7 @@ export type CreateCheckoutSessionCommandDto = {
   autoRenewConsent: true;
   successUrl: string;
   cancelUrl: string;
-  idempotencyKey: string | null;
+  idempotencyKey: string;
 };
 
 export class CreateCheckoutSessionCommand implements ICommand {
