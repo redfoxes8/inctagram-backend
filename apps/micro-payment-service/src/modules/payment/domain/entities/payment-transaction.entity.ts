@@ -52,8 +52,8 @@ export type PaymentTransactionEntityProps = PendingPaymentTransactionProps & {
 
 export type SucceedPaymentTransactionProps = {
   subscriptionId: string;
-  providerTransactionId: string;
-  providerInvoiceId?: string | null;
+  providerTransactionId: string | null;
+  providerInvoiceId: string | null;
   paidAt: Date;
 };
 
@@ -348,7 +348,7 @@ export class PaymentTransactionEntity extends BaseDomainEntity<string> {
   private static assertSucceededFields(props: PaymentTransactionEntityProps): void {
     if (
       props.subscriptionId === null ||
-      props.providerTransactionId === null ||
+      (props.providerTransactionId === null && props.providerInvoiceId === null) ||
       props.paidAt === null ||
       props.refundedAt !== null ||
       props.failureCode !== null ||
@@ -421,14 +421,16 @@ export class PaymentTransactionEntity extends BaseDomainEntity<string> {
 
   private static assertSuccessFacts(props: SucceedPaymentTransactionProps): void {
     assertUuidIdentifier(props.subscriptionId);
-    assertProviderIdentifier(props.providerTransactionId);
-    if (props.providerInvoiceId !== undefined && props.providerInvoiceId !== null) {
-      assertProviderIdentifier(props.providerInvoiceId);
+    PaymentTransactionEntity.assertOptionalProviderIdentifiers(props);
+    if (props.providerTransactionId === null && props.providerInvoiceId === null) {
+      throw PaymentTransactionEntity.badRequest(
+        'Succeeded payment transaction requires a provider monetary identifier',
+      );
     }
     assertValidDate({ value: props.paidAt, message: 'Payment timestamp must be a valid Date' });
   }
 
-  private matchesSuccess(props: Required<SucceedPaymentTransactionProps>): boolean {
+  private matchesSuccess(props: SucceedPaymentTransactionProps): boolean {
     return (
       this.subscriptionId === props.subscriptionId &&
       this.providerTransactionId === props.providerTransactionId &&

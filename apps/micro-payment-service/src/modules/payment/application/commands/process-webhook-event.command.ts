@@ -70,7 +70,6 @@ export class ProcessWebhookEventHandler implements ICommandHandler<
       throw this.handlerNotReady();
     }
 
-    await this.markProcessed(event);
     return { accepted: true, duplicate: !registration.inserted, status: 'PROCESSED' };
   }
 
@@ -134,19 +133,6 @@ export class ProcessWebhookEventHandler implements ICommandHandler<
       });
       if (!existing || existing.getStatus() !== ProviderWebhookEventStatus.PROCESSING) return;
       existing.markFailed(PAYMENT_PROVIDER_ERROR_REASON.PAYMENT_WEBHOOK_HANDLER_NOT_READY);
-      await context.providerWebhookEvents.save(existing);
-    });
-  }
-
-  private async markProcessed(event: NormalizedProviderEvent): Promise<void> {
-    await this.unitOfWork.execute(async (context) => {
-      const existing = await context.providerWebhookEvents.findByProviderEventId({
-        provider: event.provider,
-        providerEventId: event.providerEventId,
-      });
-      if (!existing) throw this.handlerNotReady();
-      const processedAt = new Date(Math.max(Date.now(), existing.getReceivedAt().getTime()));
-      existing.markProcessed(processedAt);
       await context.providerWebhookEvents.save(existing);
     });
   }

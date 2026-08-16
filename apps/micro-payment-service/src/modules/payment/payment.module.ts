@@ -44,7 +44,7 @@ import {
   stripeStrategyConfigurationProvider,
 } from './infrastructure/providers/stripe-client.provider';
 import { StripePaymentProviderStrategy } from './infrastructure/providers/stripe-payment-provider.strategy';
-import { GuardedPaymentWebhookProcessor } from './application/services/guarded-payment-webhook.processor';
+import { InitialPaymentWebhookProcessor } from './application/services/initial-payment-webhook.processor';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -94,8 +94,8 @@ const webhookProcessor = [
     inject: [PaymentConfig],
     useFactory: (config: PaymentConfig): number => config.webhookProcessingTimeoutSeconds,
   },
-  GuardedPaymentWebhookProcessor,
-  { provide: PaymentWebhookProcessor, useExisting: GuardedPaymentWebhookProcessor },
+  InitialPaymentWebhookProcessor,
+  { provide: PaymentWebhookProcessor, useExisting: InitialPaymentWebhookProcessor },
 ];
 
 @Module({
