@@ -63,27 +63,27 @@ Rules:
 | Slice | Name | Status | Commit SHA | Validation evidence | Completed at | Notes |
 |---:|---|---|---|---|---|---|
 | 1 | Repair Payment bootstrap, pnpm build, and start integration | DONE | ded1a37 | Baseline/final `pnpm run build:micro-payment-service`: PASS; package.json/script checks: PASS; `git diff --check`: PASS; scope/generated-file checks: PASS; Docker build not run (base image absent locally; network pull excluded). | 2026-08-15T16:54:54+03:00 | Dedicated implementation commit confirmed in branch history. |
-| 2 | Validate Stripe checkout and billing alignment for prepaid queued subscriptions | DONE | — | Stripe test-mode spike `SUPPORTED_WITH_CONSTRAINTS`: verified initial/additional/declined Checkout webhooks; Test Clock boundary, autoRenew lifecycle, queue rescheduling, idempotent finalize/pay, automatic fallback, renewal failure/cancellation; marker-scoped cleanup and final build/diff/security checks passed. | 2026-08-15T22:22:45+03:00 | Acceptance criteria complete. Commit SHA intentionally pending future authorized commit; Slice 3 not started. |
-| 3 | Perform read-only Payment database preflight | DONE | — | Authorized local provisioning created only `payment_db`; final transaction read-only=`on` and rolled back; PostgreSQL 16.14, public schema only, no tables/enums/indexes/constraints/migrations/data; diff and secret checks passed. | 2026-08-15T22:45:53+03:00 | `EMPTY_REPLACEABLE` for current local development only. Commit SHA intentionally pending; deployed environments require separate preflight. |
-| 4 | Add compile-safe payment value objects and specifications | DONE | — | 13 additive Domain files formatted; targeted ESLint PASS; Payment build PASS; diff/forbidden-import/`any`/legacy/restricted-artifact checks PASS. | 2026-08-15T23:14:50+03:00 | Acceptance criteria complete; commit SHA pending future authorized commit. Legacy imports remain unchanged; Slice 5 not started. |
-| 5 | Implement ProductEntity | DONE | — | ProductEntity plus shared interval-count specification formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/mutator/legacy/restricted-artifact checks PASS. | 2026-08-15T23:22:44+03:00 | Acceptance criteria complete; commit SHA pending. Product remains additive beside legacy Plan; Slice 6 not started. |
-| 6 | Implement CheckoutSessionEntity state machine | DONE | — | CheckoutSessionEntity and concrete UUID/provider-ID/date validators formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/field/setter/legacy checks PASS. | 2026-08-15T23:29:20+03:00 | Acceptance criteria complete; commit SHA pending. Entity remains additive/unwired; Slice 7 not started. |
-| 7 | Specify target PaymentTransaction lifecycle without replacing legacy entity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-15 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
-| 8 | Specify paid-period and queue rules without replacing legacy SubscriptionEntity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
-| 9 | Implement ProviderWebhookEventEntity | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. |
-| 10 | Add compile-safe transaction and new-aggregate ports | DONE | — | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static architecture scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Legacy replacement remains atomic in Slice 11. |
-| 11 | Atomically cut over Payment domain and persistence | NOT_STARTED | — | — | — | — |
-| 12 | Add transactional outbox writer and event contracts | NOT_STARTED | — | — | — | — |
-| 13 | Define provider-neutral Strategy port | NOT_STARTED | — | — | — | — |
-| 14 | Register resolver and Stripe Strategy foundation | NOT_STARTED | — | — | — | — |
-| 15 | Add safe PayPal Strategy skeleton | NOT_STARTED | — | — | — | — |
-| 16 | Update Payment gRPC contracts and Gateway transport DTOs | NOT_STARTED | — | — | — | — |
-| 17 | Add Payment gRPC controller and exception pipeline | NOT_STARTED | — | — | — | — |
-| 18 | Implement initial Stripe checkout | NOT_STARTED | — | — | — | — |
+| 2 | Validate Stripe checkout and billing alignment for prepaid queued subscriptions | DONE | f50ce96 | Stripe test-mode spike `SUPPORTED_WITH_CONSTRAINTS`: verified initial/additional/declined Checkout webhooks; Test Clock boundary, autoRenew lifecycle, queue rescheduling, idempotent finalize/pay, automatic fallback, renewal failure/cancellation; marker-scoped cleanup and final build/diff/security checks passed. | 2026-08-15T22:22:45+03:00 | Acceptance criteria complete. Commit SHA intentionally pending future authorized commit; Slice 3 not started. |
+| 3 | Perform read-only Payment database preflight | DONE | f50ce96 | Authorized local provisioning created only `payment_db`; final transaction read-only=`on` and rolled back; PostgreSQL 16.14, public schema only, no tables/enums/indexes/constraints/migrations/data; diff and secret checks passed. | 2026-08-15T22:45:53+03:00 | `EMPTY_REPLACEABLE` for current local development only. Commit SHA intentionally pending; deployed environments require separate preflight. |
+| 4 | Add compile-safe payment value objects and specifications | DONE | f50ce96 | 13 additive Domain files formatted; targeted ESLint PASS; Payment build PASS; diff/forbidden-import/`any`/legacy/restricted-artifact checks PASS. | 2026-08-15T23:14:50+03:00 | Acceptance criteria complete; commit SHA pending future authorized commit. Legacy imports remain unchanged; Slice 5 not started. |
+| 5 | Implement ProductEntity | DONE | f50ce96 | ProductEntity plus shared interval-count specification formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/mutator/legacy/restricted-artifact checks PASS. | 2026-08-15T23:22:44+03:00 | Acceptance criteria complete; commit SHA pending. Product remains additive beside legacy Plan; Slice 6 not started. |
+| 6 | Implement CheckoutSessionEntity state machine | DONE | f50ce96 | CheckoutSessionEntity and concrete UUID/provider-ID/date validators formatted; targeted ESLint PASS; Payment build PASS; diff/dependency/field/setter/legacy checks PASS. | 2026-08-15T23:29:20+03:00 | Acceptance criteria complete; commit SHA pending. Entity remains additive/unwired; Slice 7 not started. |
+| 7 | Specify target PaymentTransaction lifecycle without replacing legacy entity | DONE | f50ce96 | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-15 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
+| 8 | Specify paid-period and queue rules without replacing legacy SubscriptionEntity | DONE | f50ce96 | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Transitional entity/file naming must be removed in Slice 11. |
+| 9 | Implement ProviderWebhookEventEntity | DONE | f50ce96 | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static dependency scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. |
+| 10 | Add compile-safe transaction and new-aggregate ports | DONE | f50ce96 | `prettier` targeted: pass; `eslint` targeted: pass; `pnpm run build:micro-payment-service`: pass; `git diff --check`: pass; static architecture scan: pass | 2026-08-16 | Implementation and validation complete; commit SHA intentionally pending. Legacy replacement remains atomic in Slice 11. |
+| 11 | Atomically cut over Payment domain and persistence | DONE | f50ce96 | Prisma format/validate/generate: pass; initial migration applied to empty local payment_db; migrate status/read-only DB verification: pass; targeted ESLint/build/diff-check/static scans: pass | 2026-08-16 | Atomic domain/persistence cutover complete; commit SHA intentionally pending. No catalog seed created. |
+| 12 | Add transactional outbox writer and event contracts | DONE | f50ce96 | Targeted Prettier/ESLint: PASS; Payment, Gateway, Notification builds: PASS; diff/secret/forbidden-import/direct-publish scans: PASS. | 2026-08-16T02:04:40+03:00 | Acceptance criteria complete; commit SHA intentionally pending. Slice 13 not started. |
+| 13 | Define provider-neutral Strategy port | DONE | f50ce96 | Targeted Prettier/ESLint: PASS; Payment build: PASS; diff/forbidden-import/terminology/any/secret scans: PASS. | 2026-08-16T02:12:42+03:00 | Acceptance criteria complete; legacy provider surface retained for Slice 14 migration; commit SHA intentionally pending. |
+| 14 | Register resolver and Stripe Strategy foundation | DONE | f50ce96 | Targeted Prettier/ESLint: PASS; Payment build: PASS; manual DI singleton/unsupported/guard checks: PASS; diff/dependency/API/legacy/fake/secret scans: PASS. | 2026-08-16T02:24:52+03:00 | Acceptance criteria complete; Stripe operations remain guarded for later slices; commit SHA intentionally pending. |
+| 15 | Add safe PayPal Strategy skeleton | DONE | f50ce96 | Targeted Prettier/ESLint: PASS; Payment and Gateway builds: PASS; manual DI singleton/unsupported checks: PASS; diff/dependency/network/fake/secret scans: PASS. | 2026-08-16 | PAYPAL is a reserved transport code; Stripe remains the only operational provider; commit SHA intentionally pending. |
+| 16 | Update Payment gRPC contracts and Gateway transport DTOs | DONE | f50ce96 | `pnpm run gen:contracts`: PASS; Gateway/Payment builds: PASS; targeted Prettier/ESLint: PASS; compatibility/dependency/any/secret/diff scans: PASS. | 2026-08-16 | Provider-neutral gRPC and Gateway transport contracts complete; runtime handlers remain deferred; commit SHA intentionally pending. |
+| 17 | Add Payment gRPC controller and exception pipeline | DONE | fca158f | Payment/Gateway builds and targeted ESLint/Prettier: PASS; six RPC/handler registration and controlled gRPC error-path invocation: PASS; contract hashes/diff/secret/forbidden-dependency scans: PASS. | 2026-08-16 | Six compile-safe placeholders return `PAYMENT_OPERATION_NOT_READY`. |
+| 18 | Implement initial Stripe checkout | DONE | aff7629 | Payment/Gateway builds, targeted ESLint/Prettier, Prisma validate/status, Stripe/DB correlation and idempotency checks: PASS; no automated tests. | 2026-08-16 | Real unpaid Stripe test Checkout created; same-key retry/conflict and PAYPAL unsupported paths verified. |
 | 19 | Implement additional prepaid Stripe checkout | NOT_STARTED | — | — | — | — |
-| 20 | Move webhook verification and normalization into Stripe Strategy | NOT_STARTED | — | — | — | — |
-| 21 | Implement webhook journal idempotency and claims | NOT_STARTED | — | — | — | — |
-| 22 | Complete first payment and create ACTIVE Subscription atomically | NOT_STARTED | — | — | — | — |
+| 20 | Move webhook verification and normalization into Stripe Strategy | DONE | 5cdaff7 | Payment/Gateway builds, targeted ESLint/Prettier, signed/tampered/ignored manual verification, hash/diff/dependency scans: PASS; no automated tests. | 2026-08-16 | Actionable verified events return retryable `PAYMENT_WEBHOOK_PROCESSING_NOT_READY` until Slice 21; webhook journal remains empty. |
+| 21 | Implement webhook journal idempotency and claims | DONE | 4c1066e | Payment build, targeted ESLint/Prettier, diff check and signed ignored/actionable/tampered diagnostics: PASS; no automated tests. | 2026-08-16 | Journal registration, terminal duplicate handling, atomic claim/reclaim and guarded FAILED retry flow complete; business mutation remains Slice 22. |
+| 22 | Complete first payment and create ACTIVE Subscription atomically | DONE | b181a20 | Verified Stripe payment, atomic DB state, V1 Outbox contracts, and one valid duplicate delivery: PASS; no automated tests. | 2026-08-16 | Blocker removed by the approved providerTransactionId-or-providerInvoiceId invariant and additive CHECK migration; duplicate returned 2xx without replaying business mutations. |
 | 23 | Create paid QUEUED Subscription and switch auto-renew atomically | NOT_STARTED | — | — | — | — |
 | 24 | Implement safe outbox relay | NOT_STARTED | — | — | — | — |
 | 25 | Implement subscription lifecycle scheduler | NOT_STARTED | — | — | — | — |
@@ -95,6 +95,8 @@ Rules:
 | 31 | Add internal notification recipient-context gRPC flow | NOT_STARTED | — | — | — | — |
 | 32 | Implement idempotent enriched payment notifications | NOT_STARTED | — | — | — | — |
 | 33 | Perform final manual integration validation | NOT_STARTED | — | — | — | — |
+
+Ledger note: Slices 2–16 share cumulative checkpoint `f50ce96`, combining the atomic Payment foundation, persistence cutover, provider/outbox foundation, and transport contracts in one authorized commit. This supersedes earlier per-slice notes that their SHA was pending.
 
 ## Slice Definition of Done
 
@@ -119,7 +121,7 @@ If a slice cannot meet these conditions without touching undeclared files, it re
 
 1. Stripe is the primary provider and is implemented fully in test mode.
 2. PayPal is optional. In the current scope it receives the common Strategy contract, DI registration, file structure, configuration placeholders, and a safe adapter skeleton only.
-3. An unfinished PayPal adapter must never return fake success or `false`. Unsupported operations throw a controlled `PROVIDER_NOT_SUPPORTED` `DomainException`, and PayPal is not advertised by the public API as operational.
+3. PAYPAL remains in REST/gRPC transport enums as a reserved provider code for compatibility and future extension; enum presence does not imply operational availability. Stripe is the only operational provider. The current PayPal Strategy never returns fake success or `false` and every operation throws a controlled `PROVIDER_NOT_SUPPORTED` `DomainException`. Full PayPal implementation remains deferred.
 4. The internal catalog model is `Product`, never `Plan`.
 5. Initial products support `WEEK × 1` and `MONTH × 1`; the model permits other positive `billingIntervalCount` values later.
 6. A calendar month is not 30 days. Month addition uses the last valid day policy, for example 31 January + one month ends on the last valid day of February.
@@ -1236,7 +1238,7 @@ Depends on: Slices 13 and 14.
 Unlocks: Future PayPal work only.
 
 Files to create/modify: PayPal adapter and DI registration/config validation.
-Files explicitly not touched: public provider list enabling PayPal, PayPal checkout/webhook business flow.
+Files explicitly not touched: removal of PAYPAL from transport contracts, PayPal checkout/webhook business flow.
 
 Database impact: None.
 Contract impact: None.
@@ -1245,7 +1247,7 @@ Configuration impact: PayPal placeholders remain optional until PayPal is enable
 Implementation steps:
 1. Implement common interface structurally.
 2. Throw controlled `PROVIDER_NOT_SUPPORTED` for incomplete operations.
-3. Ensure resolver/public validation cannot present PayPal as available.
+3. Preserve PAYPAL as a reserved transport-supported code while documenting that only Stripe is operational and PayPal operations return `PROVIDER_NOT_SUPPORTED`.
 
 Acceptance criteria:
 - No method returns false or fake URL/success.
@@ -2025,8 +2027,8 @@ Only names are listed; values must never be committed or printed.
 | `STRIPE_TEST_MONTH_PRODUCT_ID` | Payment provisioning/preflight | required for MONTH mapping | test only | Slice 2/11 |
 | `STRIPE_TEST_MONTH_PRICE_ID` | Payment provisioning/preflight | required for MONTH ProductProvider | test only | Slice 2/11 |
 | `PAYMENT_PROVIDER_ENVIRONMENT` | Payment MS | required enum `test`; `live` deferred | both | Slice 11/14 |
-| `SUCCESS_PAYMENT_URL` | Payment/Gateway backend config | required URL, allowlisted backend value | test now | Slice 18 |
-| `CANCEL_PAYMENT_URL` | Payment/Gateway backend config | required URL; replaces ambiguous `UNSUCCESS_PAYMENT_URL` through a compatible config slice | test now | Slice 18 |
+| `SUCCESS_PAYMENT_URL` | Gateway backend config | required trusted absolute redirect URL | test now | Slice 18 |
+| `CANCEL_PAYMENT_URL` | Gateway backend config | required trusted absolute redirect URL | test now | Slice 18 |
 | `PAYPAL_CLIENT_ID` | Payment MS | optional while PayPal unsupported; non-empty if enabled | sandbox placeholder | Slice 15 |
 | `PAYPAL_CLIENT_SECRET` | Payment MS | optional while unsupported; secret validation if enabled | sandbox placeholder | Slice 15 |
 | `PAYPAL_WEBHOOK_ID` | Payment MS | optional while unsupported | sandbox placeholder | Slice 15 |
