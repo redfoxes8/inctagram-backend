@@ -55,8 +55,10 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
           line_items: [{ price: command.providerBillingId, quantity: 1 }],
           success_url: command.successUrl,
           cancel_url: command.cancelUrl,
-          metadata: this.correlationMetadata(command),
-          subscription_data: { metadata: this.correlationMetadata(command) },
+          metadata: this.correlationMetadata(command, 'INITIAL_SUBSCRIPTION'),
+          subscription_data: {
+            metadata: this.correlationMetadata(command, 'INITIAL_SUBSCRIPTION'),
+          },
         },
         { idempotencyKey: command.providerIdempotencyKey },
       );
@@ -64,8 +66,13 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
         session: await this.retrieveExpandedSession(session.id),
         expectedProviderCustomerId: providerCustomerId,
         expectedProviderBillingId: command.providerBillingId,
+        expectedProviderProductId: command.providerProductId,
+        expectedLocalCheckoutSessionId: command.localCheckoutSessionId,
+        expectedUserId: command.userId,
+        expectedProductId: command.productId,
         amountMinor: command.amountMinor,
         currency: command.currency,
+        checkoutPurpose: 'INITIAL_SUBSCRIPTION',
       });
     } catch (error: unknown) {
       if (error instanceof DomainException) throw error;
@@ -82,8 +89,13 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
         session: await this.retrieveExpandedSession(command.providerCheckoutId),
         expectedProviderCustomerId: command.expectedProviderCustomerId,
         expectedProviderBillingId: command.expectedProviderBillingId,
+        expectedProviderProductId: command.expectedProviderProductId,
+        expectedLocalCheckoutSessionId: command.localCheckoutSessionId,
+        expectedUserId: command.userId,
+        expectedProductId: command.productId,
         amountMinor: command.amountMinor,
         currency: command.currency,
+        checkoutPurpose: command.checkoutPurpose,
       });
     } catch (error: unknown) {
       if (error instanceof DomainException) throw error;
@@ -91,11 +103,52 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
     }
   }
 
-  public createAdditionalSubscriptionCheckout(
+  public async createAdditionalSubscriptionCheckout(
     command: CreateAdditionalSubscriptionCheckoutCommand,
   ): Promise<CheckoutCreationResult> {
-    void command;
-    return Promise.reject(this.operationNotReadyException());
+    this.assertOperational();
+    if (!command.providerCustomerId || !command.providerProductId) {
+      throw this.invalidProviderResult();
+    }
+    try {
+      const metadata = this.correlationMetadata(command, 'ADDITIONAL_SUBSCRIPTION');
+      const session = await this.client.checkout.sessions.create(
+        {
+          mode: 'payment',
+          customer: command.providerCustomerId,
+          line_items: [
+            {
+              price_data: {
+                currency: command.currency.toLowerCase(),
+                unit_amount: command.amountMinor,
+                product: command.providerProductId,
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: command.successUrl,
+          cancel_url: command.cancelUrl,
+          metadata,
+          payment_intent_data: { setup_future_usage: 'off_session', metadata },
+        },
+        { idempotencyKey: command.providerIdempotencyKey },
+      );
+      return this.validatedCheckoutResult({
+        session: await this.retrieveExpandedSession(session.id),
+        expectedProviderCustomerId: command.providerCustomerId,
+        expectedProviderBillingId: command.providerBillingId,
+        expectedProviderProductId: command.providerProductId,
+        expectedLocalCheckoutSessionId: command.localCheckoutSessionId,
+        expectedUserId: command.userId,
+        expectedProductId: command.productId,
+        amountMinor: command.amountMinor,
+        currency: command.currency,
+        checkoutPurpose: 'ADDITIONAL_SUBSCRIPTION',
+      });
+    } catch (error: unknown) {
+      if (error instanceof DomainException) throw error;
+      throw StripeErrorMapper.toDomainException(error);
+    }
   }
 
   public disableAutoRenew(
@@ -199,19 +252,20 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
   }
 
   private correlationMetadata(
-    command: CreateInitialSubscriptionCheckoutCommand,
+    command: CreateInitialSubscriptionCheckoutCommand | CreateAdditionalSubscriptionCheckoutCommand,
+    purpose: 'INITIAL_SUBSCRIPTION' | 'ADDITIONAL_SUBSCRIPTION',
   ): Stripe.MetadataParam {
     return {
       localCheckoutSessionId: command.localCheckoutSessionId,
       userId: command.userId,
       productId: command.productId,
-      purpose: 'INITIAL_SUBSCRIPTION',
+      purpose,
     };
   }
 
   private retrieveExpandedSession(providerCheckoutId: string): Promise<Stripe.Checkout.Session> {
     return this.client.checkout.sessions.retrieve(providerCheckoutId, {
-      expand: ['line_items.data.price'],
+      expand: ['line_items.data.price', 'payment_intent'],
     });
   }
 
@@ -219,8 +273,13 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
     session: Stripe.Checkout.Session;
     expectedProviderCustomerId: string;
     expectedProviderBillingId: string;
+    expectedProviderProductId: string | null;
+    expectedLocalCheckoutSessionId: string;
+    expectedUserId: string;
+    expectedProductId: string;
     amountMinor: number;
     currency: string;
+    checkoutPurpose: 'INITIAL_SUBSCRIPTION' | 'ADDITIONAL_SUBSCRIPTION';
   }): CheckoutCreationResult {
     const customerId =
       typeof input.session.customer === 'string'
@@ -228,13 +287,27 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
         : input.session.customer?.id;
     const price = input.session.line_items?.data[0]?.price;
     const priceId = typeof price === 'string' ? price : price?.id;
+    const product = typeof price === 'string' ? null : price?.product;
+    const productId = typeof product === 'string' ? product : product?.id;
+    const isInitial = input.checkoutPurpose === 'INITIAL_SUBSCRIPTION';
+    const expectedMode = isInitial ? 'subscription' : 'payment';
+    const billingMatches = isInitial
+      ? priceId === input.expectedProviderBillingId
+      : productId === input.expectedProviderProductId;
+    const metadataMatches =
+      input.session.metadata?.localCheckoutSessionId === input.expectedLocalCheckoutSessionId &&
+      input.session.metadata?.userId === input.expectedUserId &&
+      input.session.metadata?.productId === input.expectedProductId &&
+      input.session.metadata?.purpose === input.checkoutPurpose;
     if (
       input.session.livemode ||
-      input.session.mode !== 'subscription' ||
+      input.session.mode !== expectedMode ||
       customerId !== input.expectedProviderCustomerId ||
-      priceId !== input.expectedProviderBillingId ||
+      !billingMatches ||
       input.session.amount_total !== input.amountMinor ||
       input.session.currency?.toUpperCase() !== input.currency ||
+      !metadataMatches ||
+      (!isInitial && input.session.subscription !== null) ||
       !input.session.url
     ) {
       throw this.invalidProviderResult();

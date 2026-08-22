@@ -22,7 +22,7 @@ import {
   CreateCheckoutSessionResult,
 } from '../types/payment-grpc.types';
 
-type PreparedInitialCheckout = Readonly<{
+type PreparedCheckout = Readonly<{
   checkout: CheckoutSessionEntity;
   productProvider: ProductProviderMapping;
   providerCustomer: ProviderCustomer | null;
@@ -30,6 +30,9 @@ type PreparedInitialCheckout = Readonly<{
   currency: string;
   billingInterval: BillingInterval;
   billingIntervalCount: number;
+  currentProviderSubscriptionId: string | null;
+  currentProviderRenewalId: string | null;
+  finalLocalEndsAt: Date | null;
 }>;
 
 export class CreateCheckoutSessionCommand extends Command<CreateCheckoutSessionResult> {
@@ -70,23 +73,11 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     try {
       const providerResult = prepared.checkout.getProviderCheckoutId()
         ? await this.retrieveExistingCheckout(strategy, prepared)
-        : await strategy.createInitialSubscriptionCheckout({
-            localCheckoutSessionId: prepared.checkout.id,
-            userId: command.input.userId,
-            productId: command.input.productId,
+        : await this.createProviderCheckout({
+            strategy,
+            prepared,
+            input: command.input,
             provider,
-            providerCustomerId: prepared.providerCustomer?.providerCustomerId ?? null,
-            providerProductId: prepared.productProvider.providerProductId,
-            providerBillingId: prepared.productProvider.providerBillingId,
-            amountMinor: prepared.amountMinor,
-            currency: prepared.currency,
-            billingInterval: prepared.billingInterval,
-            billingIntervalCount: prepared.billingIntervalCount,
-            successUrl: command.input.successUrl,
-            cancelUrl: command.input.cancelUrl,
-            providerIdempotencyKey: `checkout-${prepared.checkout.id}`,
-            providerCustomerIdempotencyKey: `customer-${provider.getValue()}-${command.input.userId}`,
-            autoRenewConsent: true,
           });
       await this.persistProviderResult({
         checkoutId: prepared.checkout.id,
@@ -105,8 +96,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       if (
         prepared.checkout.getProviderCheckoutId() === null &&
         error instanceof DomainException &&
-        error.code !== DomainExceptionCode.ServiceUnavailable &&
-        error.code !== DomainExceptionCode.GatewayTimeout
+        this.isDefiniteProviderRejection(error)
       ) {
         await this.markDefiniteFailure(prepared.checkout.id, command.input.userId, error);
       }
@@ -120,7 +110,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     provider: ProviderCode;
     idempotencyKey: IdempotencyKey;
     strategy: PaymentProviderStrategy;
-  }): Promise<PreparedInitialCheckout> {
+  }): Promise<PreparedCheckout> {
     const existing = await input.context.checkoutSessions.findByIdempotencyKey(
       input.idempotencyKey,
     );
@@ -132,9 +122,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     const unfinished = await input.context.subscriptions.findOrderedUnfinishedByUserId(
       input.input.userId,
     );
-    if (unfinished.length > 0) {
-      throw this.conflict('Initial checkout is unavailable while a paid subscription queue exists');
-    }
+    const tail = unfinished.at(-1) ?? null;
     const product = await input.context.products.findById(input.input.productId);
     if (!product?.isActive()) {
       throw new DomainException({
@@ -158,7 +146,9 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       userId: input.input.userId,
       productId: product.id,
       provider: input.provider,
-      purpose: CheckoutPurpose.INITIAL_SUBSCRIPTION,
+      purpose: tail
+        ? CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
+        : CheckoutPurpose.INITIAL_SUBSCRIPTION,
       idempotencyKey: input.idempotencyKey,
       expiresAt: null,
     });
@@ -173,17 +163,24 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     });
     await input.context.checkoutSessions.insert(checkout);
     await input.context.paymentTransactions.insert(payment);
+    const providerCustomer = await input.context.providerCustomers.findByUserAndProvider({
+      userId: input.input.userId,
+      provider: input.provider,
+    });
+    if (tail && (!providerCustomer || !tail.getProviderSubscriptionId())) {
+      throw this.conflict('Paid subscription provider correlation is incomplete');
+    }
     return {
       checkout,
       productProvider: mapping,
-      providerCustomer: await input.context.providerCustomers.findByUserAndProvider({
-        userId: input.input.userId,
-        provider: input.provider,
-      }),
+      providerCustomer,
       amountMinor: product.getPrice().getAmountMinor(),
       currency: product.getPrice().getCurrency().getValue(),
       billingInterval: product.getBillingInterval(),
       billingIntervalCount: product.getBillingIntervalCount(),
+      currentProviderSubscriptionId: tail?.getProviderSubscriptionId() ?? null,
+      currentProviderRenewalId: tail?.getProviderScheduleId() ?? null,
+      finalLocalEndsAt: tail?.getEndsAt() ?? null,
     };
   }
 
@@ -191,7 +188,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     context: PaymentUnitOfWorkContext,
     checkout: CheckoutSessionEntity,
     provider: ProviderCode,
-  ): Promise<PreparedInitialCheckout> {
+  ): Promise<PreparedCheckout> {
     if (checkout.getStatus() !== CheckoutStatus.CREATED) {
       throw this.conflict('Checkout attempt is no longer reusable');
     }
@@ -206,17 +203,37 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     if (!product?.isActive() || !mapping) {
       throw this.conflict('Checkout catalog configuration is no longer available');
     }
+    const unfinished = await context.subscriptions.findOrderedUnfinishedByUserId(
+      checkout.getUserId(),
+    );
+    const tail = unfinished.at(-1) ?? null;
+    const expectedPurpose = tail
+      ? CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
+      : CheckoutPurpose.INITIAL_SUBSCRIPTION;
+    if (checkout.getPurpose() !== expectedPurpose) {
+      throw this.conflict('Idempotency key is bound to a different checkout purpose');
+    }
+    const providerCustomer = await context.providerCustomers.findByUserAndProvider({
+      userId: checkout.getUserId(),
+      provider,
+    });
+    if (
+      checkout.getPurpose() === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION &&
+      (!tail || !providerCustomer || !tail.getProviderSubscriptionId())
+    ) {
+      throw this.conflict('Paid subscription provider correlation is incomplete');
+    }
     return {
       checkout,
       productProvider: mapping,
-      providerCustomer: await context.providerCustomers.findByUserAndProvider({
-        userId: checkout.getUserId(),
-        provider,
-      }),
+      providerCustomer,
       amountMinor: product.getPrice().getAmountMinor(),
       currency: product.getPrice().getCurrency().getValue(),
       billingInterval: product.getBillingInterval(),
       billingIntervalCount: product.getBillingIntervalCount(),
+      currentProviderSubscriptionId: tail?.getProviderSubscriptionId() ?? null,
+      currentProviderRenewalId: tail?.getProviderScheduleId() ?? null,
+      finalLocalEndsAt: tail?.getEndsAt() ?? null,
     };
   }
 
@@ -229,7 +246,6 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       checkout.getUserId() !== input.userId ||
       checkout.getProductId() !== input.productId ||
       !checkout.getProvider().equals(provider) ||
-      checkout.getPurpose() !== CheckoutPurpose.INITIAL_SUBSCRIPTION ||
       input.autoRenewConsent !== true
     ) {
       throw this.conflict('Idempotency key is already bound to another checkout request');
@@ -238,7 +254,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
 
   private retrieveExistingCheckout(
     strategy: PaymentProviderStrategy,
-    prepared: PreparedInitialCheckout,
+    prepared: PreparedCheckout,
   ): Promise<CheckoutCreationResult> {
     const providerCheckoutId = prepared.checkout.getProviderCheckoutId();
     const providerCustomerId = prepared.providerCustomer?.providerCustomerId;
@@ -247,11 +263,62 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     }
     return strategy.retrieveCheckout({
       provider: prepared.checkout.getProvider(),
+      checkoutPurpose: prepared.checkout.getPurpose(),
+      localCheckoutSessionId: prepared.checkout.id,
+      userId: prepared.checkout.getUserId(),
+      productId: prepared.checkout.getProductId(),
       providerCheckoutId,
       expectedProviderCustomerId: providerCustomerId,
+      expectedProviderProductId: prepared.productProvider.providerProductId,
       expectedProviderBillingId: prepared.productProvider.providerBillingId,
       amountMinor: prepared.amountMinor,
       currency: prepared.currency,
+    });
+  }
+
+  private createProviderCheckout(input: {
+    strategy: PaymentProviderStrategy;
+    prepared: PreparedCheckout;
+    input: CreateCheckoutSessionInput;
+    provider: ProviderCode;
+  }): Promise<CheckoutCreationResult> {
+    const common = {
+      localCheckoutSessionId: input.prepared.checkout.id,
+      userId: input.input.userId,
+      productId: input.input.productId,
+      provider: input.provider,
+      providerCustomerId: input.prepared.providerCustomer?.providerCustomerId ?? null,
+      providerProductId: input.prepared.productProvider.providerProductId,
+      providerBillingId: input.prepared.productProvider.providerBillingId,
+      amountMinor: input.prepared.amountMinor,
+      currency: input.prepared.currency,
+      billingInterval: input.prepared.billingInterval,
+      billingIntervalCount: input.prepared.billingIntervalCount,
+      successUrl: input.input.successUrl,
+      cancelUrl: input.input.cancelUrl,
+      providerIdempotencyKey: `checkout-${input.prepared.checkout.id}`,
+      providerCustomerIdempotencyKey: `customer-${input.provider.getValue()}-${input.input.userId}`,
+    } as const;
+    if (input.prepared.checkout.getPurpose() === CheckoutPurpose.INITIAL_SUBSCRIPTION) {
+      return input.strategy.createInitialSubscriptionCheckout({
+        ...common,
+        autoRenewConsent: true,
+      });
+    }
+    if (
+      !input.prepared.providerCustomer ||
+      !input.prepared.currentProviderSubscriptionId ||
+      !input.prepared.finalLocalEndsAt
+    ) {
+      throw this.conflict('Paid subscription provider correlation is incomplete');
+    }
+    return input.strategy.createAdditionalSubscriptionCheckout({
+      ...common,
+      providerCustomerId: input.prepared.providerCustomer.providerCustomerId,
+      currentProviderSubscriptionId: input.prepared.currentProviderSubscriptionId,
+      currentProviderRenewalId: input.prepared.currentProviderRenewalId,
+      currentPaidEndsAt: input.prepared.finalLocalEndsAt.toISOString(),
+      finalLocalEndsAt: input.prepared.finalLocalEndsAt.toISOString(),
     });
   }
 
@@ -326,6 +393,11 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
         message: 'Checkout redirect URL is not allowed',
       });
     }
+  }
+
+  private isDefiniteProviderRejection(error: DomainException): boolean {
+    const reason = error.extensions.find((item) => item.field === 'reason')?.message;
+    return reason === 'PROVIDER_REJECTED' || reason === 'PROVIDER_IDEMPOTENCY_CONFLICT';
   }
 
   private conflict(message: string): DomainException {

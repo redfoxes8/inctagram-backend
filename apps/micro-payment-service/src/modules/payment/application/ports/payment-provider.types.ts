@@ -58,8 +58,13 @@ export type CheckoutCreationResult = Readonly<{
 
 export type RetrieveProviderCheckoutCommand = Readonly<{
   provider: ProviderCode;
+  checkoutPurpose: CheckoutPurpose;
+  localCheckoutSessionId: string;
+  userId: string;
+  productId: string;
   providerCheckoutId: string;
   expectedProviderCustomerId: string;
+  expectedProviderProductId: string | null;
   expectedProviderBillingId: string;
   amountMinor: number;
   currency: string;
