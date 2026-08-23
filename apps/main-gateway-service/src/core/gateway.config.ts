@@ -92,6 +92,12 @@ export class GatewayConfig {
   })
   notificationQueueName: string;
 
+  @IsString({ message: 'Env variable PAYMENT_ACCOUNT_QUEUE_NAME must be a string' })
+  @IsNotEmpty({
+    message: 'Set Env variable PAYMENT_ACCOUNT_QUEUE_NAME, example: gateway-payment-account',
+  })
+  paymentAccountQueueName: string;
+
   // OAuth Configuration
   @IsString()
   @IsNotEmpty({ message: 'Set Env variable GOOGLE_CLIENT_ID' })
@@ -140,6 +146,7 @@ export class GatewayConfig {
     // RabbitMQ Configuration
     this.rabbitmqUrl = this.configService.get('RABBITMQ_URL');
     this.notificationQueueName = this.configService.get('NOTIFICATION_QUEUE_NAME');
+    this.paymentAccountQueueName = this.configService.get('PAYMENT_ACCOUNT_QUEUE_NAME');
 
     // OAuth Configuration
     this.googleClientId = this.configService.get('GOOGLE_CLIENT_ID');

@@ -1,69 +1,218 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
 import { Nack, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
-
+import { isUUID } from 'class-validator';
+import { Prisma, AccountType } from '../../../core/prisma/client';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
-  type IPaymentSucceededEvent,
-  type IPaymentSubscriptionExpiredEvent,
-  PAYMENT_EVENTS_EXCHANGE,
-  PAYMENT_SUCCEEDED_ROUTING_KEY,
-  PAYMENT_SUBSCRIPTION_EXPIRED_ROUTING_KEY,
-} from '../../../../../../libs/contracts/src';
+  PAYMENT_INTEGRATION_AGGREGATE_TYPE,
+  PAYMENT_INTEGRATION_EVENT_TYPE,
+  SUBSCRIPTION_ACTIVATED_ROUTING_KEY,
+  type SubscriptionActivatedV1,
+  type SubscriptionExpiredV1,
+} from '../../../../../../libs/contracts/src/events/payment-integration-events-v1.event';
 
-import { UpdateAccountTypeCommand } from '../application/commands/update-account-type.command';
-import { AccountType } from '../../../core/prisma/client';
+type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
+type TransactionClient = Prisma.TransactionClient;
+
+type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
+
+const PAYMENT_ACCOUNT_QUEUE_NAME = process.env.PAYMENT_ACCOUNT_QUEUE_NAME;
+if (!PAYMENT_ACCOUNT_QUEUE_NAME) {
+  throw new Error('PAYMENT_ACCOUNT_QUEUE_NAME is required');
+}
 
 @Injectable()
 export class PaymentRabbitConsumer {
   private readonly logger = new Logger(PaymentRabbitConsumer.name);
 
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   @RabbitSubscribe({
-    exchange: PAYMENT_EVENTS_EXCHANGE,
-    routingKey: PAYMENT_SUCCEEDED_ROUTING_KEY,
-    queue: 'gateway_payment_queue',
+    exchange: 'common_exchange',
+    routingKey: SUBSCRIPTION_ACTIVATED_ROUTING_KEY,
+    queue: PAYMENT_ACCOUNT_QUEUE_NAME,
+    queueOptions: { durable: true },
   })
-  async handlePaymentSucceeded(event: IPaymentSucceededEvent): Promise<Nack | void> {
-    try {
-      this.logger.log(
-        `[Rabbit] payment.succeeded userId=${event.userId} subscriptionId=${event.subscriptionId}`,
-      );
-
-      await this.commandBus.execute(
-        new UpdateAccountTypeCommand({
-          userId: event.userId,
-          accountType: AccountType.BUSINESS,
-        }),
-      );
-    } catch (e) {
-      this.logger.error(e);
-
-      return new Nack(false);
-    }
+  public handleSubscriptionActivated(event: unknown): Promise<Nack | void> {
+    return this.handleEvent(event, PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED);
   }
 
   @RabbitSubscribe({
-    exchange: PAYMENT_EVENTS_EXCHANGE,
-    routingKey: PAYMENT_SUBSCRIPTION_EXPIRED_ROUTING_KEY,
-    queue: 'gateway_payment_queue',
+    exchange: 'common_exchange',
+    routingKey: 'payment.subscription.expired',
+    queue: PAYMENT_ACCOUNT_QUEUE_NAME,
+    queueOptions: { durable: true },
   })
-  async handleSubscriptionExpired(event: IPaymentSubscriptionExpiredEvent): Promise<Nack | void> {
+  public handleSubscriptionExpired(event: unknown): Promise<Nack | void> {
+    return this.handleEvent(event, PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_EXPIRED);
+  }
+
+  private async handleEvent(
+    input: unknown,
+    expectedEventType: PaymentEntitlementEvent['eventType'],
+  ): Promise<Nack | void> {
     try {
-      this.logger.log(
-        `[Rabbit] payment.subscription.expired userId=${event.userId} subscriptionId=${event.subscriptionId}`,
-      );
-
-      await this.commandBus.execute(
-        new UpdateAccountTypeCommand({
-          userId: event.userId,
-          accountType: AccountType.PERSONAL,
-        }),
-      );
-    } catch (e) {
-      this.logger.error(e);
-
-      return new Nack(false);
+      const event = this.validateEvent(input, expectedEventType);
+      await this.prisma.$transaction((transaction) => this.process(transaction, event));
+    } catch (error: unknown) {
+      if (error instanceof InvalidPaymentEventError || error instanceof UserNotFoundError) {
+        return new Nack(false);
+      }
+      this.logger.error('Payment entitlement transaction failed');
+      return new Nack(true);
     }
+  }
+
+  private async process(
+    transaction: TransactionClient,
+    event: PaymentEntitlementEvent,
+  ): Promise<void> {
+    const existing = await transaction.paymentEntitlementInbox.findUnique({
+      where: { eventId: event.eventId },
+    });
+    if (existing) return;
+
+    await transaction.paymentEntitlementInbox.create({
+      data: {
+        eventId: event.eventId,
+        eventType: event.eventType,
+        userId: event.payload.userId,
+        subscriptionId: event.payload.subscriptionId,
+        subscriptionSequence: event.payload.subscriptionSequence,
+        outcome: 'IGNORED',
+      },
+    });
+
+    await transaction.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${event.payload.userId}, 0))
+    `);
+    const user = await transaction.user.findFirst({
+      where: { id: event.payload.userId, deletedAt: null },
+    });
+    if (!user) throw new UserNotFoundError();
+
+    const cursor = await transaction.paymentEntitlementCursor.findUnique({
+      where: { userId: event.payload.userId },
+    });
+    const lastSequence = cursor?.lastSubscriptionSequence ?? 0;
+    let outcome: PaymentEntitlementOutcome;
+    let activeSubscriptionId = cursor?.activeSubscriptionId ?? null;
+    let nextSequence = lastSequence;
+
+    if (event.eventType === PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED) {
+      if (event.payload.subscriptionSequence < lastSequence) {
+        outcome = 'STALE';
+      } else if (
+        event.payload.subscriptionSequence === lastSequence &&
+        activeSubscriptionId === event.payload.subscriptionId
+      ) {
+        outcome = 'IGNORED';
+      } else if (event.payload.subscriptionSequence === lastSequence) {
+        outcome = 'STALE';
+      } else {
+        await transaction.user.update({
+          where: { id: event.payload.userId },
+          data: { accountType: AccountType.BUSINESS, updatedAt: new Date() },
+        });
+        nextSequence = event.payload.subscriptionSequence;
+        activeSubscriptionId = event.payload.subscriptionId;
+        outcome = 'APPLIED';
+      }
+    } else if (event.payload.subscriptionSequence < lastSequence) {
+      outcome = 'STALE';
+    } else if (event.payload.hasActiveReplacement) {
+      if (event.payload.subscriptionSequence > lastSequence) {
+        nextSequence = event.payload.subscriptionSequence;
+        activeSubscriptionId = event.payload.replacementSubscriptionId;
+      }
+      outcome = 'APPLIED';
+    } else {
+      await transaction.user.update({
+        where: { id: event.payload.userId },
+        data: { accountType: AccountType.PERSONAL, updatedAt: new Date() },
+      });
+      nextSequence = event.payload.subscriptionSequence;
+      activeSubscriptionId = null;
+      outcome = 'APPLIED';
+    }
+
+    await transaction.paymentEntitlementCursor.upsert({
+      where: { userId: event.payload.userId },
+      create: {
+        userId: event.payload.userId,
+        lastSubscriptionSequence: nextSequence,
+        activeSubscriptionId,
+      },
+      update: {
+        lastSubscriptionSequence: nextSequence,
+        activeSubscriptionId,
+        updatedAt: new Date(),
+      },
+    });
+    await transaction.paymentEntitlementInbox.update({
+      where: { eventId: event.eventId },
+      data: { outcome, processedAt: new Date() },
+    });
+  }
+
+  private validateEvent(
+    input: unknown,
+    expectedEventType: PaymentEntitlementEvent['eventType'],
+  ): PaymentEntitlementEvent {
+    if (!this.isRecord(input) || input.version !== 1 || input.eventType !== expectedEventType) {
+      throw new InvalidPaymentEventError();
+    }
+    const expectedRoutingKey =
+      expectedEventType === PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED
+        ? SUBSCRIPTION_ACTIVATED_ROUTING_KEY
+        : 'payment.subscription.expired';
+    const payload = input.payload;
+    if (!this.isRecord(payload)) throw new InvalidPaymentEventError();
+    if (
+      input.aggregateType !== PAYMENT_INTEGRATION_AGGREGATE_TYPE.SUBSCRIPTION ||
+      !isUUID(input.eventId, '4') ||
+      !isUUID(input.aggregateId, '4') ||
+      input.routingKey !== expectedRoutingKey ||
+      !this.isSafeTimestamp(input.occurredAt) ||
+      !isUUID(payload.userId, '4') ||
+      !isUUID(payload.subscriptionId, '4') ||
+      typeof payload.subscriptionSequence !== 'number' ||
+      !Number.isSafeInteger(payload.subscriptionSequence) ||
+      payload.subscriptionSequence <= 0
+    ) {
+      throw new InvalidPaymentEventError();
+    }
+    if (expectedEventType === PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_EXPIRED) {
+      if (
+        typeof payload.hasActiveReplacement !== 'boolean' ||
+        (payload.hasActiveReplacement
+          ? !isUUID(payload.replacementSubscriptionId, '4')
+          : payload.replacementSubscriptionId !== null)
+      ) {
+        throw new InvalidPaymentEventError();
+      }
+    } else if (
+      !this.isSafeTimestamp(payload.startsAt) ||
+      !this.isSafeTimestamp(payload.endsAt) ||
+      !isUUID(payload.productId, '4')
+    ) {
+      throw new InvalidPaymentEventError();
+    }
+    return input as PaymentEntitlementEvent;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private isSafeTimestamp(value: unknown): value is string {
+    return (
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+      !Number.isNaN(Date.parse(value))
+    );
   }
 }
+
+class InvalidPaymentEventError extends Error {}
+class UserNotFoundError extends Error {}
