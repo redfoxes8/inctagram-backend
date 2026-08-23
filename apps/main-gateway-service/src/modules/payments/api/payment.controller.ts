@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -102,9 +101,10 @@ export class PaymentController {
   async createCheckoutSession(
     @CurrentUserId() userId: string,
     @Body() dto: CreateCheckoutSessionDto,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @Req() request: Request,
   ): Promise<CreateCheckoutSessionResponseDto> {
-    if (!isUUID(idempotencyKey, '4')) {
+    const idempotencyKey = request.headers['idempotency-key'];
+    if (typeof idempotencyKey !== 'string' || !isUUID(idempotencyKey, '4')) {
       throw new DomainException({
         code: DomainExceptionCode.BadRequest,
         message: 'Idempotency-Key must be a UUID v4',
