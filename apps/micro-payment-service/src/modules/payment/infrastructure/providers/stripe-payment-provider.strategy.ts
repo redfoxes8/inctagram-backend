@@ -18,6 +18,7 @@ import {
   VerifyProviderWebhookCommand,
 } from '../../application/ports/payment-provider.types';
 import { ProviderCode } from '../../domain/value-objects/provider-code.value-object';
+import { BillingInterval } from '../../domain/enums/billing-interval.enum';
 import { STRIPE_CLIENT, STRIPE_STRATEGY_CONFIGURATION } from './stripe-client.provider';
 import type { StripeStrategyConfiguration } from './stripe-client.provider';
 import { StripeErrorMapper } from './stripe-error.mapper';
@@ -165,11 +166,95 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
     return Promise.reject(this.operationNotReadyException());
   }
 
-  public synchronizeNextBilling(
+  public async synchronizeNextBilling(
     command: SynchronizeProviderNextBillingCommand,
   ): Promise<ProviderSubscriptionState> {
-    void command;
-    return Promise.reject(this.operationNotReadyException());
+    this.assertOperational();
+    try {
+      const paymentIntent = await this.client.paymentIntents.retrieve(
+        command.confirmedProviderTransactionId,
+      );
+      const paymentCustomerId =
+        typeof paymentIntent.customer === 'string'
+          ? paymentIntent.customer
+          : paymentIntent.customer?.id;
+      const paymentMethodId =
+        typeof paymentIntent.payment_method === 'string'
+          ? paymentIntent.payment_method
+          : paymentIntent.payment_method?.id;
+      if (
+        paymentIntent.livemode ||
+        paymentIntent.status !== 'succeeded' ||
+        paymentIntent.setup_future_usage !== 'off_session' ||
+        paymentCustomerId !== command.providerCustomerId ||
+        !paymentMethodId
+      ) {
+        throw this.invalidProviderResult();
+      }
+
+      await this.client.customers.update(
+        command.providerCustomerId,
+        { invoice_settings: { default_payment_method: paymentMethodId } },
+        { idempotencyKey: `${command.providerIdempotencyKey}-customer` },
+      );
+      if (command.currentProviderSubscriptionId) {
+        await this.client.subscriptions.update(
+          command.currentProviderSubscriptionId,
+          { cancel_at_period_end: true },
+          { idempotencyKey: `${command.providerIdempotencyKey}-subscription` },
+        );
+      }
+      if (command.currentProviderRenewalId) {
+        const currentSchedule = await this.client.subscriptionSchedules.retrieve(
+          command.currentProviderRenewalId,
+        );
+        if (currentSchedule.status === 'not_started') {
+          await this.client.subscriptionSchedules.cancel(command.currentProviderRenewalId);
+        }
+      }
+
+      const scheduleInterval = command.billingInterval === BillingInterval.WEEK ? 'week' : 'month';
+
+      const schedule = await this.client.subscriptionSchedules.create(
+        {
+          customer: command.providerCustomerId,
+          start_date: Math.floor(Date.parse(command.finalLocalEndsAt) / 1_000),
+          end_behavior: 'release',
+          default_settings: { default_payment_method: paymentMethodId },
+          phases: [
+            {
+              items: [{ price: command.providerBillingId, quantity: 1 }],
+              duration: {
+                interval: scheduleInterval,
+                interval_count: command.billingIntervalCount,
+              },
+            },
+          ],
+          metadata: {
+            application: 'inctagram',
+            environment: this.configuration.environment,
+            localSubscriptionId: command.subscriptionId,
+            userId: command.userId,
+          },
+        },
+        { idempotencyKey: `${command.providerIdempotencyKey}-schedule` },
+      );
+      if (schedule.livemode || schedule.status !== 'not_started') {
+        throw this.invalidProviderResult();
+      }
+      return {
+        provider: command.provider,
+        providerCustomerId: command.providerCustomerId,
+        providerSubscriptionId: command.currentProviderSubscriptionId,
+        providerRenewalId: schedule.id,
+        providerStatus: schedule.status,
+        autoRenewEnabled: true,
+        nextBillingAt: command.finalLocalEndsAt,
+      };
+    } catch (error: unknown) {
+      if (error instanceof DomainException) throw error;
+      throw StripeErrorMapper.toDomainException(error);
+    }
   }
 
   public getSubscriptionState(

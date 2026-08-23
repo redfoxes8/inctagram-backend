@@ -33,10 +33,14 @@ import {
 } from '../ports/payment-provider.types';
 import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-unit-of-work.port';
 import { PaymentWebhookProcessor } from '../ports/payment-webhook-processor.port';
+import { AdditionalPaymentWebhookProcessor } from './additional-payment-webhook.processor';
 
 @Injectable()
 export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
-  constructor(private readonly unitOfWork: IPaymentUnitOfWork) {}
+  constructor(
+    private readonly unitOfWork: IPaymentUnitOfWork,
+    private readonly additionalProcessor: AdditionalPaymentWebhookProcessor,
+  ) {}
 
   public process(event: NormalizedProviderEvent): Promise<void> {
     if (
@@ -50,6 +54,18 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
       event.checkoutPurpose === CheckoutPurpose.INITIAL_SUBSCRIPTION
     ) {
       return this.processFailure(event);
+    }
+    if (
+      event.kind === 'CHECKOUT_PAYMENT_SUCCEEDED' &&
+      event.checkoutPurpose === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
+    ) {
+      return this.additionalProcessor.processSuccess(event);
+    }
+    if (
+      event.kind === 'CHECKOUT_PAYMENT_FAILED' &&
+      event.checkoutPurpose === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
+    ) {
+      return this.additionalProcessor.processFailure(event);
     }
     return Promise.reject(this.notReady());
   }

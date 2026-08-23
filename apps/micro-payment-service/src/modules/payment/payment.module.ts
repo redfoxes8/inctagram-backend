@@ -45,6 +45,7 @@ import {
 } from './infrastructure/providers/stripe-client.provider';
 import { StripePaymentProviderStrategy } from './infrastructure/providers/stripe-payment-provider.strategy';
 import { InitialPaymentWebhookProcessor } from './application/services/initial-payment-webhook.processor';
+import { AdditionalPaymentWebhookProcessor } from './application/services/additional-payment-webhook.processor';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -95,6 +96,7 @@ const webhookProcessor = [
     useFactory: (config: PaymentConfig): number => config.webhookProcessingTimeoutSeconds,
   },
   InitialPaymentWebhookProcessor,
+  AdditionalPaymentWebhookProcessor,
   { provide: PaymentWebhookProcessor, useExisting: InitialPaymentWebhookProcessor },
 ];
 

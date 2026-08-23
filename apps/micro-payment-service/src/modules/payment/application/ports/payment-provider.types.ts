@@ -100,6 +100,9 @@ export type SynchronizeProviderNextBillingCommand = Readonly<{
   currentProviderSubscriptionId: string | null;
   currentProviderRenewalId: string | null;
   providerBillingId: string;
+  confirmedProviderTransactionId: string;
+  billingInterval: BillingInterval;
+  billingIntervalCount: number;
   finalLocalEndsAt: string;
   providerIdempotencyKey: string;
 }>;
