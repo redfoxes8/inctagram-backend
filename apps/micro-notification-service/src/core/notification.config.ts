@@ -58,6 +58,10 @@ export class NotificationConfig {
   @IsNotEmpty({ message: 'Set Env variable GATEWAY_SERVICE_GRPC_URL, example: localhost:50050' })
   gatewayServiceGrpcUrl: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL for Notification DB' })
+  prismaDbUrl: string;
+
   @IsInt()
   @Min(100)
   recipientGrpcTimeoutMs: number;
@@ -69,6 +73,26 @@ export class NotificationConfig {
   @IsInt()
   @Min(0)
   recipientGrpcRetryBackoffMs: number;
+
+  @IsString()
+  @IsNotEmpty()
+  paymentNotificationQueueName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  paymentNotificationDlqName: string;
+
+  @IsInt()
+  @Min(1)
+  paymentNotificationMaxAttempts: number;
+
+  @IsInt()
+  @Min(0)
+  paymentNotificationRetryBackoffMs: number;
+
+  @IsInt()
+  @Min(1)
+  paymentNotificationProcessingTimeoutSeconds: number;
 
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
@@ -89,6 +113,7 @@ export class NotificationConfig {
     this.gatewayServiceGrpcUrl = this.configService.get(
       NOTIFICATION_ENV_KEYS.GATEWAY_SERVICE_GRPC_URL,
     );
+    this.prismaDbUrl = this.configService.get(NOTIFICATION_ENV_KEYS.PRISMA_DB_URL);
     this.recipientGrpcTimeoutMs = this.readPositiveInt(
       NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_TIMEOUT_MS,
       2000,
@@ -100,6 +125,28 @@ export class NotificationConfig {
     this.recipientGrpcRetryBackoffMs = this.readNonNegativeInt(
       NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_RETRY_BACKOFF_MS,
       100,
+    );
+    this.paymentNotificationQueueName = this.readString(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_QUEUE_NAME,
+      'payment-notification-queue',
+    );
+    this.paymentNotificationDlqName = this.readString(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_DLQ_NAME,
+      'payment-notification-dlq',
+    );
+    this.paymentNotificationMaxAttempts = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_MAX_ATTEMPTS,
+      3,
+      1,
+    );
+    this.paymentNotificationRetryBackoffMs = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_RETRY_BACKOFF_MS,
+      1000,
+    );
+    this.paymentNotificationProcessingTimeoutSeconds = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_PROCESSING_TIMEOUT_SECONDS,
+      300,
+      1,
     );
 
     configValidationUtility.validateConfig(this);
@@ -130,13 +177,18 @@ export class NotificationConfig {
     return this.smtpPort === 465;
   }
 
-  private readPositiveInt(key: NotificationEnvKey, defaultValue: number): number {
+  private readPositiveInt(key: NotificationEnvKey, defaultValue: number, minimum = 100): number {
     const value = Number(this.configService.get<string | undefined>(key));
-    return Number.isInteger(value) && value >= 100 ? value : defaultValue;
+    return Number.isInteger(value) && value >= minimum ? value : defaultValue;
   }
 
   private readNonNegativeInt(key: NotificationEnvKey, defaultValue: number): number {
     const value = Number(this.configService.get<string | undefined>(key));
     return Number.isInteger(value) && value >= 0 ? value : defaultValue;
+  }
+
+  private readString(key: NotificationEnvKey, defaultValue: string): string {
+    const value = this.configService.get<string | undefined>(key);
+    return value?.trim() || defaultValue;
   }
 }

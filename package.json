@@ -15,6 +15,7 @@
     "build:main-gateway-service": "nest build main-gateway-service",
     "build:micro-files-service": "nest build micro-files-service",
     "build:micro-notification-service": "nest build micro-notification-service",
+    "prebuild:micro-notification-service": "pnpm run prisma:notification:generate",
     "build:micro-post-service": "nest build micro-post-service",
     "prebuild:micro-payment-service": "pnpm run prisma:payment:generate",
     "build:micro-payment-service": "nest build micro-payment-service",
@@ -47,7 +48,8 @@
     "prisma:files:migrate": "prisma migrate dev --config apps/micro-files-service/src/core/prisma/prisma.config.ts",
     "prisma:files:generate": "prisma generate --config apps/micro-files-service/src/core/prisma/prisma.config.ts",
     "prisma:payment:migrate": "prisma migrate dev --config apps/micro-payment-service/src/core/prisma/prisma.config.ts",
-    "prisma:payment:generate": "prisma generate --config apps/micro-payment-service/src/core/prisma/prisma.config.ts"
+    "prisma:payment:generate": "prisma generate --config apps/micro-payment-service/src/core/prisma/prisma.config.ts",
+    "prisma:notification:generate": "cross-env PRISMA_DB_URL=postgresql://127.0.0.1:1/notification_generate_only prisma generate --config apps/micro-notification-service/src/core/prisma/prisma.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

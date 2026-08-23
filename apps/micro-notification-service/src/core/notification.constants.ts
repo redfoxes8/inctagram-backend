@@ -13,6 +13,9 @@ export enum MailTemplates {
   PaymentSucceeded = 'payment-succeeded',
   PaymentFailed = 'payment-failed',
   SubscriptionExpired = 'subscription-expired',
+  SubscriptionQueued = 'subscription-queued',
+  SubscriptionActivated = 'subscription-activated',
+  AutoRenewChanged = 'auto-renew-changed',
 }
 
 export type NotificationMessageSettings = {

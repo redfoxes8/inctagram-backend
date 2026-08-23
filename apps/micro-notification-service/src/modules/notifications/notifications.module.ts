@@ -11,6 +11,7 @@ import { SendPaymentSucceededEmailHandler } from './application/commands/send-pa
 import { SendPaymentFailedEmailHandler } from './application/commands/send-payment-failed-email.command';
 import { SendSubscriptionExpiredEmailHandler } from './application/commands/send-subscription-expired-email.command';
 import { PaymentEventsConsumer } from './api/rabbit/payment-events.consumer';
+import { NotificationPrismaService } from '../../core/prisma/prisma.service';
 
 const commandHandlers = [
   SendPaymentSucceededEmailHandler,
@@ -29,6 +30,7 @@ const commandHandlers = [
     },
 
     ...commandHandlers,
+    NotificationPrismaService,
   ],
   exports: [IMailAdapter, NotificationsService],
 })
