@@ -40,6 +40,7 @@ export {
 
 export {
   BillingInterval,
+  CheckoutPurpose,
   CheckoutSessionStatus,
   PaymentKind,
   PaymentProvider,

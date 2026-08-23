@@ -1,5 +1,6 @@
 import {
   BillingInterval,
+  CheckoutPurpose,
   CheckoutSessionStatus,
   GetCheckoutSessionStatusResponse,
   GetPaymentHistoryResponse,
@@ -67,6 +68,9 @@ export class PaymentResponseMapper {
         provider: this.providerToString(item.paymentProvider),
         kind: this.paymentKindToString(item.kind),
         status: this.paymentStatusToString(item.status),
+        checkoutPurpose: item.checkoutPurpose
+          ? this.checkoutPurposeToString(item.checkoutPurpose)
+          : null,
       })),
       totalCount: response.totalCount,
       page: response.page,
@@ -185,6 +189,16 @@ export class PaymentResponseMapper {
       [CheckoutSessionStatus.CHECKOUT_SESSION_STATUS_FAILED]: 'FAILED',
     };
     const value = knownStatuses[status];
+    if (value) return value;
+    throw this.invalidResponseException();
+  }
+
+  private static checkoutPurposeToString(purpose: CheckoutPurpose): string {
+    const knownPurposes: Partial<Record<CheckoutPurpose, string>> = {
+      [CheckoutPurpose.CHECKOUT_PURPOSE_INITIAL_SUBSCRIPTION]: 'INITIAL_SUBSCRIPTION',
+      [CheckoutPurpose.CHECKOUT_PURPOSE_ADDITIONAL_SUBSCRIPTION]: 'ADDITIONAL_SUBSCRIPTION',
+    };
+    const value = knownPurposes[purpose];
     if (value) return value;
     throw this.invalidResponseException();
   }

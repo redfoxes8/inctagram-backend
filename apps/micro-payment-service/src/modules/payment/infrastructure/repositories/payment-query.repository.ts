@@ -68,7 +68,18 @@ export class PaymentQueryRepository
     const [records, totalCount] = await this.prisma.$transaction([
       this.prisma.paymentTransaction.findMany({
         where: { userId: query.userId },
-        include: { product: true, checkoutSession: { select: { purpose: true } } },
+        include: {
+          product: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              billingInterval: true,
+              billingIntervalCount: true,
+            },
+          },
+          checkoutSession: { select: { purpose: true } },
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: query.page.pageSize,
@@ -82,6 +93,7 @@ export class PaymentQueryRepository
         paidAt: record.paidAt ? new Date(record.paidAt.getTime()) : null,
         amountMinor: record.amountMinor,
         currency: record.currency,
+        productId: record.product.id,
         productCode: record.product.code,
         productName: record.product.name,
         billingInterval: PaymentQueryRepository.billingInterval(record.product.billingInterval),

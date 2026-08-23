@@ -1,7 +1,7 @@
 import { IQueryHandler, Query, QueryHandler } from '@nestjs/cqrs';
 
-import { paymentOperationNotReady } from '../payment-operation-not-ready.exception';
-import { GetPaymentHistoryResult } from '../types/payment-grpc.types';
+import { IPaymentHistoryQueryPort, PaymentHistoryItem } from '../ports/payment-query.port';
+import { GetPaymentHistoryResult, PaymentHistoryResultItem } from '../types/payment-grpc.types';
 
 export type GetPaymentHistoryInput = Readonly<{
   userId: string;
@@ -20,8 +20,38 @@ export class GetPaymentHistoryHandler implements IQueryHandler<
   GetPaymentHistoryQuery,
   GetPaymentHistoryResult
 > {
-  public execute(query: GetPaymentHistoryQuery): Promise<GetPaymentHistoryResult> {
-    void query;
-    return Promise.reject(paymentOperationNotReady());
+  constructor(private readonly paymentHistoryQueryPort: IPaymentHistoryQueryPort) {}
+
+  public async execute(query: GetPaymentHistoryQuery): Promise<GetPaymentHistoryResult> {
+    const result = await this.paymentHistoryQueryPort.getPaymentHistory({
+      userId: query.input.userId,
+      page: { page: query.input.page, pageSize: query.input.pageSize },
+    });
+
+    return {
+      items: result.items.map(this.toHistoryResultItem),
+      totalCount: result.totalCount,
+      page: result.page,
+      pageSize: result.pageSize,
+      pagesCount: result.pagesCount,
+    };
   }
+
+  private readonly toHistoryResultItem = (item: PaymentHistoryItem): PaymentHistoryResultItem => {
+    return {
+      transactionId: item.transactionId,
+      productName: item.productName,
+      currency: item.currency,
+      paidAt: item.paidAt,
+      createdAt: item.createdAt,
+      productId: item.productId,
+      billingInterval: item.billingInterval,
+      billingIntervalCount: item.billingIntervalCount,
+      provider: item.provider,
+      kind: item.kind,
+      status: item.status,
+      amountMinor: item.amountMinor,
+      checkoutPurpose: item.checkoutPurpose,
+    };
+  };
 }

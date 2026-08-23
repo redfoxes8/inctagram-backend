@@ -63,6 +63,8 @@ export type GetSubscriptionsResult = Readonly<{
   queued: readonly SubscriptionResult[];
 }>;
 
+import { CheckoutPurpose } from '../../domain/enums/checkout-purpose.enum';
+
 export type PaymentHistoryResultItem = Readonly<{
   transactionId: string;
   productName: string;
@@ -76,6 +78,7 @@ export type PaymentHistoryResultItem = Readonly<{
   kind: PaymentKind;
   status: PaymentTransactionStatus;
   amountMinor: number;
+  checkoutPurpose: CheckoutPurpose | null;
 }>;
 
 export type GetPaymentHistoryResult = Readonly<{

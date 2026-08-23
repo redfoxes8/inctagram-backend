@@ -11,6 +11,7 @@ export class PaymentHistoryItemResponseDto {
   provider: string;
   kind: string;
   status: string;
+  checkoutPurpose: string | null;
 }
 
 export class GetPaymentHistoryResponseDto {

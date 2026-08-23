@@ -59,9 +59,11 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get payment history',
+    description: 'Returns paginated payment history with newest-first ordering.',
   })
   @ApiOkResponse({
     type: GetPaymentHistoryResponseDto,
+    description: 'Paginated payment history',
   })
   async getPaymentHistory(
     @CurrentUserId() userId: string,

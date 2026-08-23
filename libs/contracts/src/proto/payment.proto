@@ -56,6 +56,12 @@ enum WebhookProcessingStatus {
   WEBHOOK_PROCESSING_STATUS_FAILED = 4;
 }
 
+enum CheckoutPurpose {
+  CHECKOUT_PURPOSE_UNSPECIFIED = 0;
+  CHECKOUT_PURPOSE_INITIAL_SUBSCRIPTION = 1;
+  CHECKOUT_PURPOSE_ADDITIONAL_SUBSCRIPTION = 2;
+}
+
 message ProductSummary {
   string id = 1;
   string code = 2;
@@ -91,6 +97,7 @@ message PaymentHistoryItem {
   PaymentKind kind = 13;
   PaymentTransactionStatus status = 14;
   int32 amount_minor = 15;
+  optional CheckoutPurpose checkout_purpose = 16;
 }
 
 message CreateCheckoutSessionRequest {

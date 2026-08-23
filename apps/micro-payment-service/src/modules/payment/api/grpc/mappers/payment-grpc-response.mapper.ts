@@ -1,5 +1,6 @@
 import {
   BillingInterval as ProtoBillingInterval,
+  CheckoutPurpose as ProtoCheckoutPurpose,
   CheckoutSessionStatus,
   CreateCheckoutSessionResponse,
   GetCheckoutSessionStatusResponse,
@@ -18,6 +19,7 @@ import {
 import { DomainException } from '../../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { BillingInterval } from '../../../domain/enums/billing-interval.enum';
+import { CheckoutPurpose } from '../../../domain/enums/checkout-purpose.enum';
 import { CheckoutStatus } from '../../../domain/enums/checkout-status.enum';
 import { PaymentKind } from '../../../domain/enums/payment-kind.enum';
 import { PaymentTransactionStatus } from '../../../domain/enums/payment-transaction-status.enum';
@@ -81,6 +83,9 @@ export class PaymentGrpcResponseMapper {
         kind: this.paymentKind(item.kind),
         status: this.paymentStatus(item.status),
         amountMinor: item.amountMinor,
+        checkoutPurpose: item.checkoutPurpose
+          ? this.checkoutPurpose(item.checkoutPurpose)
+          : undefined,
       })),
       totalCount: result.totalCount,
       page: result.page,
@@ -185,5 +190,15 @@ export class PaymentGrpcResponseMapper {
         ProtoPaymentTransactionStatus.PAYMENT_TRANSACTION_STATUS_PARTIALLY_REFUNDED,
     };
     return statuses[value];
+  }
+
+  private static checkoutPurpose(value: CheckoutPurpose): ProtoCheckoutPurpose {
+    const purposes: Readonly<Record<CheckoutPurpose, ProtoCheckoutPurpose>> = {
+      [CheckoutPurpose.INITIAL_SUBSCRIPTION]:
+        ProtoCheckoutPurpose.CHECKOUT_PURPOSE_INITIAL_SUBSCRIPTION,
+      [CheckoutPurpose.ADDITIONAL_SUBSCRIPTION]:
+        ProtoCheckoutPurpose.CHECKOUT_PURPOSE_ADDITIONAL_SUBSCRIPTION,
+    };
+    return purposes[value];
   }
 }

@@ -45,6 +45,7 @@ export type PaymentHistoryItem = Readonly<{
   paidAt: Date | null;
   amountMinor: number;
   currency: string;
+  productId: string;
   productCode: string;
   productName: string;
   billingInterval: BillingInterval;
