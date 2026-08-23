@@ -23,6 +23,7 @@ export abstract class ISubscriptionRepository {
   abstract findActiveByUserId(userId: string): Promise<SubscriptionEntity | null>;
   abstract findOrderedUnfinishedByUserId(userId: string): Promise<SubscriptionEntity[]>;
   abstract findTailByUserId(userId: string): Promise<SubscriptionEntity | null>;
+  abstract findLatestByUserId(userId: string): Promise<SubscriptionEntity | null>;
   abstract claimDueActive(claim: DueActiveSubscriptionClaim): Promise<SubscriptionEntity[]>;
   abstract findByProviderSubscriptionId(
     lookup: SubscriptionProviderIdentifierLookup,

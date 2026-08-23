@@ -12,6 +12,8 @@ export const PAYMENT_PROVIDER_ERROR_REASON = {
   PAYMENT_WEBHOOK_PROCESSING_NOT_READY: 'PAYMENT_WEBHOOK_PROCESSING_NOT_READY',
   PAYMENT_WEBHOOK_HANDLER_NOT_READY: 'PAYMENT_WEBHOOK_HANDLER_NOT_READY',
   PAYMENT_WEBHOOK_ALREADY_PROCESSING: 'PAYMENT_WEBHOOK_ALREADY_PROCESSING',
+  PROVIDER_RENEWAL_CORRELATION_NOT_READY: 'PROVIDER_RENEWAL_CORRELATION_NOT_READY',
+  PAYMENT_RECONCILIATION_REQUIRED: 'PAYMENT_RECONCILIATION_REQUIRED',
 } as const;
 
 export type PaymentProviderErrorReason =
@@ -152,6 +154,15 @@ type NormalizedMonetaryFacts = Readonly<{
   currency: string;
 }>;
 
+type NormalizedRenewalFacts = NormalizedMonetaryFacts &
+  Readonly<{
+    billingReason: 'subscription_cycle' | 'subscription_create';
+    providerProductId: string | null;
+    providerBillingId: string | null;
+    paymentEvidenceValid: boolean;
+    supportedInvoiceShape: boolean;
+  }>;
+
 type NormalizedCheckoutCorrelation = Readonly<{
   checkoutPurpose: CheckoutPurpose;
   productId: string | null;
@@ -173,18 +184,24 @@ export type CheckoutPaymentFailedProviderEvent = NormalizedProviderEventMetadata
   }>;
 
 export type RenewalSucceededProviderEvent = NormalizedProviderEventMetadata &
-  NormalizedMonetaryFacts &
+  NormalizedRenewalFacts &
   Readonly<{
     kind: 'RENEWAL_SUCCEEDED';
     checkoutPurpose: null;
   }>;
 
 export type RenewalFailedProviderEvent = NormalizedProviderEventMetadata &
-  NormalizedMonetaryFacts &
+  NormalizedRenewalFacts &
   Readonly<{
     kind: 'RENEWAL_FAILED';
     checkoutPurpose: null;
     failureCode: string;
+  }>;
+
+export type ProviderRenewalCorrelatedEvent = NormalizedProviderEventMetadata &
+  Readonly<{
+    kind: 'PROVIDER_RENEWAL_CORRELATED';
+    localSubscriptionId: string | null;
   }>;
 
 export type ProviderSubscriptionCanceledProviderEvent = NormalizedProviderEventMetadata &
@@ -205,5 +222,6 @@ export type NormalizedProviderEvent =
   | CheckoutPaymentFailedProviderEvent
   | RenewalSucceededProviderEvent
   | RenewalFailedProviderEvent
+  | ProviderRenewalCorrelatedEvent
   | ProviderSubscriptionCanceledProviderEvent
   | IgnoredProviderEvent;

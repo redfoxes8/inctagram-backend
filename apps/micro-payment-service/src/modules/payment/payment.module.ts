@@ -55,6 +55,7 @@ import { PaymentOutboxPublisher } from './infrastructure/messaging/payment-outbo
 import { PaymentOutboxRelayService } from './infrastructure/messaging/payment-outbox-relay.service';
 import { SubscriptionLifecycleService } from './application/services/subscription-lifecycle.service';
 import { SubscriptionLifecycleScheduler } from './infrastructure/schedulers/subscription-lifecycle.scheduler';
+import { RecurringPaymentWebhookProcessor } from './application/services/recurring-payment-webhook.processor';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -106,6 +107,7 @@ const webhookProcessor = [
   },
   InitialPaymentWebhookProcessor,
   AdditionalPaymentWebhookProcessor,
+  RecurringPaymentWebhookProcessor,
   { provide: PaymentWebhookProcessor, useExisting: InitialPaymentWebhookProcessor },
 ];
 

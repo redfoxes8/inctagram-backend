@@ -44,10 +44,14 @@ export class StripeWebhookNormalizer {
         return this.checkoutSucceeded(event.data.object, common);
       case 'checkout.session.async_payment_failed':
         return this.checkoutFailed(event.data.object, common);
-      case 'invoice.paid':
+      case 'invoice.payment_succeeded':
         return this.invoiceResult(event.data.object, common, true);
       case 'invoice.payment_failed':
         return this.invoiceResult(event.data.object, common, false);
+      case 'invoice.paid':
+        return { ...common, kind: 'IGNORED', reasonCode: 'INVOICE_PAID_NOT_AUTHORITATIVE' };
+      case 'customer.subscription.created':
+        return this.subscriptionCreated(event.data.object, common);
       case 'customer.subscription.deleted':
         return {
           ...common,
@@ -122,7 +126,10 @@ export class StripeWebhookNormalizer {
     common: CommonNormalizedFacts,
     succeeded: boolean,
   ): NormalizedProviderEvent {
-    if (invoice.billing_reason !== 'subscription_cycle') {
+    if (
+      invoice.billing_reason !== 'subscription_cycle' &&
+      invoice.billing_reason !== 'subscription_create'
+    ) {
       return { ...common, kind: 'IGNORED', reasonCode: 'INITIAL_OR_NON_RECURRING_INVOICE' };
     }
     const amountMinor = succeeded ? invoice.amount_paid : invoice.amount_due;
@@ -130,6 +137,13 @@ export class StripeWebhookNormalizer {
       return { ...common, kind: 'IGNORED', reasonCode: 'INVOICE_AMOUNT_NOT_ACTIONABLE' };
     }
     const subscriptionDetails = invoice.parent?.subscription_details;
+    if (
+      invoice.billing_reason === 'subscription_create' &&
+      subscriptionDetails?.metadata?.localCheckoutSessionId
+    ) {
+      return { ...common, kind: 'IGNORED', reasonCode: 'INITIAL_CHECKOUT_INVOICE' };
+    }
+    const lineFacts = this.invoiceLineFacts(invoice);
     const monetaryFacts = { amountMinor, currency: invoice.currency.toUpperCase() };
     const correlation = {
       ...common,
@@ -139,11 +153,67 @@ export class StripeWebhookNormalizer {
       providerInvoiceId: invoice.id,
       localCheckoutSessionId: subscriptionDetails?.metadata?.localCheckoutSessionId ?? null,
       checkoutPurpose: null,
+      billingReason: invoice.billing_reason,
+      providerProductId: lineFacts.providerProductId,
+      providerBillingId: lineFacts.providerBillingId,
+      paymentEvidenceValid:
+        !succeeded || (invoice.status === 'paid' && invoice.amount_paid === amountMinor),
+      supportedInvoiceShape: lineFacts.supported,
       ...monetaryFacts,
     };
     return succeeded
       ? { ...correlation, kind: 'RENEWAL_SUCCEEDED' }
       : { ...correlation, kind: 'RENEWAL_FAILED', failureCode: 'RECURRING_PAYMENT_FAILED' };
+  }
+
+  private static subscriptionCreated(
+    subscription: Stripe.Subscription,
+    common: CommonNormalizedFacts,
+  ): NormalizedProviderEvent {
+    const providerRenewalId = this.id(subscription.schedule);
+    if (!providerRenewalId) {
+      return { ...common, kind: 'IGNORED', reasonCode: 'SUBSCRIPTION_WITHOUT_SCHEDULE' };
+    }
+    return {
+      ...common,
+      kind: 'PROVIDER_RENEWAL_CORRELATED',
+      providerCustomerId: this.id(subscription.customer),
+      providerSubscriptionId: subscription.id,
+      providerRenewalId,
+      localSubscriptionId: subscription.metadata.localSubscriptionId ?? null,
+    };
+  }
+
+  private static invoiceLineFacts(invoice: Stripe.Invoice): {
+    providerProductId: string | null;
+    providerBillingId: string | null;
+    supported: boolean;
+  } {
+    const lines = invoice.lines.data;
+    const line = lines.length === 1 && !invoice.lines.has_more ? lines[0] : null;
+    const pricing = line?.pricing;
+    const priceDetails = pricing?.type === 'price_details' ? pricing.price_details : undefined;
+    const providerBillingId = priceDetails ? this.id(priceDetails.price) : null;
+    const providerProductId = priceDetails?.product ?? null;
+    const isProration =
+      line?.parent?.type === 'subscription_item_details'
+        ? line.parent.subscription_item_details?.proration === true
+        : line?.parent?.type === 'invoice_item_details'
+          ? line.parent.invoice_item_details?.proration === true
+          : false;
+    return {
+      providerProductId,
+      providerBillingId,
+      supported:
+        line !== null &&
+        line.quantity === 1 &&
+        !isProration &&
+        line.discounts.length === 0 &&
+        invoice.discounts.length === 0 &&
+        (invoice.total_taxes?.length ?? 0) === 0 &&
+        providerBillingId !== null &&
+        providerProductId !== null,
+    };
   }
 
   private static invoicePaymentIntentId(invoice: Stripe.Invoice): string | null {

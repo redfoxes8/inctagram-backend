@@ -62,6 +62,11 @@ export type EnableAutoRenewProps = {
   nextBillingAt: Date;
 };
 
+export type ProviderRenewalCorrelation = {
+  providerSubscriptionId: string;
+  providerScheduleId: string;
+};
+
 export class SubscriptionEntity extends BaseDomainEntity<string> {
   private readonly userId: string;
   private readonly productId: string;
@@ -216,6 +221,30 @@ export class SubscriptionEntity extends BaseDomainEntity<string> {
     this.providerStatus = props.providerStatus;
     this.nextBillingAt = new Date(props.nextBillingAt.getTime());
     this.autoRenew = true;
+    this.touch();
+  }
+
+  public correlateProviderRenewal(props: ProviderRenewalCorrelation): void {
+    SubscriptionEntity.assertOptionalProviderIdentifier(props.providerSubscriptionId);
+    SubscriptionEntity.assertOptionalProviderIdentifier(props.providerScheduleId);
+    if (this.providerScheduleId !== props.providerScheduleId) {
+      throw SubscriptionEntity.conflict('Provider renewal schedule correlation does not match');
+    }
+    if (this.providerSubscriptionId === props.providerSubscriptionId) return;
+    if (this.providerSubscriptionId !== null) {
+      throw SubscriptionEntity.conflict('Provider subscription correlation cannot be replaced');
+    }
+    this.providerSubscriptionId = props.providerSubscriptionId;
+    this.touch();
+  }
+
+  public releaseRenewalOwnership(): void {
+    if (this.autoRenew) {
+      this.autoRenew = false;
+      this.nextBillingAt = null;
+    }
+    this.providerSubscriptionId = null;
+    this.providerScheduleId = null;
     this.touch();
   }
 

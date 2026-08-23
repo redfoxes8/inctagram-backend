@@ -4,6 +4,7 @@ import { PaymentTransactionEntity } from '../../domain/entities/payment-transact
 import {
   IPaymentTransactionRepository,
   PaymentProviderIdentifierLookup,
+  PaymentTransactionInsertResult,
 } from '../../domain/interfaces/payment-transaction.repository.interface';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key.value-object';
 import { PaymentPrismaMapper } from '../mappers/payment-prisma.mapper';
@@ -17,6 +18,23 @@ export class PaymentTransactionRepository implements IPaymentTransactionReposito
     await this.prisma.paymentTransaction.create({
       data: PaymentPrismaMapper.paymentTransactionToPrisma(transaction),
     });
+  }
+
+  public async insertOrGetByProviderInvoiceId(
+    transaction: PaymentTransactionEntity,
+  ): Promise<PaymentTransactionInsertResult> {
+    const providerInvoiceId = transaction.getProviderInvoiceId();
+    if (!providerInvoiceId) throw new Error('Renewal invoice correlation is required');
+    const result = await this.prisma.paymentTransaction.createMany({
+      data: [PaymentPrismaMapper.paymentTransactionToPrisma(transaction)],
+      skipDuplicates: true,
+    });
+    const persisted = await this.findByProviderInvoiceId({
+      provider: transaction.getProvider(),
+      providerIdentifier: providerInvoiceId,
+    });
+    if (!persisted) throw new Error('Renewal invoice transaction conflict is inconsistent');
+    return { transaction: persisted, inserted: result.count === 1 };
   }
 
   public async save(transaction: PaymentTransactionEntity): Promise<void> {

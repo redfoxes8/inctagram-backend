@@ -7,8 +7,16 @@ export type PaymentProviderIdentifierLookup = {
   providerIdentifier: string;
 };
 
+export type PaymentTransactionInsertResult = Readonly<{
+  transaction: PaymentTransactionEntity;
+  inserted: boolean;
+}>;
+
 export abstract class IPaymentTransactionRepository {
   abstract insert(transaction: PaymentTransactionEntity): Promise<void>;
+  abstract insertOrGetByProviderInvoiceId(
+    transaction: PaymentTransactionEntity,
+  ): Promise<PaymentTransactionInsertResult>;
   abstract save(transaction: PaymentTransactionEntity): Promise<void>;
   abstract findById(id: string): Promise<PaymentTransactionEntity | null>;
   abstract findByIdempotencyKey(key: IdempotencyKey): Promise<PaymentTransactionEntity | null>;

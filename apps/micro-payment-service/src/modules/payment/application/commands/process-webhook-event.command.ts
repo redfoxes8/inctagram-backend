@@ -65,7 +65,7 @@ export class ProcessWebhookEventHandler implements ICommandHandler<
     try {
       await this.processor.process(event);
     } catch (error: unknown) {
-      await this.markFailed(event);
+      await this.markFailed(event, this.safeFailureReason(error));
       if (error instanceof DomainException) throw error;
       throw this.handlerNotReady();
     }
@@ -125,16 +125,29 @@ export class ProcessWebhookEventHandler implements ICommandHandler<
     throw this.alreadyProcessing();
   }
 
-  private async markFailed(event: NormalizedProviderEvent): Promise<void> {
+  private async markFailed(event: NormalizedProviderEvent, safeReason: string): Promise<void> {
     await this.unitOfWork.execute(async (context) => {
       const existing = await context.providerWebhookEvents.findByProviderEventId({
         provider: event.provider,
         providerEventId: event.providerEventId,
       });
       if (!existing || existing.getStatus() !== ProviderWebhookEventStatus.PROCESSING) return;
-      existing.markFailed(PAYMENT_PROVIDER_ERROR_REASON.PAYMENT_WEBHOOK_HANDLER_NOT_READY);
+      existing.markFailed(safeReason);
       await context.providerWebhookEvents.save(existing);
     });
+  }
+
+  private safeFailureReason(error: unknown): string {
+    if (error instanceof DomainException) {
+      const reason = error.extensions.find((extension) => extension.field === 'reason')?.message;
+      if (
+        reason === PAYMENT_PROVIDER_ERROR_REASON.PROVIDER_RENEWAL_CORRELATION_NOT_READY ||
+        reason === PAYMENT_PROVIDER_ERROR_REASON.PAYMENT_RECONCILIATION_REQUIRED
+      ) {
+        return reason;
+      }
+    }
+    return PAYMENT_PROVIDER_ERROR_REASON.PAYMENT_WEBHOOK_HANDLER_NOT_READY;
   }
 
   private isTerminal(status: ProviderWebhookEventStatus): boolean {

@@ -34,12 +34,14 @@ import {
 import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-unit-of-work.port';
 import { PaymentWebhookProcessor } from '../ports/payment-webhook-processor.port';
 import { AdditionalPaymentWebhookProcessor } from './additional-payment-webhook.processor';
+import { RecurringPaymentWebhookProcessor } from './recurring-payment-webhook.processor';
 
 @Injectable()
 export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
   constructor(
     private readonly unitOfWork: IPaymentUnitOfWork,
     private readonly additionalProcessor: AdditionalPaymentWebhookProcessor,
+    private readonly recurringProcessor: RecurringPaymentWebhookProcessor,
   ) {}
 
   public process(event: NormalizedProviderEvent): Promise<void> {
@@ -66,6 +68,15 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
       event.checkoutPurpose === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
     ) {
       return this.additionalProcessor.processFailure(event);
+    }
+    if (event.kind === 'PROVIDER_RENEWAL_CORRELATED') {
+      return this.recurringProcessor.processCorrelation(event);
+    }
+    if (event.kind === 'RENEWAL_SUCCEEDED') {
+      return this.recurringProcessor.processSuccess(event);
+    }
+    if (event.kind === 'RENEWAL_FAILED') {
+      return this.recurringProcessor.processFailure(event);
     }
     return Promise.reject(this.notReady());
   }

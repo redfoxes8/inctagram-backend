@@ -209,6 +209,19 @@ export class PaymentTransactionEntity extends BaseDomainEntity<string> {
     this.touch();
   }
 
+  public correlateRenewalInvoice(providerInvoiceId: string): void {
+    assertProviderIdentifier(providerInvoiceId);
+    if (this.kind !== PaymentKind.RENEWAL || this.checkoutSessionId !== null) {
+      throw PaymentTransactionEntity.conflict('Only renewal transactions can correlate an invoice');
+    }
+    if (this.providerInvoiceId === providerInvoiceId) return;
+    if (this.providerInvoiceId !== null || !this.isPendingOrProcessing()) {
+      throw PaymentTransactionEntity.conflict('Renewal invoice correlation cannot be replaced');
+    }
+    this.providerInvoiceId = providerInvoiceId;
+    this.touch();
+  }
+
   public succeed(props: SucceedPaymentTransactionProps): void {
     PaymentTransactionEntity.assertSuccessFacts(props);
     const providerInvoiceId = props.providerInvoiceId ?? null;
@@ -221,7 +234,20 @@ export class PaymentTransactionEntity extends BaseDomainEntity<string> {
         'Payment transaction success facts cannot be replaced',
       );
     }
-    if (!this.isPendingOrProcessing()) {
+    if (this.status === PaymentTransactionStatus.FAILED) {
+      if (
+        this.kind !== PaymentKind.RENEWAL ||
+        this.subscriptionId !== null ||
+        this.providerInvoiceId === null ||
+        this.providerInvoiceId !== providerInvoiceId
+      ) {
+        throw PaymentTransactionEntity.conflict(
+          'Failed payment transaction cannot recover with different lifecycle facts',
+        );
+      }
+      this.failureCode = null;
+      this.failureMessage = null;
+    } else if (!this.isPendingOrProcessing()) {
       throw PaymentTransactionEntity.conflict(
         'Terminal payment transaction cannot transition to succeeded',
       );

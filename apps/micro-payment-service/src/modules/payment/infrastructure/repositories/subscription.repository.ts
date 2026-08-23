@@ -62,6 +62,15 @@ export class SubscriptionRepository implements ISubscriptionRepository {
     return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
   }
 
+  public async findLatestByUserId(userId: string): Promise<SubscriptionEntity | null> {
+    const record = await this.prisma.subscription.findFirst({
+      where: { userId },
+      include: { product: true },
+      orderBy: [{ sequence: 'desc' }, { id: 'desc' }],
+    });
+    return record ? PaymentPrismaMapper.subscriptionToDomain(record) : null;
+  }
+
   public async claimDueActive(claim: DueActiveSubscriptionClaim): Promise<SubscriptionEntity[]> {
     const ids = await this.prisma.$queryRaw<ClaimedSubscriptionId[]>(Prisma.sql`
       SELECT "id" FROM "subscriptions"

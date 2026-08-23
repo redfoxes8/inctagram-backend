@@ -33,14 +33,30 @@ export function serializeNormalizedWebhookPayload(event: NormalizedProviderEvent
         failureCode: event.failureCode,
       };
     case 'RENEWAL_SUCCEEDED':
-      return { ...common, amountMinor: event.amountMinor, currency: event.currency };
+      return {
+        ...common,
+        amountMinor: event.amountMinor,
+        currency: event.currency,
+        billingReason: event.billingReason,
+        providerProductId: event.providerProductId,
+        providerBillingId: event.providerBillingId,
+        paymentEvidenceValid: event.paymentEvidenceValid,
+        supportedInvoiceShape: event.supportedInvoiceShape,
+      };
     case 'RENEWAL_FAILED':
       return {
         ...common,
         amountMinor: event.amountMinor,
         currency: event.currency,
+        billingReason: event.billingReason,
+        providerProductId: event.providerProductId,
+        providerBillingId: event.providerBillingId,
+        paymentEvidenceValid: event.paymentEvidenceValid,
+        supportedInvoiceShape: event.supportedInvoiceShape,
         failureCode: event.failureCode,
       };
+    case 'PROVIDER_RENEWAL_CORRELATED':
+      return { ...common, localSubscriptionId: event.localSubscriptionId };
     case 'PROVIDER_SUBSCRIPTION_CANCELED':
       return {
         ...common,
