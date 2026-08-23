@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { RabbitSubscribe, Nack } from '@golevelup/nestjs-rabbitmq';
 import { isUUID } from 'class-validator';
 import { DomainException, DomainExceptionCode } from '../../../../../../../libs/common/src';
@@ -48,7 +48,7 @@ type MappedEvent = {
 };
 type NotificationTransactionClient = Prisma.TransactionClient;
 
-@Controller()
+@Injectable()
 export class PaymentEventsConsumer {
   constructor(
     private readonly prisma: NotificationPrismaService,

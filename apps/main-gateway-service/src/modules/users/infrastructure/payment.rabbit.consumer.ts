@@ -29,30 +29,13 @@ export class PaymentRabbitConsumer {
 
   @RabbitSubscribe({
     exchange: 'common_exchange',
-    routingKey: SUBSCRIPTION_ACTIVATED_ROUTING_KEY,
+    routingKey: [SUBSCRIPTION_ACTIVATED_ROUTING_KEY, 'payment.subscription.expired'],
     queue: PAYMENT_ACCOUNT_QUEUE_NAME,
     queueOptions: { durable: true },
   })
-  public handleSubscriptionActivated(event: unknown): Promise<Nack | void> {
-    return this.handleEvent(event, PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED);
-  }
-
-  @RabbitSubscribe({
-    exchange: 'common_exchange',
-    routingKey: 'payment.subscription.expired',
-    queue: PAYMENT_ACCOUNT_QUEUE_NAME,
-    queueOptions: { durable: true },
-  })
-  public handleSubscriptionExpired(event: unknown): Promise<Nack | void> {
-    return this.handleEvent(event, PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_EXPIRED);
-  }
-
-  private async handleEvent(
-    input: unknown,
-    expectedEventType: PaymentEntitlementEvent['eventType'],
-  ): Promise<Nack | void> {
+  public async handlePaymentEntitlementEvent(input: unknown): Promise<Nack | void> {
     try {
-      const event = this.validateEvent(input, expectedEventType);
+      const event = this.validateEvent(input);
       await this.prisma.$transaction((transaction) => this.process(transaction, event));
     } catch (error: unknown) {
       if (error instanceof InvalidPaymentEventError || error instanceof UserNotFoundError) {
@@ -155,13 +138,16 @@ export class PaymentRabbitConsumer {
     });
   }
 
-  private validateEvent(
-    input: unknown,
-    expectedEventType: PaymentEntitlementEvent['eventType'],
-  ): PaymentEntitlementEvent {
-    if (!this.isRecord(input) || input.version !== 1 || input.eventType !== expectedEventType) {
+  private validateEvent(input: unknown): PaymentEntitlementEvent {
+    if (
+      !this.isRecord(input) ||
+      input.version !== 1 ||
+      (input.eventType !== PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED &&
+        input.eventType !== PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_EXPIRED)
+    ) {
       throw new InvalidPaymentEventError();
     }
+    const expectedEventType = input.eventType;
     const expectedRoutingKey =
       expectedEventType === PAYMENT_INTEGRATION_EVENT_TYPE.SUBSCRIPTION_ACTIVATED
         ? SUBSCRIPTION_ACTIVATED_ROUTING_KEY

@@ -21,9 +21,10 @@ const commandHandlers = [
 
 @Module({
   imports: [CqrsModule, NotificationConfigModule, UserGrpcClientModule],
-  controllers: [NotificationsController, PaymentEventsConsumer],
+  controllers: [NotificationsController],
   providers: [
     NotificationsService,
+    PaymentEventsConsumer,
     {
       provide: IMailAdapter,
       useClass: NodemailerMailAdapter,
