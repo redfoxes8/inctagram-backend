@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsEmail, IsInt, IsNotEmpty, IsPositive, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 import {
@@ -40,15 +49,21 @@ export class NotificationConfig {
   smtpHost: string;
 
   @IsPositive({ message: 'Set Env variable SMTP_PORT, example: 587' })
+  @IsInt({ message: 'SMTP_PORT must be a positive integer' })
   smtpPort: number;
 
   @IsString()
-  @IsNotEmpty({ message: 'Set Env variable SMTP_USER' })
-  smtpUser: string;
+  @IsOptional()
+  @IsNotEmpty({ message: 'SMTP_USER must not be empty when SMTP authentication is used' })
+  smtpUser: string | undefined;
 
   @IsString()
-  @IsNotEmpty({ message: 'Set Env variable SMTP_PASSWORD' })
-  smtpPassword: string;
+  @IsOptional()
+  @IsNotEmpty({ message: 'SMTP_PASSWORD must not be empty when SMTP authentication is used' })
+  smtpPassword: string | undefined;
+
+  @IsBoolean({ message: 'SMTP_SECURE must be true or false' })
+  smtpSecure: boolean;
 
   private readonly smtpFromEmailValue: string;
 
@@ -106,8 +121,12 @@ export class NotificationConfig {
     );
     this.smtpHost = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_HOST);
     this.smtpPort = Number(this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_PORT));
-    this.smtpUser = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_USER);
-    this.smtpPassword = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_PASSWORD);
+    this.smtpUser = this.optionalCredential(NOTIFICATION_ENV_KEYS.SMTP_USER);
+    this.smtpPassword = this.optionalCredential(NOTIFICATION_ENV_KEYS.SMTP_PASSWORD);
+    this.smtpSecure = this.requiredBoolean(
+      this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_SECURE),
+      NOTIFICATION_ENV_KEYS.SMTP_SECURE,
+    );
     this.smtpFromEmailValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_EMAIL);
     this.smtpFromNameValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_NAME);
     this.gatewayServiceGrpcUrl = this.configService.get(
@@ -150,6 +169,7 @@ export class NotificationConfig {
     );
 
     configValidationUtility.validateConfig(this);
+    this.assertSmtpCredentialPair();
   }
 
   @IsEmail({}, { message: 'Set Env variable SMTP_FROM_EMAIL, example: no-reply@inctagram.com' })
@@ -163,18 +183,20 @@ export class NotificationConfig {
     return this.smtpFromNameValue;
   }
 
-  public get smtpSecure(): boolean {
-    const explicitSecureValue = this.configService.get<string | undefined>('SMTP_SECURE');
+  private optionalCredential(key: NotificationEnvKey): string | undefined {
+    const value = this.configService.get<string | undefined>(key)?.trim();
+    return value || undefined;
+  }
 
-    if (explicitSecureValue === 'true') {
-      return true;
-    }
+  private requiredBoolean(value: string | undefined, variableName: string): boolean {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    throw new Error(`${variableName} must be true or false`);
+  }
 
-    if (explicitSecureValue === 'false') {
-      return false;
-    }
-
-    return this.smtpPort === 465;
+  private assertSmtpCredentialPair(): void {
+    if ((this.smtpUser === undefined) === (this.smtpPassword === undefined)) return;
+    throw new Error('SMTP_USER and SMTP_PASSWORD must both be set or both be empty');
   }
 
   private readPositiveInt(key: NotificationEnvKey, defaultValue: number, minimum = 100): number {

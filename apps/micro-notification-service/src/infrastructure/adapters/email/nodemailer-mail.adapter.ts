@@ -21,10 +21,14 @@ export class NodemailerMailAdapter implements IMailAdapter {
       host: this.notificationConfig.smtpHost,
       port: this.notificationConfig.smtpPort,
       secure: this.notificationConfig.smtpSecure,
-      auth: {
-        user: this.notificationConfig.smtpUser,
-        pass: this.notificationConfig.smtpPassword,
-      },
+      ...(this.notificationConfig.smtpUser && this.notificationConfig.smtpPassword
+        ? {
+            auth: {
+              user: this.notificationConfig.smtpUser,
+              pass: this.notificationConfig.smtpPassword,
+            },
+          }
+        : {}),
     });
   }
 
