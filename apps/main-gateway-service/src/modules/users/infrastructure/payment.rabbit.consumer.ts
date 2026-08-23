@@ -15,6 +15,19 @@ type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
 
 type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
+type SafePaymentEntitlementError = {
+  name?: string;
+  code?: string;
+  meta?: {
+    modelName?: string;
+    fieldName?: string;
+    target?: string | string[];
+  };
+  cause?: {
+    name?: string;
+    code?: string;
+  };
+};
 
 const PAYMENT_ACCOUNT_QUEUE_NAME = process.env.PAYMENT_ACCOUNT_QUEUE_NAME;
 if (!PAYMENT_ACCOUNT_QUEUE_NAME) {
@@ -41,7 +54,10 @@ export class PaymentRabbitConsumer {
       if (error instanceof InvalidPaymentEventError || error instanceof UserNotFoundError) {
         return new Nack(false);
       }
-      this.logger.error('Payment entitlement transaction failed');
+      this.logger.error({
+        message: 'Payment entitlement transaction failed',
+        error: this.safeError(error),
+      });
       return new Nack(true);
     }
   }
@@ -189,6 +205,39 @@ export class PaymentRabbitConsumer {
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+  }
+
+  private safeError(error: unknown): SafePaymentEntitlementError {
+    if (!this.isRecord(error)) return {};
+
+    const meta = this.isRecord(error.meta) ? error.meta : undefined;
+    const cause = this.isRecord(error.cause) ? error.cause : undefined;
+    const target = meta?.target;
+
+    return {
+      ...(typeof error.name === 'string' ? { name: error.name } : {}),
+      ...(typeof error.code === 'string' ? { code: error.code } : {}),
+      ...(meta
+        ? {
+            meta: {
+              ...(typeof meta.modelName === 'string' ? { modelName: meta.modelName } : {}),
+              ...(typeof meta.field_name === 'string' ? { fieldName: meta.field_name } : {}),
+              ...(typeof target === 'string' ||
+              (Array.isArray(target) && target.every((value) => typeof value === 'string'))
+                ? { target }
+                : {}),
+            },
+          }
+        : {}),
+      ...(cause
+        ? {
+            cause: {
+              ...(typeof cause.name === 'string' ? { name: cause.name } : {}),
+              ...(typeof cause.code === 'string' ? { code: cause.code } : {}),
+            },
+          }
+        : {}),
+    };
   }
 
   private isSafeTimestamp(value: unknown): value is string {
