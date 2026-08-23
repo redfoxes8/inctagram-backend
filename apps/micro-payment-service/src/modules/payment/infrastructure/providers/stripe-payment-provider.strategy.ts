@@ -155,15 +155,160 @@ export class StripePaymentProviderStrategy implements PaymentProviderStrategy {
   public disableAutoRenew(
     command: DisableProviderAutoRenewCommand,
   ): Promise<ProviderSubscriptionState> {
-    void command;
-    return Promise.reject(this.operationNotReadyException());
+    return this.changeAutoRenew(command, false);
   }
 
   public enableAutoRenew(
     command: EnableProviderAutoRenewCommand,
   ): Promise<ProviderSubscriptionState> {
-    void command;
-    return Promise.reject(this.operationNotReadyException());
+    return this.changeAutoRenew(command, true);
+  }
+
+  private async changeAutoRenew(
+    command: DisableProviderAutoRenewCommand | EnableProviderAutoRenewCommand,
+    enabled: boolean,
+  ): Promise<ProviderSubscriptionState> {
+    this.assertOperational();
+    try {
+      if (!enabled) {
+        if (command.providerRenewalId) {
+          const schedule = await this.client.subscriptionSchedules.retrieve(
+            command.providerRenewalId,
+          );
+          if (schedule.status === 'not_started') {
+            const canceled = await this.client.subscriptionSchedules.cancel(
+              command.providerRenewalId,
+              {},
+              { idempotencyKey: command.providerIdempotencyKey },
+            );
+            return this.state(command, canceled.status, false, null);
+          }
+          if (schedule.status === 'canceled') {
+            return this.state(command, schedule.status, false, null);
+          }
+          if (schedule.status === 'active') {
+            throw this.reconciliationRequired();
+          }
+          if (schedule.status === 'completed' || schedule.status === 'released') {
+            if (!command.providerSubscriptionId) throw this.nonRestorableProviderState();
+            const releasedSubscription = await this.client.subscriptions.retrieve(
+              command.providerSubscriptionId,
+            );
+            if (releasedSubscription.status === 'canceled') {
+              throw this.nonRestorableProviderState();
+            }
+            const updated = await this.client.subscriptions.update(
+              command.providerSubscriptionId,
+              { cancel_at_period_end: true },
+              { idempotencyKey: command.providerIdempotencyKey },
+            );
+            return this.state(command, updated.status, false, null);
+          }
+        }
+        if (!command.providerSubscriptionId) throw this.invalidProviderResult();
+        const subscription = await this.client.subscriptions.update(
+          command.providerSubscriptionId,
+          { cancel_at_period_end: true },
+          { idempotencyKey: command.providerIdempotencyKey },
+        );
+        return this.state(command, subscription.status, false, null);
+      }
+      const enableCommand = command as EnableProviderAutoRenewCommand;
+      if (enableCommand.providerSubscriptionId && !enableCommand.providerRenewalId) {
+        const existing = await this.client.subscriptions.retrieve(
+          enableCommand.providerSubscriptionId,
+        );
+        if (existing.status === 'canceled') throw this.nonRestorableProviderState();
+        const restored = await this.client.subscriptions.update(
+          enableCommand.providerSubscriptionId,
+          { cancel_at_period_end: false },
+          { idempotencyKey: enableCommand.providerIdempotencyKey },
+        );
+        return this.state(enableCommand, restored.status, true, enableCommand.finalLocalEndsAt);
+      }
+      const schedule = await this.client.subscriptionSchedules.create(
+        {
+          customer: enableCommand.providerCustomerId,
+          start_date: Math.floor(Date.parse(enableCommand.finalLocalEndsAt) / 1_000),
+          end_behavior: 'release',
+          phases: [{ items: [{ price: enableCommand.providerBillingId, quantity: 1 }] }],
+          metadata: {
+            application: 'inctagram',
+            environment: this.configuration.environment,
+            localSubscriptionId: enableCommand.subscriptionId,
+            userId: enableCommand.userId,
+          },
+        },
+        { idempotencyKey: command.providerIdempotencyKey },
+      );
+      if (schedule.livemode || schedule.status !== 'not_started')
+        throw this.invalidProviderResult();
+      return this.state(
+        enableCommand,
+        schedule.status,
+        true,
+        enableCommand.finalLocalEndsAt,
+        schedule.id,
+      );
+    } catch (error: unknown) {
+      if (error instanceof DomainException) throw error;
+      if (this.isNonRestorableProviderState(error)) {
+        throw this.nonRestorableProviderState();
+      }
+      throw StripeErrorMapper.toDomainException(error);
+    }
+  }
+
+  private isNonRestorableProviderState(error: unknown): boolean {
+    return (
+      error instanceof Stripe.errors.StripeError &&
+      error.type === 'StripeInvalidRequestError' &&
+      error.code === 'resource_missing'
+    );
+  }
+
+  private nonRestorableProviderState(): DomainException {
+    return new DomainException({
+      code: DomainExceptionCode.Conflict,
+      message: 'Provider subscription cannot be restored; create a new checkout',
+      extensions: [
+        {
+          field: 'reason',
+          message: PAYMENT_PROVIDER_ERROR_REASON.PROVIDER_SUBSCRIPTION_NOT_RESTORABLE,
+        },
+      ],
+    });
+  }
+
+  private reconciliationRequired(): DomainException {
+    return new DomainException({
+      code: DomainExceptionCode.Conflict,
+      message: 'Provider renewal state requires reconciliation',
+      extensions: [
+        {
+          field: 'reason',
+          message: PAYMENT_PROVIDER_ERROR_REASON.PAYMENT_RECONCILIATION_REQUIRED,
+        },
+      ],
+    });
+  }
+
+  private state(
+    command: DisableProviderAutoRenewCommand | EnableProviderAutoRenewCommand,
+    providerStatus: string,
+    autoRenewEnabled: boolean,
+    nextBillingAt: string | null,
+    providerRenewalId: string | null = command.providerRenewalId,
+  ): ProviderSubscriptionState {
+    return {
+      provider: command.provider,
+      providerCustomerId: command.providerCustomerId,
+      providerSubscriptionId: command.providerSubscriptionId,
+      providerRenewalId,
+      providerStatus,
+      autoRenewEnabled,
+      nextBillingAt,
+    };
   }
 
   public async synchronizeNextBilling(

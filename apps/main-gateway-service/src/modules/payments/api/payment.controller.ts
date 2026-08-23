@@ -139,7 +139,9 @@ export class PaymentController {
   })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
   @ApiDomainError(404, 'Subscription not found', 'Not Found')
+  @ApiDomainError(409, 'Subscription cannot be toggled', 'Conflict')
   @ApiDomainError(503, 'Payment service unavailable', 'Service unavailable')
+  @ApiDomainError(504, 'Payment provider timed out', 'Gateway Timeout')
   async toggleAutoRenew(
     @Param('subscriptionId') subscriptionId: string,
     @Body() dto: ToggleAutoRenewDto,
