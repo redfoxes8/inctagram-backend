@@ -26,10 +26,12 @@ import { GetPaymentHistoryQuery } from '../application/queries/get-payment-histo
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GetPaymentHistoryResponseDto } from './dto/get-payment-history.response';
 import { GetSubscriptionsQuery } from '../application/queries/get-subscriptions.query';
+import { GetCheckoutSessionStatusQuery } from '../application/queries/get-checkout-session-status.query';
 import { CreateCheckoutSessionCommand } from '../application/commands/create-checkout-session.command';
 import { CreateCheckoutSessionResponseDto } from './dto/create-checkout-session.response';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ToggleAutoRenewDto } from './dto/toggle-auto-renew.dto';
+import { GetCheckoutSessionStatusResponseDto } from './dto/get-checkout-session-status.response';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import { ToggleAutoRenewCommand } from '../application/commands/toggle-auto-renew.command';
 
@@ -181,8 +183,45 @@ export class PaymentController {
     );
   }
 
+  @Get('checkout/:checkoutSessionId/status')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get checkout session status',
+    description:
+      'Returns the local state of a verified webhook processing for a checkout session. ' +
+      'This endpoint returns the payment service-local status and does not contact the provider API.',
+  })
+  @ApiOkResponse({
+    type: GetCheckoutSessionStatusResponseDto,
+    description: 'Checkout session status',
+  })
+  @ApiDomainError(400, 'Bad Request', 'Invalid checkout session ID')
+  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
+  @ApiDomainError(404, 'Not Found', 'Checkout session not found or does not belong to the user')
+  async getCheckoutSessionStatus(
+    @Param('checkoutSessionId') checkoutSessionId: string,
+    @CurrentUserId() userId: string,
+  ): Promise<GetCheckoutSessionStatusResponseDto> {
+    if (!isUUID(checkoutSessionId, '4')) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'checkoutSessionId must be a UUID v4',
+      });
+    }
+
+    return this.queryBus.execute(
+      new GetCheckoutSessionStatusQuery({
+        userId,
+        checkoutSessionId,
+      }),
+    );
+  }
+
   // GET    /payments/history
   // GET    /payments/subscriptions
+  // GET    /payments/checkout/:checkoutSessionId/status
   // POST   /payments/checkout
   // PATCH  /payments/subscriptions/:id/auto-renew
   //  POST   /payments/webhook/stripe

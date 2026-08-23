@@ -20,6 +20,7 @@ export type PageResult<T> = Readonly<{
 
 export type SubscriptionProjection = Readonly<{
   id: string;
+  productId: string;
   productCode: string;
   productName: string;
   billingInterval: BillingInterval;

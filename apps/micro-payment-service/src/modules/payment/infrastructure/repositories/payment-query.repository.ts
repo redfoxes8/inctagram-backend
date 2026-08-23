@@ -39,7 +39,17 @@ export class PaymentQueryRepository
         userId,
         status: { in: [PrismaSubscriptionStatus.ACTIVE, PrismaSubscriptionStatus.QUEUED] },
       },
-      include: { product: true },
+      include: {
+        product: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            billingInterval: true,
+            billingIntervalCount: true,
+          },
+        },
+      },
       orderBy: [{ sequence: 'asc' }, { id: 'asc' }],
     });
     const projections = records.map((record) =>
@@ -123,6 +133,7 @@ export class PaymentQueryRepository
     nextBillingAt: Date | null;
     autoRenew: boolean;
     product: {
+      id: string;
       code: string;
       name: string;
       billingInterval: PrismaBillingInterval;
@@ -131,6 +142,7 @@ export class PaymentQueryRepository
   }): SubscriptionProjection {
     return {
       id: record.id,
+      productId: record.product.id,
       productCode: record.product.code,
       productName: record.product.name,
       billingInterval: PaymentQueryRepository.billingInterval(record.product.billingInterval),
