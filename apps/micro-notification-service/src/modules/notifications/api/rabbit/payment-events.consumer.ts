@@ -188,7 +188,7 @@ export class PaymentEventsConsumer {
   }
 
   private mapEvent(input: unknown): MappedEvent {
-    if (!this.isRecord(input) || input.version !== 1 || !isUUID(input.eventId, '4')) {
+    if (!this.isRecord(input) || input.version !== 1 || !isUUID(input.eventId)) {
       throw new InvalidPaymentEventError();
     }
     const event = input as PaymentIntegrationEventV1;
@@ -246,10 +246,10 @@ export class PaymentEventsConsumer {
       [SUBSCRIPTION_AUTO_RENEW_CHANGED_ROUTING_KEY]: 'subscription.auto-renew.changed.v1',
     };
     if (event.eventType !== expectedEventTypes[event.routingKey]) return false;
-    if (!isUUID(event.aggregateId, '4') || !this.isRecord(event.payload)) return false;
-    if (!isUUID(event.payload.userId, '4')) return false;
+    if (!isUUID(event.aggregateId) || !this.isRecord(event.payload)) return false;
+    if (!isUUID(event.payload.userId)) return false;
     if (event.aggregateType === PAYMENT_INTEGRATION_AGGREGATE_TYPE.SUBSCRIPTION) {
-      return isUUID(event.payload.subscriptionId, '4');
+      return isUUID(event.payload.subscriptionId);
     }
     return (
       event.aggregateType === PAYMENT_INTEGRATION_AGGREGATE_TYPE.PAYMENT_TRANSACTION &&

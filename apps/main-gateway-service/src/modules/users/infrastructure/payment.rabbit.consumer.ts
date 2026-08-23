@@ -156,12 +156,12 @@ export class PaymentRabbitConsumer {
     if (!this.isRecord(payload)) throw new InvalidPaymentEventError();
     if (
       input.aggregateType !== PAYMENT_INTEGRATION_AGGREGATE_TYPE.SUBSCRIPTION ||
-      !isUUID(input.eventId, '4') ||
-      !isUUID(input.aggregateId, '4') ||
+      !isUUID(input.eventId) ||
+      !isUUID(input.aggregateId) ||
       input.routingKey !== expectedRoutingKey ||
       !this.isSafeTimestamp(input.occurredAt) ||
-      !isUUID(payload.userId, '4') ||
-      !isUUID(payload.subscriptionId, '4') ||
+      !isUUID(payload.userId) ||
+      !isUUID(payload.subscriptionId) ||
       typeof payload.subscriptionSequence !== 'number' ||
       !Number.isSafeInteger(payload.subscriptionSequence) ||
       payload.subscriptionSequence <= 0
@@ -172,7 +172,7 @@ export class PaymentRabbitConsumer {
       if (
         typeof payload.hasActiveReplacement !== 'boolean' ||
         (payload.hasActiveReplacement
-          ? !isUUID(payload.replacementSubscriptionId, '4')
+          ? !isUUID(payload.replacementSubscriptionId)
           : payload.replacementSubscriptionId !== null)
       ) {
         throw new InvalidPaymentEventError();
@@ -180,7 +180,7 @@ export class PaymentRabbitConsumer {
     } else if (
       !this.isSafeTimestamp(payload.startsAt) ||
       !this.isSafeTimestamp(payload.endsAt) ||
-      !isUUID(payload.productId, '4')
+      !isUUID(payload.productId)
     ) {
       throw new InvalidPaymentEventError();
     }
