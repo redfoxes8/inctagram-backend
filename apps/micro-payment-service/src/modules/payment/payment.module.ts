@@ -53,6 +53,8 @@ import {
 import { PaymentOutboxRelayRepository } from './infrastructure/repositories/payment-outbox-relay.repository';
 import { PaymentOutboxPublisher } from './infrastructure/messaging/payment-outbox.publisher';
 import { PaymentOutboxRelayService } from './infrastructure/messaging/payment-outbox-relay.service';
+import { SubscriptionLifecycleService } from './application/services/subscription-lifecycle.service';
+import { SubscriptionLifecycleScheduler } from './infrastructure/schedulers/subscription-lifecycle.scheduler';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -115,6 +117,8 @@ const outboxRelay = [
   PaymentOutboxRelayService,
 ];
 
+const subscriptionLifecycle = [SubscriptionLifecycleService, SubscriptionLifecycleScheduler];
+
 @Module({
   imports: [CqrsModule],
   providers: [
@@ -124,6 +128,7 @@ const outboxRelay = [
     ...webhookProcessor,
     ...grpcHandlers,
     ...outboxRelay,
+    ...subscriptionLifecycle,
   ],
   controllers: [PaymentGrpcController],
   exports: [

@@ -8,6 +8,7 @@ import { ISubscriptionRepository } from '../../domain/interfaces/subscription.re
 import { IPaymentOutboxWriter } from './payment-outbox-writer.port';
 
 export type PaymentUnitOfWorkContext = Readonly<{
+  databaseNow: () => Promise<Date>;
   products: IProductRepository;
   productProviders: IProductProviderRepository;
   providerCustomers: IProviderCustomerRepository;

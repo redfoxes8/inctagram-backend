@@ -110,10 +110,20 @@ export class PaymentConfig {
   paypalWebhookId: string | null;
   paypalMode: string | null;
 
-  // ?? Configuration
+  // Subscription lifecycle configuration
+  @IsBoolean({ message: 'SUBSCRIPTION_LIFECYCLE_ENABLED must be true or false' })
+  subscriptionLifecycleEnabled: boolean;
+
   @IsString({ message: 'Env variable SUBSCRIPTION_CHECK_CRON must be a string' })
-  @IsNotEmpty({ message: 'Set Env variable SUBSCRIPTION_CHECK_CRON, example: xxx123' })
+  @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/, {
+    message: 'SUBSCRIPTION_CHECK_CRON must be a valid six-field cron expression',
+  })
   subscriptionCheckCron: string;
+
+  @IsInt({ message: 'SUBSCRIPTION_LIFECYCLE_BATCH_SIZE must be an integer' })
+  @Min(1, { message: 'SUBSCRIPTION_LIFECYCLE_BATCH_SIZE must be at least 1' })
+  @Max(100, { message: 'SUBSCRIPTION_LIFECYCLE_BATCH_SIZE must not exceed 100' })
+  subscriptionLifecycleBatchSize: number;
 
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
@@ -128,6 +138,7 @@ export class PaymentConfig {
 
     this.outboxRelayEnabled = PaymentConfig.requiredBoolean(
       this.configService.get('PAYMENT_OUTBOX_RELAY_ENABLED'),
+      'PAYMENT_OUTBOX_RELAY_ENABLED',
     );
 
     this.rabbitUrl = this.configService.get('RABBITMQ_URL') ?? null;
@@ -166,19 +177,29 @@ export class PaymentConfig {
 
     this.paypalMode = this.configService.get('PAYPAL_MODE') ?? null;
 
+    this.subscriptionLifecycleEnabled = PaymentConfig.requiredBoolean(
+      this.configService.get('SUBSCRIPTION_LIFECYCLE_ENABLED'),
+      'SUBSCRIPTION_LIFECYCLE_ENABLED',
+    );
+
     this.subscriptionCheckCron = this.configService.get('SUBSCRIPTION_CHECK_CRON');
 
+    this.subscriptionLifecycleBatchSize = Number(
+      this.configService.get('SUBSCRIPTION_LIFECYCLE_BATCH_SIZE'),
+    );
+
     configValidationUtility.validateConfig(this);
-    PaymentConfig.assertRelayCron(this.outboxRelayCron);
+    PaymentConfig.assertCron(this.outboxRelayCron, 'PAYMENT_OUTBOX_RELAY_CRON');
+    PaymentConfig.assertCron(this.subscriptionCheckCron, 'SUBSCRIPTION_CHECK_CRON');
   }
 
-  private static requiredBoolean(value: string | undefined): boolean {
+  private static requiredBoolean(value: string | undefined, variableName: string): boolean {
     if (value === 'true') return true;
     if (value === 'false') return false;
-    throw new Error('PAYMENT_OUTBOX_RELAY_ENABLED must be true or false');
+    throw new Error(`${variableName} must be true or false`);
   }
 
-  private static assertRelayCron(expression: string): void {
+  private static assertCron(expression: string, variableName: string): void {
     const limits = [59, 59, 23, 31, 12, 6];
     const fields = expression.split(/\s+/u);
     const valid =
@@ -193,7 +214,6 @@ export class PaymentConfig {
         const minimum = index === 3 || index === 4 ? 1 : 0;
         return Number.isInteger(value) && value >= minimum && value <= limits[index];
       });
-    if (!valid)
-      throw new Error('PAYMENT_OUTBOX_RELAY_CRON must be a valid six-field cron expression');
+    if (!valid) throw new Error(`${variableName} must be a valid six-field cron expression`);
   }
 }

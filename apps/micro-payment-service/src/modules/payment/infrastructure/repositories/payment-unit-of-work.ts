@@ -17,6 +17,7 @@ import { ProviderWebhookEventRepository } from './provider-webhook-event.reposit
 import { SubscriptionRepository } from './subscription.repository';
 
 type AdvisoryLockResult = { acquired: number };
+type DatabaseNowResult = { now: Date };
 
 @Injectable()
 export class PaymentUnitOfWork implements IPaymentUnitOfWork {
@@ -25,6 +26,12 @@ export class PaymentUnitOfWork implements IPaymentUnitOfWork {
   public async execute<TResult>(work: PaymentUnitOfWorkCallback<TResult>): Promise<TResult> {
     return this.prisma.$transaction(async (transaction) => {
       const context: PaymentUnitOfWorkContext = {
+        databaseNow: async (): Promise<Date> => {
+          const [result] = await transaction.$queryRaw<DatabaseNowResult[]>(Prisma.sql`
+            SELECT transaction_timestamp() AS "now"
+          `);
+          return new Date(result.now.getTime());
+        },
         products: new ProductRepository(transaction),
         productProviders: new ProductProviderRepository(transaction),
         providerCustomers: new ProviderCustomerRepository(transaction),
