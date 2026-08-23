@@ -9,6 +9,7 @@ import { IUserGrpcAdapter } from './interfaces/user-grpc-adapter.interface';
 import { NotificationConfigModule } from '../../../../../core/notification-config.module';
 import { NotificationConfig } from '../../../../../core/notification.config';
 import { INCTAGRAM_USER_V1_PACKAGE_NAME } from '../../../../../../../../libs/contracts/src';
+import { NotificationRecipientContextPort } from '../../../application/ports/notification-recipient-context.port';
 
 @Module({
   imports: [
@@ -37,7 +38,11 @@ import { INCTAGRAM_USER_V1_PACKAGE_NAME } from '../../../../../../../../libs/con
       provide: IUserGrpcAdapter,
       useExisting: UserGrpcAdapter,
     },
+    {
+      provide: NotificationRecipientContextPort,
+      useExisting: UserGrpcAdapter,
+    },
   ],
-  exports: [IUserGrpcAdapter],
+  exports: [IUserGrpcAdapter, NotificationRecipientContextPort],
 })
 export class UserGrpcClientModule {}

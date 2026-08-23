@@ -25,10 +25,25 @@ export interface GetUserByIdResponse {
   user: User | undefined;
 }
 
+export interface GetNotificationRecipientContextRequest {
+  userId: string;
+}
+
+export interface GetNotificationRecipientContextResponse {
+  userId: string;
+  email: string;
+  userName: string;
+}
+
 export const INCTAGRAM_USER_V1_PACKAGE_NAME = "inctagram.user.v1";
 
 export interface UserServiceClient {
   getUserById(request: GetUserByIdRequest, metadata?: Metadata): Observable<GetUserByIdResponse>;
+
+  getNotificationRecipientContext(
+    request: GetNotificationRecipientContextRequest,
+    metadata?: Metadata,
+  ): Observable<GetNotificationRecipientContextResponse>;
 }
 
 export interface UserServiceController {
@@ -36,11 +51,19 @@ export interface UserServiceController {
     request: GetUserByIdRequest,
     metadata?: Metadata,
   ): Promise<GetUserByIdResponse> | Observable<GetUserByIdResponse> | GetUserByIdResponse;
+
+  getNotificationRecipientContext(
+    request: GetNotificationRecipientContextRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetNotificationRecipientContextResponse>
+    | Observable<GetNotificationRecipientContextResponse>
+    | GetNotificationRecipientContextResponse;
 }
 
 export function UserServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getUserById"];
+    const grpcMethods: string[] = ["getUserById", "getNotificationRecipientContext"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("UserService", method)(constructor.prototype[method], method, descriptor);

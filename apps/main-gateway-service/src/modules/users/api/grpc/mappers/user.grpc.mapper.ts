@@ -1,4 +1,7 @@
-import { GetUserByIdResponse } from '../../../../../../../../libs/contracts/src/generated/user';
+import {
+  GetNotificationRecipientContextResponse,
+  GetUserByIdResponse,
+} from '../../../../../../../../libs/contracts/src/generated/user';
 import { UserGrpcDto } from '../dto/user-grpc.dto';
 
 export class UserGrpcMapper {
@@ -9,6 +12,16 @@ export class UserGrpcMapper {
         email: dto.email,
         username: dto.username,
       },
+    };
+  }
+
+  static toNotificationRecipientContextResponse(
+    dto: UserGrpcDto,
+  ): GetNotificationRecipientContextResponse {
+    return {
+      userId: dto.id,
+      email: dto.email,
+      userName: dto.username,
     };
   }
 }

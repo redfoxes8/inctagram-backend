@@ -76,6 +76,8 @@ export { type Timestamp } from './generated/google/protobuf/timestamp';
 export {
   type GetUserByIdRequest,
   type GetUserByIdResponse,
+  type GetNotificationRecipientContextRequest,
+  type GetNotificationRecipientContextResponse,
   type User,
   type UserServiceClient,
   type UserServiceController,

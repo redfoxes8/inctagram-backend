@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsEmail, IsNotEmpty, IsPositive, IsString } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsPositive, IsString, Min } from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
-import { NOTIFICATION_ENV_KEYS, NotificationEnvRecord } from './notification-env.constants';
+import {
+  NOTIFICATION_ENV_KEYS,
+  NotificationEnvKey,
+  NotificationEnvRecord,
+} from './notification-env.constants';
 
 @Injectable()
 export class NotificationConfig {
@@ -54,6 +58,18 @@ export class NotificationConfig {
   @IsNotEmpty({ message: 'Set Env variable GATEWAY_SERVICE_GRPC_URL, example: localhost:50050' })
   gatewayServiceGrpcUrl: string;
 
+  @IsInt()
+  @Min(100)
+  recipientGrpcTimeoutMs: number;
+
+  @IsInt()
+  @Min(0)
+  recipientGrpcMaxRetries: number;
+
+  @IsInt()
+  @Min(0)
+  recipientGrpcRetryBackoffMs: number;
+
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
     this.frontEndUrl = this.configService.get(NOTIFICATION_ENV_KEYS.FRONTEND_URL);
@@ -72,6 +88,18 @@ export class NotificationConfig {
     this.smtpFromNameValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_NAME);
     this.gatewayServiceGrpcUrl = this.configService.get(
       NOTIFICATION_ENV_KEYS.GATEWAY_SERVICE_GRPC_URL,
+    );
+    this.recipientGrpcTimeoutMs = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_TIMEOUT_MS,
+      2000,
+    );
+    this.recipientGrpcMaxRetries = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_MAX_RETRIES,
+      2,
+    );
+    this.recipientGrpcRetryBackoffMs = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_RETRY_BACKOFF_MS,
+      100,
     );
 
     configValidationUtility.validateConfig(this);
@@ -100,5 +128,15 @@ export class NotificationConfig {
     }
 
     return this.smtpPort === 465;
+  }
+
+  private readPositiveInt(key: NotificationEnvKey, defaultValue: number): number {
+    const value = Number(this.configService.get<string | undefined>(key));
+    return Number.isInteger(value) && value >= 100 ? value : defaultValue;
+  }
+
+  private readNonNegativeInt(key: NotificationEnvKey, defaultValue: number): number {
+    const value = Number(this.configService.get<string | undefined>(key));
+    return Number.isInteger(value) && value >= 0 ? value : defaultValue;
   }
 }

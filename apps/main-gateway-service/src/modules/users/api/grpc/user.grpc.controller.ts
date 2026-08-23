@@ -2,11 +2,14 @@ import { Controller, UseInterceptors } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 
 import { GetUserByIdGrpcQuery } from '../../application/queries/get-user-by-id-grpc.query';
+import { GetNotificationRecipientContextQuery } from '../../application/queries/get-notification-recipient-context.query';
 import { UserGrpcMapper } from './mappers/user.grpc.mapper';
 import { UserGrpcDto } from './dto/user-grpc.dto';
 import {
   GetUserByIdRequest,
   GetUserByIdResponse,
+  GetNotificationRecipientContextRequest,
+  GetNotificationRecipientContextResponse,
   UserServiceController,
   UserServiceControllerMethods,
 } from '../../../../../../../libs/contracts/src/generated/user';
@@ -22,5 +25,15 @@ export class UserGrpcController implements UserServiceController {
     const user: UserGrpcDto = await this.queryBus.execute(new GetUserByIdGrpcQuery(request.userId));
 
     return UserGrpcMapper.toGetUserByIdResponse(user);
+  }
+
+  async getNotificationRecipientContext(
+    request: GetNotificationRecipientContextRequest,
+  ): Promise<GetNotificationRecipientContextResponse> {
+    const context = await this.queryBus.execute(
+      new GetNotificationRecipientContextQuery(request.userId),
+    );
+
+    return UserGrpcMapper.toNotificationRecipientContextResponse(context);
   }
 }
