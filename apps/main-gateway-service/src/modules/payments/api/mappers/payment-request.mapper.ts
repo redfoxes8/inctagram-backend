@@ -1,57 +1,79 @@
 import {
-  type GetSubscriptionsRequest,
-  type GetPaymentHistoryRequest,
   CreateCheckoutSessionRequest,
-  ToggleAutoRenewRequest,
+  GetCheckoutSessionStatusRequest,
+  GetPaymentHistoryRequest,
+  GetSubscriptionsRequest,
   PaymentProvider,
   ProcessWebhookEventRequest,
+  Timestamp,
+  ToggleAutoRenewRequest,
 } from '../../../../../../../libs/contracts/src';
 import { CreateCheckoutSessionCommandDto } from '../../application/commands/create-checkout-session.command';
 import { ProcessWebhookEventCommandDto } from '../../application/commands/process-webhook-event.command';
 import { ToggleAutoRenewCommandDto } from '../../application/commands/toggle-auto-renew.command';
+import { GetCheckoutSessionStatusQueryDto } from '../../application/queries/get-checkout-session-status.query';
 import { GetPaymentHistoryQueryDto } from '../../application/queries/get-payment-history.query';
 import { GetSubscriptionsQueryDto } from '../../application/queries/get-subscriptions.query';
+import { PaymentProviderCode } from '../../application/types/payment-provider-code.type';
 
 export class PaymentRequestMapper {
-  static toGetPaymentHistory(dto: GetPaymentHistoryQueryDto): GetPaymentHistoryRequest {
-    return {
-      userId: dto.userId,
-      page: dto.query.pageNumber,
-      pageSize: dto.query.pageSize,
-    };
+  public static toGetPaymentHistory(dto: GetPaymentHistoryQueryDto): GetPaymentHistoryRequest {
+    return { userId: dto.userId, page: dto.page, pageSize: dto.pageSize };
   }
 
-  static toGetSubscriptions(dto: GetSubscriptionsQueryDto): GetSubscriptionsRequest {
-    return {
-      userId: dto.userId,
-    };
+  public static toGetSubscriptions(dto: GetSubscriptionsQueryDto): GetSubscriptionsRequest {
+    return { userId: dto.userId };
   }
 
-  static toCreateCheckoutSession(
+  public static toCreateCheckoutSession(
     dto: CreateCheckoutSessionCommandDto,
   ): CreateCheckoutSessionRequest {
     return {
       userId: dto.userId,
-      productId: dto.dto.productId,
-      provider: dto.dto.provider,
+      productId: dto.productId,
+      paymentProvider: this.toPaymentProvider(dto.provider),
+      autoRenewConsent: dto.autoRenewConsent,
       successUrl: dto.successUrl,
       cancelUrl: dto.cancelUrl,
+      idempotencyKey: dto.idempotencyKey,
     };
   }
 
-  static toToggleAutoRenew(dto: ToggleAutoRenewCommandDto): ToggleAutoRenewRequest {
-    return {
-      subscriptionId: dto.subscriptionId,
-      userId: dto.userId,
-      enabled: dto.dto.enabled,
-    };
+  public static toToggleAutoRenew(dto: ToggleAutoRenewCommandDto): ToggleAutoRenewRequest {
+    return { subscriptionId: dto.subscriptionId, userId: dto.userId, enabled: dto.enabled };
   }
 
-  static toProcessWebhookEvent(dto: ProcessWebhookEventCommandDto): ProcessWebhookEventRequest {
+  public static toProcessWebhookEvent(
+    dto: ProcessWebhookEventCommandDto,
+  ): ProcessWebhookEventRequest {
     return {
-      provider: PaymentProvider.STRIPE,
-      eventType: dto.event.type,
+      provider: this.toPaymentProvider(dto.provider),
       rawPayload: dto.rawBody,
+      signatureHeaders: dto.signatureHeaders.map((header) => ({ ...header })),
+      receivedAt: this.isoToTimestamp(dto.receivedAt),
+    };
+  }
+
+  public static toGetCheckoutSessionStatus(
+    dto: GetCheckoutSessionStatusQueryDto,
+  ): GetCheckoutSessionStatusRequest {
+    return { userId: dto.userId, checkoutSessionId: dto.checkoutSessionId };
+  }
+
+  private static toPaymentProvider(provider: PaymentProviderCode): PaymentProvider {
+    switch (provider) {
+      case 'STRIPE':
+        return PaymentProvider.STRIPE;
+      case 'PAYPAL':
+        return PaymentProvider.PAYPAL;
+    }
+  }
+
+  private static isoToTimestamp(value: string): Timestamp {
+    const milliseconds = Date.parse(value);
+    return {
+      seconds: Math.floor(milliseconds / 1000),
+      nanos: (milliseconds % 1000) * 1_000_000,
     };
   }
 }

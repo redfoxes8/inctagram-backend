@@ -5,6 +5,7 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "localhost:run:lt": "npx localtunnel --port 3000",
     "infra:up": "docker-compose up -d",
@@ -14,7 +15,9 @@
     "build:main-gateway-service": "nest build main-gateway-service",
     "build:micro-files-service": "nest build micro-files-service",
     "build:micro-notification-service": "nest build micro-notification-service",
+    "prebuild:micro-notification-service": "pnpm run prisma:notification:generate",
     "build:micro-post-service": "nest build micro-post-service",
+    "prebuild:micro-payment-service": "pnpm run prisma:payment:generate",
     "build:micro-payment-service": "nest build micro-payment-service",
     "gen:contracts": ".\\node_modules\\.bin\\buf generate libs/contracts/src/proto",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
@@ -24,7 +27,7 @@
     "start:notification": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-notification-service/.env.development nest start micro-notification-service --watch",
     "start:post": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-post-service/.env.development nest start micro-post-service --watch",
     "start:payment": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-payment-service/.env.development nest start micro-payment-service --watch",
-    "start:all": "concurrently \"pnpm run start:dev\" \"pnpm run start:files\" \"pnpm run start:notification\" \"pnpm run start:post\"",
+    "start:all": "concurrently \"pnpm run start:dev\" \"pnpm run start:files\" \"pnpm run start:notification\" \"pnpm run start:post\" \"pnpm run start:payment\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/main-gateway-service/main",
     "start:main-gateway-service": "node dist/apps/main-gateway-service/main",
@@ -45,7 +48,8 @@
     "prisma:files:migrate": "prisma migrate dev --config apps/micro-files-service/src/core/prisma/prisma.config.ts",
     "prisma:files:generate": "prisma generate --config apps/micro-files-service/src/core/prisma/prisma.config.ts",
     "prisma:payment:migrate": "prisma migrate dev --config apps/micro-payment-service/src/core/prisma/prisma.config.ts",
-    "prisma:payment:generate": "prisma generate --config apps/micro-payment-service/src/core/prisma/prisma.config.ts"
+    "prisma:payment:generate": "prisma generate --config apps/micro-payment-service/src/core/prisma/prisma.config.ts",
+    "prisma:notification:generate": "cross-env PRISMA_DB_URL=postgresql://127.0.0.1:1/notification_generate_only prisma generate --config apps/micro-notification-service/src/core/prisma/prisma.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

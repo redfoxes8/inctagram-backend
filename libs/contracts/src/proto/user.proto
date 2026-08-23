@@ -16,7 +16,19 @@ message GetUserByIdResponse {
   User user = 1;
 }
 
+message GetNotificationRecipientContextRequest {
+  string user_id = 1;
+}
+
+message GetNotificationRecipientContextResponse {
+  string user_id = 1;
+  string email = 2;
+  string user_name = 3;
+}
+
 service UserService {
   rpc GetUserById(GetUserByIdRequest)
       returns (GetUserByIdResponse);
+  rpc GetNotificationRecipientContext(GetNotificationRecipientContextRequest)
+      returns (GetNotificationRecipientContextResponse);
 }

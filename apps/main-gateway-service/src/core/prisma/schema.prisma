@@ -113,6 +113,34 @@ enum OutboxStatus {
   FAILED
 }
 
+enum PaymentEntitlementOutcome {
+  APPLIED
+  DUPLICATE
+  STALE
+  IGNORED
+}
+
+model PaymentEntitlementInbox {
+  eventId                String                   @id @db.Uuid
+  eventType              String
+  userId                 String
+  subscriptionId         String                   @db.Uuid
+  subscriptionSequence   Int
+  receivedAt             DateTime                 @default(now())
+  processedAt            DateTime?
+  outcome                PaymentEntitlementOutcome
+  createdAt              DateTime                 @default(now())
+
+  @@index([userId, subscriptionSequence])
+}
+
+model PaymentEntitlementCursor {
+  userId                   String   @id
+  lastSubscriptionSequence Int
+  activeSubscriptionId     String?  @db.Uuid
+  updatedAt                DateTime @updatedAt
+}
+
 model OutboxEvent {
   id         String      @id @default(uuid()) @db.Uuid
   type       String

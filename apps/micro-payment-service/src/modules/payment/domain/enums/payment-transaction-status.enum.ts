@@ -1,5 +1,8 @@
-export enum PaymentTransactionStatusDomain {
+export enum PaymentTransactionStatus {
   PENDING = 'PENDING',
-  PROCESSED = 'PROCESSED',
+  PROCESSING = 'PROCESSING',
+  SUCCEEDED = 'SUCCEEDED',
   FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
 }

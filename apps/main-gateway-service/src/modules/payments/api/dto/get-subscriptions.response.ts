@@ -1,19 +1,24 @@
+export class SubscriptionProductResponseDto {
+  id: string;
+  code: string;
+  name: string;
+  billingInterval: string;
+  billingIntervalCount: number;
+}
+
 export class SubscriptionResponseDto {
   id: string;
-
-  productId: string;
-
-  provider: string;
-
-  status: string;
-
+  sequence: number;
+  product: SubscriptionProductResponseDto;
+  startsAt: string;
+  endsAt: string;
+  nextBillingAt: string | null;
   autoRenew: boolean;
-
-  startDate: string;
-
-  endDate: string;
+  provider: string;
+  status: string;
 }
 
 export class GetSubscriptionsResponseDto {
-  subscriptions: SubscriptionResponseDto[];
+  current: SubscriptionResponseDto | null;
+  queued: SubscriptionResponseDto[];
 }

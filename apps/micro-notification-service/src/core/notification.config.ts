@@ -1,9 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsEmail, IsNotEmpty, IsPositive, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
-import { NOTIFICATION_ENV_KEYS, NotificationEnvRecord } from './notification-env.constants';
+import {
+  NOTIFICATION_ENV_KEYS,
+  NotificationEnvKey,
+  NotificationEnvRecord,
+} from './notification-env.constants';
 
 @Injectable()
 export class NotificationConfig {
@@ -36,15 +49,21 @@ export class NotificationConfig {
   smtpHost: string;
 
   @IsPositive({ message: 'Set Env variable SMTP_PORT, example: 587' })
+  @IsInt({ message: 'SMTP_PORT must be a positive integer' })
   smtpPort: number;
 
   @IsString()
-  @IsNotEmpty({ message: 'Set Env variable SMTP_USER' })
-  smtpUser: string;
+  @IsOptional()
+  @IsNotEmpty({ message: 'SMTP_USER must not be empty when SMTP authentication is used' })
+  smtpUser: string | undefined;
 
   @IsString()
-  @IsNotEmpty({ message: 'Set Env variable SMTP_PASSWORD' })
-  smtpPassword: string;
+  @IsOptional()
+  @IsNotEmpty({ message: 'SMTP_PASSWORD must not be empty when SMTP authentication is used' })
+  smtpPassword: string | undefined;
+
+  @IsBoolean({ message: 'SMTP_SECURE must be true or false' })
+  smtpSecure: boolean;
 
   private readonly smtpFromEmailValue: string;
 
@@ -53,6 +72,42 @@ export class NotificationConfig {
   @IsString()
   @IsNotEmpty({ message: 'Set Env variable GATEWAY_SERVICE_GRPC_URL, example: localhost:50050' })
   gatewayServiceGrpcUrl: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Set Env variable PRISMA_DB_URL for Notification DB' })
+  prismaDbUrl: string;
+
+  @IsInt()
+  @Min(100)
+  recipientGrpcTimeoutMs: number;
+
+  @IsInt()
+  @Min(0)
+  recipientGrpcMaxRetries: number;
+
+  @IsInt()
+  @Min(0)
+  recipientGrpcRetryBackoffMs: number;
+
+  @IsString()
+  @IsNotEmpty()
+  paymentNotificationQueueName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  paymentNotificationDlqName: string;
+
+  @IsInt()
+  @Min(1)
+  paymentNotificationMaxAttempts: number;
+
+  @IsInt()
+  @Min(0)
+  paymentNotificationRetryBackoffMs: number;
+
+  @IsInt()
+  @Min(1)
+  paymentNotificationProcessingTimeoutSeconds: number;
 
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
@@ -66,15 +121,55 @@ export class NotificationConfig {
     );
     this.smtpHost = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_HOST);
     this.smtpPort = Number(this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_PORT));
-    this.smtpUser = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_USER);
-    this.smtpPassword = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_PASSWORD);
+    this.smtpUser = this.optionalCredential(NOTIFICATION_ENV_KEYS.SMTP_USER);
+    this.smtpPassword = this.optionalCredential(NOTIFICATION_ENV_KEYS.SMTP_PASSWORD);
+    this.smtpSecure = this.requiredBoolean(
+      this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_SECURE),
+      NOTIFICATION_ENV_KEYS.SMTP_SECURE,
+    );
     this.smtpFromEmailValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_EMAIL);
     this.smtpFromNameValue = this.configService.get(NOTIFICATION_ENV_KEYS.SMTP_FROM_NAME);
     this.gatewayServiceGrpcUrl = this.configService.get(
       NOTIFICATION_ENV_KEYS.GATEWAY_SERVICE_GRPC_URL,
     );
+    this.prismaDbUrl = this.configService.get(NOTIFICATION_ENV_KEYS.PRISMA_DB_URL);
+    this.recipientGrpcTimeoutMs = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_TIMEOUT_MS,
+      2000,
+    );
+    this.recipientGrpcMaxRetries = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_MAX_RETRIES,
+      2,
+    );
+    this.recipientGrpcRetryBackoffMs = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_RECIPIENT_GRPC_RETRY_BACKOFF_MS,
+      100,
+    );
+    this.paymentNotificationQueueName = this.readString(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_QUEUE_NAME,
+      'payment-notification-queue',
+    );
+    this.paymentNotificationDlqName = this.readString(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_DLQ_NAME,
+      'payment-notification-dlq',
+    );
+    this.paymentNotificationMaxAttempts = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_MAX_ATTEMPTS,
+      3,
+      1,
+    );
+    this.paymentNotificationRetryBackoffMs = this.readNonNegativeInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_RETRY_BACKOFF_MS,
+      1000,
+    );
+    this.paymentNotificationProcessingTimeoutSeconds = this.readPositiveInt(
+      NOTIFICATION_ENV_KEYS.PAYMENT_NOTIFICATION_PROCESSING_TIMEOUT_SECONDS,
+      300,
+      1,
+    );
 
     configValidationUtility.validateConfig(this);
+    this.assertSmtpCredentialPair();
   }
 
   @IsEmail({}, { message: 'Set Env variable SMTP_FROM_EMAIL, example: no-reply@inctagram.com' })
@@ -88,17 +183,34 @@ export class NotificationConfig {
     return this.smtpFromNameValue;
   }
 
-  public get smtpSecure(): boolean {
-    const explicitSecureValue = this.configService.get<string | undefined>('SMTP_SECURE');
+  private optionalCredential(key: NotificationEnvKey): string | undefined {
+    const value = this.configService.get<string | undefined>(key)?.trim();
+    return value || undefined;
+  }
 
-    if (explicitSecureValue === 'true') {
-      return true;
-    }
+  private requiredBoolean(value: string | undefined, variableName: string): boolean {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    throw new Error(`${variableName} must be true or false`);
+  }
 
-    if (explicitSecureValue === 'false') {
-      return false;
-    }
+  private assertSmtpCredentialPair(): void {
+    if ((this.smtpUser === undefined) === (this.smtpPassword === undefined)) return;
+    throw new Error('SMTP_USER and SMTP_PASSWORD must both be set or both be empty');
+  }
 
-    return this.smtpPort === 465;
+  private readPositiveInt(key: NotificationEnvKey, defaultValue: number, minimum = 100): number {
+    const value = Number(this.configService.get<string | undefined>(key));
+    return Number.isInteger(value) && value >= minimum ? value : defaultValue;
+  }
+
+  private readNonNegativeInt(key: NotificationEnvKey, defaultValue: number): number {
+    const value = Number(this.configService.get<string | undefined>(key));
+    return Number.isInteger(value) && value >= 0 ? value : defaultValue;
+  }
+
+  private readString(key: NotificationEnvKey, defaultValue: string): string {
+    const value = this.configService.get<string | undefined>(key);
+    return value?.trim() || defaultValue;
   }
 }

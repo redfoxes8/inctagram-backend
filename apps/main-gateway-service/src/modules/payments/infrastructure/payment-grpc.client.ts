@@ -1,4 +1,4 @@
-import { GatewayTimeoutException, Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, timeout, TimeoutError } from 'rxjs';
 
@@ -14,11 +14,16 @@ import {
   type GetPaymentHistoryRequest,
   type GetPaymentHistoryResponse,
   ProcessWebhookEventRequest,
+  ProcessWebhookEventResponse,
+  GetCheckoutSessionStatusRequest,
+  GetCheckoutSessionStatusResponse,
 } from '../../../../../../libs/contracts/src';
 
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
 
 import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 @Injectable()
 export class PaymentGrpcClient implements OnModuleInit {
@@ -67,22 +72,37 @@ export class PaymentGrpcClient implements OnModuleInit {
     }
   }
 
-  async processWebhookEvent(request: ProcessWebhookEventRequest): Promise<void> {
+  async processWebhookEvent(
+    request: ProcessWebhookEventRequest,
+  ): Promise<ProcessWebhookEventResponse> {
     const PAYMENT_GRPC_TIMEOUT = 3000;
 
     try {
-      await firstValueFrom(
+      return await firstValueFrom(
         this.paymentService.processWebhookEvent(request).pipe(timeout(PAYMENT_GRPC_TIMEOUT)),
       );
     } catch (error: unknown) {
       if (error instanceof TimeoutError) {
-        throw new GatewayTimeoutException('Payment service timeout');
+        throw new DomainException({
+          code: DomainExceptionCode.GatewayTimeout,
+          message: 'Payment service timeout',
+        });
       }
 
       // DomainExceptionCode.Conflict is intentionally propagated.
       // PaymentController translates duplicate webhook deliveries
       // into HTTP 200 for Stripe.
 
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getCheckoutSessionStatus(
+    request: GetCheckoutSessionStatusRequest,
+  ): Promise<GetCheckoutSessionStatusResponse> {
+    try {
+      return await firstValueFrom(this.paymentService.getCheckoutSessionStatus(request));
+    } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
     }
   }

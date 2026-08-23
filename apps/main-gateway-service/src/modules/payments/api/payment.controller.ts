@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -16,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
@@ -25,21 +25,25 @@ import { GetPaymentHistoryQuery } from '../application/queries/get-payment-histo
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GetPaymentHistoryResponseDto } from './dto/get-payment-history.response';
 import { GetSubscriptionsQuery } from '../application/queries/get-subscriptions.query';
+import { GetCheckoutSessionStatusQuery } from '../application/queries/get-checkout-session-status.query';
 import { CreateCheckoutSessionCommand } from '../application/commands/create-checkout-session.command';
 import { CreateCheckoutSessionResponseDto } from './dto/create-checkout-session.response';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ToggleAutoRenewDto } from './dto/toggle-auto-renew.dto';
+import { GetCheckoutSessionStatusResponseDto } from './dto/get-checkout-session-status.response';
 import { ApiDomainError } from '../../../../../../libs/common/src';
 import { ToggleAutoRenewCommand } from '../application/commands/toggle-auto-renew.command';
 
 import { Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { RawBodyRequest } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 
-import { StripeService } from '../infrastructure/stripe/stripe.service';
 import { ProcessWebhookEventCommand } from '../application/commands/process-webhook-event.command';
-import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
+import { ProcessWebhookEventResult } from '../application/commands/process-webhook-event.command';
 import { GatewayConfig } from '../../../core/gateway.config';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
 @Controller('payments')
 export class PaymentController {
@@ -47,7 +51,6 @@ export class PaymentController {
     private readonly gatewayConfig: GatewayConfig,
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
-    private readonly stripeService: StripeService,
   ) {}
 
   @Get('history')
@@ -55,9 +58,11 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get payment history',
+    description: 'Returns paginated payment history with newest-first ordering.',
   })
   @ApiOkResponse({
     type: GetPaymentHistoryResponseDto,
+    description: 'Paginated payment history',
   })
   async getPaymentHistory(
     @CurrentUserId() userId: string,
@@ -66,7 +71,8 @@ export class PaymentController {
     return this.queryBus.execute(
       new GetPaymentHistoryQuery({
         userId,
-        query,
+        page: query.pageNumber,
+        pageSize: query.pageSize,
       }),
     );
   }
@@ -87,17 +93,32 @@ export class PaymentController {
   @ApiCreatedResponse({
     type: CreateCheckoutSessionResponseDto,
   })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    description: 'UUID reused for retries of the same logical checkout request.',
+  })
   async createCheckoutSession(
     @CurrentUserId() userId: string,
     @Body() dto: CreateCheckoutSessionDto,
+    @Req() request: Request,
   ): Promise<CreateCheckoutSessionResponseDto> {
+    const idempotencyKey = request.headers['idempotency-key'];
+    if (typeof idempotencyKey !== 'string' || !isUUID(idempotencyKey, '4')) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Idempotency-Key must be a UUID v4',
+      });
+    }
     return this.commandBus.execute(
       new CreateCheckoutSessionCommand({
         userId,
-        dto,
-
-        successUrl: `${this.gatewayConfig.frontEndUrl}/payment/success`,
-        cancelUrl: `${this.gatewayConfig.frontEndUrl}/payment/cancel`,
+        productId: dto.productId,
+        provider: dto.provider,
+        autoRenewConsent: dto.autoRenewConsent,
+        successUrl: this.gatewayConfig.successPaymentUrl,
+        cancelUrl: this.gatewayConfig.cancelPaymentUrl,
+        idempotencyKey,
       }),
     );
   }
@@ -118,7 +139,9 @@ export class PaymentController {
   })
   @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
   @ApiDomainError(404, 'Subscription not found', 'Not Found')
+  @ApiDomainError(409, 'Subscription cannot be toggled', 'Conflict')
   @ApiDomainError(503, 'Payment service unavailable', 'Service unavailable')
+  @ApiDomainError(504, 'Payment provider timed out', 'Gateway Timeout')
   async toggleAutoRenew(
     @Param('subscriptionId') subscriptionId: string,
     @Body() dto: ToggleAutoRenewDto,
@@ -128,57 +151,81 @@ export class PaymentController {
       new ToggleAutoRenewCommand({
         userId,
         subscriptionId,
-        dto,
+        enabled: dto.enabled,
       }),
     );
   }
 
   @Post('webhook/stripe')
   @HttpCode(HttpStatus.OK)
-  async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<void> {
+  async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<ProcessWebhookEventResult> {
     const signature = req.headers['stripe-signature'];
 
     if (typeof signature !== 'string') {
-      throw new BadRequestException('Missing Stripe signature');
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Stripe signature header is required',
+      });
     }
 
     const rawBody = req.rawBody;
 
     if (!rawBody) {
-      throw new BadRequestException('Missing raw body');
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Webhook raw body is required',
+      });
     }
 
-    const event = this.stripeService.constructWebhookEvent(req.rawBody!, signature);
+    return this.commandBus.execute(
+      new ProcessWebhookEventCommand({
+        provider: 'STRIPE',
+        rawBody,
+        signatureHeaders: [{ name: 'stripe-signature', value: signature }],
+        receivedAt: new Date().toISOString(),
+      }),
+    );
+  }
 
-    // TODO(P-013.2):
-    // When Payment MS introduces DuplicateWebhookEventException,
-    // map that specific exception to HTTP 200 OK.
-    // Stripe retries every non-2xx response, therefore duplicate
-    // webhook deliveries must be acknowledged successfully.
-
-    try {
-      await this.commandBus.execute(
-        new ProcessWebhookEventCommand({
-          event,
-          rawBody,
-        }),
-      );
-    } catch (error) {
-      // Duplicate webhook deliveries are reported by Payment MS
-      // as DomainExceptionCode.Conflict (gRPC ALREADY_EXISTS).
-      // Stripe expects HTTP 2xx for already processed events.
-      if (GrpcErrorMapper.isConflict(error)) {
-        return;
-      }
-
-      throw error;
+  @Get('checkout/:checkoutSessionId/status')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get checkout session status',
+    description:
+      'Returns the local state of a verified webhook processing for a checkout session. ' +
+      'This endpoint returns the payment service-local status and does not contact the provider API.',
+  })
+  @ApiOkResponse({
+    type: GetCheckoutSessionStatusResponseDto,
+    description: 'Checkout session status',
+  })
+  @ApiDomainError(400, 'Bad Request', 'Invalid checkout session ID')
+  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
+  @ApiDomainError(404, 'Not Found', 'Checkout session not found or does not belong to the user')
+  async getCheckoutSessionStatus(
+    @Param('checkoutSessionId') checkoutSessionId: string,
+    @CurrentUserId() userId: string,
+  ): Promise<GetCheckoutSessionStatusResponseDto> {
+    if (!isUUID(checkoutSessionId, '4')) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'checkoutSessionId must be a UUID v4',
+      });
     }
 
-    return;
+    return this.queryBus.execute(
+      new GetCheckoutSessionStatusQuery({
+        userId,
+        checkoutSessionId,
+      }),
+    );
   }
 
   // GET    /payments/history
   // GET    /payments/subscriptions
+  // GET    /payments/checkout/:checkoutSessionId/status
   // POST   /payments/checkout
   // PATCH  /payments/subscriptions/:id/auto-renew
   //  POST   /payments/webhook/stripe

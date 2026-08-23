@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 
-import { DomainException } from './domain-exception';
+import { DomainException, Extension } from './domain-exception';
 
 @Catch(DomainException)
 export class GlobalDomainExceptionFilter implements ExceptionFilter {
@@ -27,8 +27,9 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
     const response = httpHost.getResponse<Response>();
     const statusCode = httpException.getStatus();
     const responseBody = httpException.getResponse();
+    const extensionsCount = Array.isArray(exception.extensions) ? exception.extensions.length : 0;
     this.logger.warn(
-      `DomainException -> HTTP ${statusCode}; message="${exception.message}"; extensions=${exception.extensions.length}`,
+      `DomainException -> HTTP ${statusCode}; message="${exception.message}"; extensions=${extensionsCount}`,
     );
 
     response.status(statusCode).send(responseBody);
@@ -36,11 +37,15 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
 
   private mapToHttpException(exception: DomainException): HttpException {
     const statusCode: HttpStatus = Number(exception.code);
+    const extensions = this.getValidatedExtensions(exception.extensions);
 
-    if (statusCode === HttpStatus.BAD_REQUEST && exception.extensions.length > 0) {
+    if (statusCode === HttpStatus.BAD_REQUEST && extensions.length > 0) {
       return new HttpException(
         {
-          errorsMessages: exception.extensions.map((extension) => ({
+          code: exception.code,
+          message: exception.message,
+          extensions,
+          errorsMessages: extensions.map((extension) => ({
             field: extension.field,
             message: extension.message,
           })),
@@ -52,10 +57,29 @@ export class GlobalDomainExceptionFilter implements ExceptionFilter {
     return new HttpException(
       {
         code: exception.code,
-        extensions: exception.extensions,
+        extensions,
         message: exception.message,
       },
       statusCode,
     );
+  }
+
+  private getValidatedExtensions(extensions: unknown): Extension[] {
+    if (!Array.isArray(extensions)) {
+      return [];
+    }
+
+    return extensions.filter((extension): extension is Extension => {
+      if (typeof extension !== 'object' || extension === null) {
+        return false;
+      }
+
+      const candidate = extension as Record<string, unknown>;
+      return (
+        Object.keys(candidate).every((key) => key === 'field' || key === 'message') &&
+        typeof candidate.field === 'string' &&
+        typeof candidate.message === 'string'
+      );
+    });
   }
 }

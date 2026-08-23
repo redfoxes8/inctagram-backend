@@ -29,6 +29,7 @@ import { UpdateProfileUseCase } from './application/use-cases/update-profile.use
 import { PaymentRabbitConsumer } from './infrastructure/payment.rabbit.consumer';
 import { UpdateAccountTypeHandler } from './application/commands/update-account-type.command';
 import { GetUserByIdGrpcHandler } from './application/queries/get-user-by-id-grpc.query';
+import { GetNotificationRecipientContextHandler } from './application/queries/get-notification-recipient-context.query';
 import { UserGrpcController } from './api/grpc/user.grpc.controller';
 
 const adapters = [
@@ -48,6 +49,7 @@ const handlers = [
   GetProfileHandler,
   UpdateAccountTypeHandler,
   GetUserByIdGrpcHandler,
+  GetNotificationRecipientContextHandler,
 ];
 
 const repositories = [

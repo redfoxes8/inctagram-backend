@@ -35,6 +35,11 @@ spec:
                  secretKeyRef:
                    name: micro-notification-service-28-04-2026-production-config-secret
                    key: RABBITMQ_URL
+             - name: PRISMA_DB_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PRISMA_DB_URL
              - name: NOTIFICATION_QUEUE_NAME
                valueFrom:
                  secretKeyRef:
