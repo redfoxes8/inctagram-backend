@@ -16,6 +16,7 @@ async function bootstrap(): Promise<void> {
 
   // Затем создаем полноценное приложение
   const app = await NestFactory.create(dynamicAppModule);
+  app.enableShutdownHooks();
 
   const paymentConfig = app.get(PaymentConfig);
 

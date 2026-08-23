@@ -1,6 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsIn, IsInt, IsNotEmpty, IsNumber, IsString, Matches, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  Matches,
+  Max,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -31,11 +42,41 @@ export class PaymentConfig {
   prismaDbUrl: string;
 
   // RabbitMQ Configuration
+  @ValidateIf((config: PaymentConfig) => config.outboxRelayEnabled)
   @IsString({ message: 'Env variable RABBITMQ_URL must be a string' })
   @IsNotEmpty({
     message: 'Set Env variable RABBITMQ_URL, example: amqps://xxxxx',
   })
-  rabbitUrl: string;
+  rabbitUrl: string | null;
+
+  @IsBoolean({ message: 'PAYMENT_OUTBOX_RELAY_ENABLED must be true or false' })
+  outboxRelayEnabled: boolean;
+
+  @IsString({ message: 'PAYMENT_OUTBOX_RELAY_CRON must be a string' })
+  @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/, {
+    message: 'PAYMENT_OUTBOX_RELAY_CRON must be a valid six-field cron expression',
+  })
+  outboxRelayCron: string;
+
+  @IsInt({ message: 'PAYMENT_OUTBOX_RELAY_BATCH_SIZE must be an integer' })
+  @Min(1, { message: 'PAYMENT_OUTBOX_RELAY_BATCH_SIZE must be at least 1' })
+  @Max(100, { message: 'PAYMENT_OUTBOX_RELAY_BATCH_SIZE must not exceed 100' })
+  outboxRelayBatchSize: number;
+
+  @IsInt({ message: 'PAYMENT_OUTBOX_RELAY_MAX_ATTEMPTS must be an integer' })
+  @Min(1, { message: 'PAYMENT_OUTBOX_RELAY_MAX_ATTEMPTS must be at least 1' })
+  @Max(20, { message: 'PAYMENT_OUTBOX_RELAY_MAX_ATTEMPTS must not exceed 20' })
+  outboxRelayMaxAttempts: number;
+
+  @IsInt({ message: 'PAYMENT_OUTBOX_RELAY_BACKOFF_SECONDS must be an integer' })
+  @Min(1, { message: 'PAYMENT_OUTBOX_RELAY_BACKOFF_SECONDS must be at least 1' })
+  @Max(3600, { message: 'PAYMENT_OUTBOX_RELAY_BACKOFF_SECONDS must not exceed 3600' })
+  outboxRelayBackoffSeconds: number;
+
+  @IsInt({ message: 'PAYMENT_OUTBOX_RELAY_LOCK_TIMEOUT_SECONDS must be an integer' })
+  @Min(5, { message: 'PAYMENT_OUTBOX_RELAY_LOCK_TIMEOUT_SECONDS must be at least 5' })
+  @Max(3600, { message: 'PAYMENT_OUTBOX_RELAY_LOCK_TIMEOUT_SECONDS must not exceed 3600' })
+  outboxRelayLockTimeoutSeconds: number;
 
   // Stripe Configuration
   @IsString({ message: 'Env variable STRIPE_SECRET_KEY must be a string' })
@@ -85,7 +126,27 @@ export class PaymentConfig {
 
     this.prismaDbUrl = this.configService.get('PRISMA_DB_URL');
 
-    this.rabbitUrl = this.configService.get('RABBITMQ_URL');
+    this.outboxRelayEnabled = PaymentConfig.requiredBoolean(
+      this.configService.get('PAYMENT_OUTBOX_RELAY_ENABLED'),
+    );
+
+    this.rabbitUrl = this.configService.get('RABBITMQ_URL') ?? null;
+
+    this.outboxRelayCron = this.configService.get('PAYMENT_OUTBOX_RELAY_CRON');
+
+    this.outboxRelayBatchSize = Number(this.configService.get('PAYMENT_OUTBOX_RELAY_BATCH_SIZE'));
+
+    this.outboxRelayMaxAttempts = Number(
+      this.configService.get('PAYMENT_OUTBOX_RELAY_MAX_ATTEMPTS'),
+    );
+
+    this.outboxRelayBackoffSeconds = Number(
+      this.configService.get('PAYMENT_OUTBOX_RELAY_BACKOFF_SECONDS'),
+    );
+
+    this.outboxRelayLockTimeoutSeconds = Number(
+      this.configService.get('PAYMENT_OUTBOX_RELAY_LOCK_TIMEOUT_SECONDS'),
+    );
 
     this.stripeSecretKey = this.configService.get('STRIPE_SECRET_KEY');
 
@@ -108,5 +169,31 @@ export class PaymentConfig {
     this.subscriptionCheckCron = this.configService.get('SUBSCRIPTION_CHECK_CRON');
 
     configValidationUtility.validateConfig(this);
+    PaymentConfig.assertRelayCron(this.outboxRelayCron);
+  }
+
+  private static requiredBoolean(value: string | undefined): boolean {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    throw new Error('PAYMENT_OUTBOX_RELAY_ENABLED must be true or false');
+  }
+
+  private static assertRelayCron(expression: string): void {
+    const limits = [59, 59, 23, 31, 12, 6];
+    const fields = expression.split(/\s+/u);
+    const valid =
+      fields.length === limits.length &&
+      fields.every((field, index) => {
+        if (field === '*') return true;
+        if (field.startsWith('*/')) {
+          const step = Number(field.slice(2));
+          return Number.isInteger(step) && step > 0 && step <= limits[index] + 1;
+        }
+        const value = Number(field);
+        const minimum = index === 3 || index === 4 ? 1 : 0;
+        return Number.isInteger(value) && value >= minimum && value <= limits[index];
+      });
+    if (!valid)
+      throw new Error('PAYMENT_OUTBOX_RELAY_CRON must be a valid six-field cron expression');
   }
 }

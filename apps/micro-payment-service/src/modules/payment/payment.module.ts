@@ -46,6 +46,13 @@ import {
 import { StripePaymentProviderStrategy } from './infrastructure/providers/stripe-payment-provider.strategy';
 import { InitialPaymentWebhookProcessor } from './application/services/initial-payment-webhook.processor';
 import { AdditionalPaymentWebhookProcessor } from './application/services/additional-payment-webhook.processor';
+import {
+  IPaymentOutboxPublisher,
+  IPaymentOutboxRelayRepository,
+} from './application/ports/payment-outbox-relay.port';
+import { PaymentOutboxRelayRepository } from './infrastructure/repositories/payment-outbox-relay.repository';
+import { PaymentOutboxPublisher } from './infrastructure/messaging/payment-outbox.publisher';
+import { PaymentOutboxRelayService } from './infrastructure/messaging/payment-outbox-relay.service';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -100,6 +107,14 @@ const webhookProcessor = [
   { provide: PaymentWebhookProcessor, useExisting: InitialPaymentWebhookProcessor },
 ];
 
+const outboxRelay = [
+  PaymentOutboxRelayRepository,
+  { provide: IPaymentOutboxRelayRepository, useExisting: PaymentOutboxRelayRepository },
+  PaymentOutboxPublisher,
+  { provide: IPaymentOutboxPublisher, useExisting: PaymentOutboxPublisher },
+  PaymentOutboxRelayService,
+];
+
 @Module({
   imports: [CqrsModule],
   providers: [
@@ -108,6 +123,7 @@ const webhookProcessor = [
     ...providerStrategies,
     ...webhookProcessor,
     ...grpcHandlers,
+    ...outboxRelay,
   ],
   controllers: [PaymentGrpcController],
   exports: [
