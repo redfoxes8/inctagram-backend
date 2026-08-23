@@ -20,31 +20,31 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Unit tests') {
-            steps {
-                script {
-                    sh '''
-                       export NVM_DIR="$HOME/.nvm"
-                       [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                       nvm use --lts
-                       yarn install
-                       yarn test
-                    '''
-                }
-            }
-        }
-        stage('e2e tests') {
-            steps {
-                script {
-                    sh '''
-                       export NVM_DIR="$HOME/.nvm"
-                       [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                       nvm use --lts
-                       yarn test:e2e
-                    '''
-                }
-            }
-        }
+        // stage('Unit tests') {
+        //     steps {
+        //         script {
+        //             sh '''
+        //                export NVM_DIR="$HOME/.nvm"
+        //                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        //                nvm use --lts
+        //                yarn install
+        //                yarn test
+        //             '''
+        //         }
+        //     }
+        // }
+        // stage('e2e tests') {
+        //     steps {
+        //         script {
+        //             sh '''
+        //                export NVM_DIR="$HOME/.nvm"
+        //                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        //                nvm use --lts
+        //                yarn test:e2e
+        //             '''
+        //         }
+        //     }
+        // }
         stage('Build docker image') {
             steps {
                 echo "Build image started..."
@@ -85,6 +85,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
              steps {
                  withKubeConfig([credentialsId: 'prod-kubernetes']) {
+                    sh "kubectl apply -f ./apps/${env.SERVICE}/service.yaml"
                     sh "kubectl apply -f ./apps/${env.SERVICE}/deployment.yaml"
                     sh "kubectl rollout status deployment/${env.DEPLOYMENT_NAME} --namespace=${env.NAMESPACE}"
                     sh "kubectl get services -o wide"

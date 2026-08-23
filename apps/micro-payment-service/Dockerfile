@@ -32,4 +32,4 @@ RUN pnpm run build:${SERVICE}
 
 EXPOSE ${PORT}
 
-CMD ["pnpm", "run", "start:micro-payment-service"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy --config apps/micro-payment-service/src/core/prisma/prisma.config.ts && exec pnpm run start:micro-payment-service"]
