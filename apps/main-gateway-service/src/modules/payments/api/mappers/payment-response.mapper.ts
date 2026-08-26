@@ -55,7 +55,7 @@ export class PaymentResponseMapper {
     response: GetPaymentHistoryResponse,
   ): GetPaymentHistoryResponseDto {
     return {
-      items: response.items.map((item) => ({
+      items: (response.items ?? []).map((item) => ({
         transactionId: item.transactionId,
         createdAt: this.timestampToIso(this.requireTimestamp(item.createdAt)),
         paidAt: item.paidAt ? this.timestampToIso(item.paidAt) : null,
@@ -84,7 +84,7 @@ export class PaymentResponseMapper {
   ): GetSubscriptionsResponseDto {
     return {
       current: response.current ? this.toSubscription(response.current) : null,
-      queued: response.queued.map((subscription) => this.toSubscription(subscription)),
+      queued: (response.queued ?? []).map((subscription) => this.toSubscription(subscription)),
     };
   }
 
