@@ -32,4 +32,4 @@ RUN npm run build:${SERVICE}
 
 EXPOSE ${PORT}
 
-CMD npm run 'start:micro-notification-service'
+CMD ["sh", "-c", "npx prisma migrate deploy --config apps/micro-notification-service/src/core/prisma/prisma.config.ts && exec npm run start:micro-notification-service"]
