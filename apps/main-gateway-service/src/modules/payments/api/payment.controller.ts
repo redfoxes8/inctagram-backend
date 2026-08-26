@@ -13,11 +13,19 @@ import {
 import { JwtGuard } from '../../../common/guards/jwt-auth.guard';
 import {
   ApiBearerAuth,
+  ApiBadRequestResponse,
   ApiBody,
+  ApiConflictResponse,
   ApiCreatedResponse,
+  ApiGatewayTimeoutResponse,
   ApiHeader,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
+  ApiServiceUnavailableResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
 import { GetPaymentHistoryQueryParams } from './dto/get-payment-history.query-params';
@@ -31,8 +39,11 @@ import { CreateCheckoutSessionResponseDto } from './dto/create-checkout-session.
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ToggleAutoRenewDto } from './dto/toggle-auto-renew.dto';
 import { GetCheckoutSessionStatusResponseDto } from './dto/get-checkout-session-status.response';
-import { ApiDomainError } from '../../../../../../libs/common/src';
 import { ToggleAutoRenewCommand } from '../application/commands/toggle-auto-renew.command';
+import { GetSubscriptionsResponseDto } from './dto/get-subscriptions.response';
+import { ToggleAutoRenewResponseDto } from './dto/toggle-auto-renew.response';
+import { PaymentApiErrorResponseDto } from './dto/payment-api-error.response';
+import { ProcessWebhookEventResponseDto } from './dto/process-webhook-event.response';
 
 import { Req } from '@nestjs/common';
 import type { Request } from 'express';
@@ -64,6 +75,23 @@ export class PaymentController {
     type: GetPaymentHistoryResponseDto,
     description: 'Paginated payment history',
   })
+  @ApiBadRequestResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Pagination query validation failed.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service request timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service returned an invalid or internal response.',
+  })
   async getPaymentHistory(
     @CurrentUserId() userId: string,
     @Query() query: GetPaymentHistoryQueryParams,
@@ -80,7 +108,28 @@ export class PaymentController {
   @Get('subscriptions')
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  async getSubscriptions(@CurrentUserId() userId: string) {
+  @ApiOperation({
+    summary: 'Get paid subscriptions',
+    description: 'Returns the current subscription and ordered queued paid periods.',
+  })
+  @ApiOkResponse({
+    type: GetSubscriptionsResponseDto,
+    description: 'Current and queued subscriptions.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service request timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service returned an invalid or internal response.',
+  })
+  async getSubscriptions(@CurrentUserId() userId: string): Promise<GetSubscriptionsResponseDto> {
     return this.queryBus.execute(new GetSubscriptionsQuery({ userId }));
   }
 
@@ -89,14 +138,47 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create checkout session',
+    description:
+      'Creates or idempotently retrieves a provider-hosted checkout for an active product.',
   })
   @ApiCreatedResponse({
     type: CreateCheckoutSessionResponseDto,
+    description: 'Checkout session created or recovered.',
+  })
+  @ApiBody({
+    type: CreateCheckoutSessionDto,
   })
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
+    schema: { type: 'string', format: 'uuid' },
     description: 'UUID reused for retries of the same logical checkout request.',
+  })
+  @ApiBadRequestResponse({
+    type: PaymentApiErrorResponseDto,
+    description:
+      'Request validation failed, provider is unsupported, or provider rejected the request (reason PROVIDER_REJECTED).',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiNotFoundResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Active product or provider billing configuration was not found.',
+  })
+  @ApiConflictResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Idempotency or paid-subscription state conflicts with the request.',
+  })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider or payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider or payment service timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider configuration or response is invalid.',
   })
   async createCheckoutSession(
     @CurrentUserId() userId: string,
@@ -135,18 +217,44 @@ export class PaymentController {
     type: ToggleAutoRenewDto,
   })
   @ApiOkResponse({
+    type: ToggleAutoRenewResponseDto,
     description: 'Auto renew updated successfully',
   })
-  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  @ApiDomainError(404, 'Subscription not found', 'Not Found')
-  @ApiDomainError(409, 'Subscription cannot be toggled', 'Conflict')
-  @ApiDomainError(503, 'Payment service unavailable', 'Service unavailable')
-  @ApiDomainError(504, 'Payment provider timed out', 'Gateway Timeout')
+  @ApiParam({
+    name: 'subscriptionId',
+    format: 'uuid',
+    description: 'Subscription identifier.',
+  })
+  @ApiBadRequestResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Request or subscription identifier validation failed.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiNotFoundResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Subscription was not found.',
+  })
+  @ApiConflictResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Subscription state cannot be toggled or requires reconciliation.',
+  })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider state or payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider or payment service timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment provider or payment service returned an internal error.',
+  })
   async toggleAutoRenew(
     @Param('subscriptionId') subscriptionId: string,
     @Body() dto: ToggleAutoRenewDto,
     @CurrentUserId() userId: string,
-  ) {
+  ): Promise<ToggleAutoRenewResponseDto> {
     return this.commandBus.execute(
       new ToggleAutoRenewCommand({
         userId,
@@ -158,6 +266,36 @@ export class PaymentController {
 
   @Post('webhook/stripe')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Receive Stripe webhook',
+    description:
+      'Accepts a Stripe webhook using the exact raw request bytes for signature verification.',
+  })
+  @ApiHeader({
+    name: 'Stripe-Signature',
+    required: true,
+    description: 'Stripe webhook signature for the exact raw request body.',
+  })
+  @ApiBody({
+    description: 'Stripe JSON webhook payload. Signature verification uses its exact raw bytes.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiOkResponse({
+    type: ProcessWebhookEventResponseDto,
+    description: 'Verified event accepted, processed, ignored, or recognized as a duplicate.',
+  })
+  @ApiBadRequestResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Signature/raw body is missing or webhook signature is invalid.',
+  })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Webhook is already processing or requires a retryable later delivery.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Webhook processing returned a sanitized internal error.',
+  })
   async stripeWebhook(@Req() req: RawBodyRequest<Request>): Promise<ProcessWebhookEventResult> {
     const signature = req.headers['stripe-signature'];
 
@@ -201,9 +339,32 @@ export class PaymentController {
     type: GetCheckoutSessionStatusResponseDto,
     description: 'Checkout session status',
   })
-  @ApiDomainError(400, 'Bad Request', 'Invalid checkout session ID')
-  @ApiDomainError(401, 'Unauthorized', 'Unauthorized')
-  @ApiDomainError(404, 'Not Found', 'Checkout session not found or does not belong to the user')
+  @ApiParam({
+    name: 'checkoutSessionId',
+    format: 'uuid',
+    description: 'Local checkout session identifier.',
+  })
+  @ApiBadRequestResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Checkout session identifier is not a UUID v4.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiNotFoundResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Checkout session was not found or does not belong to the user.',
+  })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service request timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service returned an invalid or internal response.',
+  })
   async getCheckoutSessionStatus(
     @Param('checkoutSessionId') checkoutSessionId: string,
     @CurrentUserId() userId: string,

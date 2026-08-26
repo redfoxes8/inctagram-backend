@@ -7,12 +7,17 @@ export enum PaymentProviderDto {
 }
 
 export class CreateCheckoutSessionDto {
-  @ApiProperty()
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Active local payment product identifier.',
+    example: '2b8d6f9a-8f87-4c8b-a3b6-c5de92ca6f14',
+  })
   @IsUUID()
   productId: string;
 
   @ApiProperty({
     enum: PaymentProviderDto,
+    example: PaymentProviderDto.STRIPE,
     description:
       'STRIPE is currently operational. PAYPAL is reserved and currently returns PROVIDER_NOT_SUPPORTED.',
   })
