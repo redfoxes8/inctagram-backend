@@ -82,9 +82,11 @@ export class PaymentRabbitConsumer {
       },
     });
 
-    await transaction.$queryRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtextextended(${event.payload.userId}, 0))
-    `);
+    await transaction.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${event.payload.userId}::text, 0::bigint)
+      ) IS NULL AS "locked"
+    `;
     const user = await transaction.user.findFirst({
       where: { id: event.payload.userId, deletedAt: null },
     });
