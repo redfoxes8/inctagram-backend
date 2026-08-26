@@ -9,7 +9,11 @@ export class PaymentApiErrorExtensionDto {
 }
 
 export class PaymentApiErrorResponseDto {
-  @ApiProperty({ description: 'HTTP-compatible domain error code.', example: 400 })
+  @ApiProperty({
+    type: 'integer',
+    description: 'HTTP-compatible domain error code.',
+    example: 400,
+  })
   code: number;
 
   @ApiProperty({ example: 'Payment provider rejected the request' })

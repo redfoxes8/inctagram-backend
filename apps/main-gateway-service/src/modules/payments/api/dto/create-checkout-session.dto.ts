@@ -26,6 +26,7 @@ export class CreateCheckoutSessionDto {
 
   @ApiProperty({
     description: 'Required consent to automatic renewal for the initial subscription.',
+    enum: [true],
     example: true,
   })
   @IsBoolean()

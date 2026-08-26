@@ -9,14 +9,14 @@ export class SubscriptionProductResponseDto {
   name: string;
   @ApiProperty({ enum: ['WEEK', 'MONTH'], example: 'WEEK' })
   billingInterval: string;
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   billingIntervalCount: number;
 }
 
 export class SubscriptionResponseDto {
   @ApiProperty({ format: 'uuid', example: '59d3a914-1707-42cc-952b-bc46e41d2ea8' })
   id: string;
-  @ApiProperty({ minimum: 1, example: 1 })
+  @ApiProperty({ type: 'integer', minimum: 1, example: 1 })
   sequence: number;
   @ApiProperty({ type: SubscriptionProductResponseDto })
   product: SubscriptionProductResponseDto;

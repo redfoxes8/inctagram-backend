@@ -25,6 +25,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiServiceUnavailableResponse,
+  ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUserId } from '../../auth/api/decorators/current-user-id.decorator';
@@ -56,6 +57,7 @@ import { GatewayConfig } from '../../../core/gateway.config';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 
+@ApiTags('Payments')
 @Controller('payments')
 export class PaymentController {
   constructor(
@@ -152,7 +154,8 @@ export class PaymentController {
     name: 'Idempotency-Key',
     required: true,
     schema: { type: 'string', format: 'uuid' },
-    description: 'UUID reused for retries of the same logical checkout request.',
+    description:
+      'Client-generated UUID v4. Reuse it only when retrying the same logical checkout request.',
   })
   @ApiBadRequestResponse({
     type: PaymentApiErrorResponseDto,
@@ -222,7 +225,9 @@ export class PaymentController {
   })
   @ApiParam({
     name: 'subscriptionId',
+    type: String,
     format: 'uuid',
+    required: true,
     description: 'Subscription identifier.',
   })
   @ApiBadRequestResponse({
@@ -274,6 +279,7 @@ export class PaymentController {
   @ApiHeader({
     name: 'Stripe-Signature',
     required: true,
+    schema: { type: 'string' },
     description: 'Stripe webhook signature for the exact raw request body.',
   })
   @ApiBody({
@@ -341,7 +347,9 @@ export class PaymentController {
   })
   @ApiParam({
     name: 'checkoutSessionId',
+    type: String,
     format: 'uuid',
+    required: true,
     description: 'Local checkout session identifier.',
   })
   @ApiBadRequestResponse({

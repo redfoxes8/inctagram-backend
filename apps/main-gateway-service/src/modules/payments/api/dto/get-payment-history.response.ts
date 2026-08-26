@@ -7,7 +7,11 @@ export class PaymentHistoryItemResponseDto {
   createdAt: string;
   @ApiProperty({ type: String, format: 'date-time', nullable: true, example: null })
   paidAt: string | null;
-  @ApiProperty({ description: 'Amount in integer minor currency units.', example: 800 })
+  @ApiProperty({
+    type: 'integer',
+    description: 'Amount in integer minor currency units.',
+    example: 800,
+  })
   amountMinor: number;
   @ApiProperty({ example: 'USD' })
   currency: string;
@@ -17,7 +21,7 @@ export class PaymentHistoryItemResponseDto {
   productName: string;
   @ApiProperty({ enum: ['WEEK', 'MONTH'], example: 'WEEK' })
   billingInterval: string;
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   billingIntervalCount: number;
   @ApiProperty({ enum: ['STRIPE', 'PAYPAL'], example: 'STRIPE' })
   provider: string;
@@ -39,12 +43,12 @@ export class PaymentHistoryItemResponseDto {
 export class GetPaymentHistoryResponseDto {
   @ApiProperty({ type: [PaymentHistoryItemResponseDto] })
   items: PaymentHistoryItemResponseDto[];
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   totalCount: number;
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   page: number;
-  @ApiProperty({ example: 10 })
+  @ApiProperty({ type: 'integer', example: 10 })
   pageSize: number;
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: 'integer', example: 1 })
   pagesCount: number;
 }
