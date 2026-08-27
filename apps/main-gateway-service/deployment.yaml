@@ -105,16 +105,6 @@ spec:
                  secretKeyRef:
                    name: main-gateway-service-14-04-2026-production-config-secret
                    key: FILE_SERVICE_GRPC_URL
-             - name: STRIPE_SECRET_KEY
-               valueFrom:
-                 secretKeyRef:
-                   name: main-gateway-service-14-04-2026-production-config-secret
-                   key: STRIPE_SECRET_KEY
-             - name: STRIPE_WEBHOOK_SECRET
-               valueFrom:
-                 secretKeyRef:
-                   name: main-gateway-service-14-04-2026-production-config-secret
-                   key: STRIPE_WEBHOOK_SECRET
              - name: GATEWAY_GRPC_HOST
                valueFrom:
                  secretKeyRef:
