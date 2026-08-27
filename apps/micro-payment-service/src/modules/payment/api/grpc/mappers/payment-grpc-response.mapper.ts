@@ -86,6 +86,10 @@ export class PaymentGrpcResponseMapper {
         checkoutPurpose: item.checkoutPurpose
           ? this.checkoutPurpose(item.checkoutPurpose)
           : undefined,
+        subscriptionId: item.subscriptionId ?? undefined,
+        subscriptionEndsAt: item.subscriptionEndsAt
+          ? this.timestamp(item.subscriptionEndsAt)
+          : undefined,
       })),
       totalCount: result.totalCount,
       page: result.page,

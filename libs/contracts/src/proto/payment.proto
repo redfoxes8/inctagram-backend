@@ -98,6 +98,8 @@ message PaymentHistoryItem {
   PaymentTransactionStatus status = 14;
   int32 amount_minor = 15;
   optional CheckoutPurpose checkout_purpose = 16;
+  optional string subscription_id = 17;
+  optional google.protobuf.Timestamp subscription_ends_at = 18;
 }
 
 message CreateCheckoutSessionRequest {

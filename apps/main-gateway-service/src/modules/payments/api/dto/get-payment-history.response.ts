@@ -38,6 +38,23 @@ export class PaymentHistoryItemResponseDto {
     example: 'INITIAL_SUBSCRIPTION',
   })
   checkoutPurpose: string | null;
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Paid subscription period linked to this transaction.',
+    example: '6e7570ad-7888-4400-80b1-0766aa424161',
+  })
+  subscriptionId: string | null;
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Exclusive end boundary of the paid subscription period linked to this transaction.',
+    example: '2026-09-03T12:26:54.000Z',
+  })
+  subscriptionEndsAt: string | null;
 }
 
 export class GetPaymentHistoryResponseDto {

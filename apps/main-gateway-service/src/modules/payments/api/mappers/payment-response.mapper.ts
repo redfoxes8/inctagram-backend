@@ -71,6 +71,10 @@ export class PaymentResponseMapper {
         checkoutPurpose: item.checkoutPurpose
           ? this.checkoutPurposeToString(item.checkoutPurpose)
           : null,
+        subscriptionId: item.subscriptionId ?? null,
+        subscriptionEndsAt: item.subscriptionEndsAt
+          ? this.timestampToIso(item.subscriptionEndsAt)
+          : null,
       })),
       totalCount: response.totalCount,
       page: response.page,

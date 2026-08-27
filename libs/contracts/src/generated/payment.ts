@@ -112,6 +112,8 @@ export interface PaymentHistoryItem {
   status: PaymentTransactionStatus;
   amountMinor: number;
   checkoutPurpose?: CheckoutPurpose | undefined;
+  subscriptionId?: string | undefined;
+  subscriptionEndsAt?: Timestamp | undefined;
 }
 
 export interface CreateCheckoutSessionRequest {

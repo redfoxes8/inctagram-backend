@@ -79,6 +79,8 @@ export type PaymentHistoryResultItem = Readonly<{
   status: PaymentTransactionStatus;
   amountMinor: number;
   checkoutPurpose: CheckoutPurpose | null;
+  subscriptionId: string | null;
+  subscriptionEndsAt: Date | null;
 }>;
 
 export type GetPaymentHistoryResult = Readonly<{
