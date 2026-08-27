@@ -742,8 +742,8 @@ Gateway также не являются runtime-owned configuration.
 Команды выполняются из корня monorepo. Не используйте DB reset как обычный startup step.
 
 1. Проверить ignored development env без вывода secret values.
-2. Поднять локальную инфраструктуру: `docker compose up -d postgres mailpit`; RabbitMQ должен быть
-   доступен локально отдельно, поскольку текущий Compose не объявляет Rabbit service.
+2. Поднять локальную инфраструктуру командой `pnpm infra:up`: root Compose запускает PostgreSQL,
+   RabbitMQ и Mailpit и ожидает их healthchecks.
 3. Проверить Mailpit: SMTP `127.0.0.1:1025`, UI `http://localhost:8025`.
 4. Применить существующие Payment migrations:
    `pnpm exec prisma migrate deploy --config apps/micro-payment-service/src/core/prisma/prisma.config.ts`.
@@ -858,4 +858,4 @@ Generated compilation и прошлые manual diagnostics не являются
   entitlement runtime replay не зафиксирован automated test-ом.
 - Stripe Test Clock delivery и failure→success renewal recovery остаются manual hardening gap.
 - Current Payment config поддерживает только Stripe test mode; live rollout не реализован config policy.
-- RabbitMQ отсутствует в root Compose; локально он должен provision-иться отдельно.
+- RabbitMQ topology создаётся приложениями; root Compose предоставляет только локальный broker.

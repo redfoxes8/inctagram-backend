@@ -8,8 +8,8 @@
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "localhost:run:lt": "npx localtunnel --port 3000",
-    "infra:up": "docker-compose up -d",
-    "infra:down": "docker-compose down",
+    "infra:up": "docker compose up -d --wait --wait-timeout 120",
+    "infra:down": "docker compose stop",
     "infra:logs": "docker-compose logs -f",
     "build": "nest build",
     "build:main-gateway-service": "nest build main-gateway-service",
