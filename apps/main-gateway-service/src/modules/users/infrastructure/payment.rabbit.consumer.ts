@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Nack, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import { AmqpConnection, Nack, RabbitRequest, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { isUUID } from 'class-validator';
 import { Prisma, AccountType } from '../../../core/prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
@@ -13,6 +13,7 @@ import {
 
 type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
+type PaymentRabbitMessage = { properties: { headers?: Record<string, unknown> } };
 
 type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
 type SafePaymentEntitlementError = {
@@ -34,19 +35,40 @@ if (!PAYMENT_ACCOUNT_QUEUE_NAME) {
   throw new Error('PAYMENT_ACCOUNT_QUEUE_NAME is required');
 }
 
+export const PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY =
+  'gateway.payment-entitlement.retry.delay';
+export const PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY =
+  'gateway.payment-entitlement.retry.ready';
+export const PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY = 'gateway.payment-entitlement.dlq';
+export const PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.retry`;
+export const PAYMENT_ENTITLEMENT_DLQ_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.dlq`;
+const PAYMENT_ENTITLEMENT_RETRY_HEADER = 'x-payment-entitlement-retry-count';
+const PAYMENT_ENTITLEMENT_RETRY_DELAY_MS = 5 * 60 * 1_000;
+const PAYMENT_ENTITLEMENT_MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class PaymentRabbitConsumer {
   private readonly logger = new Logger(PaymentRabbitConsumer.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly amqpConnection: AmqpConnection,
+  ) {}
 
   @RabbitSubscribe({
     exchange: 'common_exchange',
-    routingKey: [SUBSCRIPTION_ACTIVATED_ROUTING_KEY, 'payment.subscription.expired'],
+    routingKey: [
+      SUBSCRIPTION_ACTIVATED_ROUTING_KEY,
+      'payment.subscription.expired',
+      PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
+    ],
     queue: PAYMENT_ACCOUNT_QUEUE_NAME,
     queueOptions: { durable: true },
   })
-  public async handlePaymentEntitlementEvent(input: unknown): Promise<Nack | void> {
+  public async handlePaymentEntitlementEvent(
+    input: unknown,
+    @RabbitRequest() message?: PaymentRabbitMessage,
+  ): Promise<Nack | void> {
     try {
       const event = this.validateEvent(input);
       await this.prisma.$transaction((transaction) => this.process(transaction, event));
@@ -58,8 +80,53 @@ export class PaymentRabbitConsumer {
         message: 'Payment entitlement transaction failed',
         error: this.safeError(error),
       });
+      return this.retryOrDeadLetter(input, message);
+    }
+  }
+
+  private async retryOrDeadLetter(
+    input: unknown,
+    message: PaymentRabbitMessage | undefined,
+  ): Promise<Nack | void> {
+    const retryCount = this.retryCount(message);
+    const nextAttempt = retryCount + 1;
+    const terminal = nextAttempt >= PAYMENT_ENTITLEMENT_MAX_ATTEMPTS;
+    try {
+      const published = await this.amqpConnection.publish(
+        'common_exchange',
+        terminal
+          ? PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY
+          : PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
+        input,
+        {
+          persistent: true,
+          mandatory: true,
+          ...(terminal ? {} : { expiration: PAYMENT_ENTITLEMENT_RETRY_DELAY_MS }),
+          headers: { [PAYMENT_ENTITLEMENT_RETRY_HEADER]: nextAttempt },
+        },
+      );
+      if (!published) {
+        throw new Error('RabbitMQ did not confirm entitlement retry publication');
+      }
+      this.logger.warn({
+        message: terminal
+          ? 'Payment entitlement event moved to DLQ after bounded retries'
+          : 'Payment entitlement event scheduled for delayed retry',
+        attempt: nextAttempt,
+      });
+      return;
+    } catch (error: unknown) {
+      this.logger.error({
+        message: 'Payment entitlement retry publication failed',
+        error: this.safeError(error),
+      });
       return new Nack(true);
     }
+  }
+
+  private retryCount(message: PaymentRabbitMessage | undefined): number {
+    const value = message?.properties.headers?.[PAYMENT_ENTITLEMENT_RETRY_HEADER];
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
   }
 
   private async process(

@@ -17,6 +17,13 @@ import { PostsModule } from './modules/posts/posts.module';
 import { FilesModule } from './modules/files/files.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import {
+  PAYMENT_ENTITLEMENT_DLQ_NAME,
+  PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY,
+  PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
+  PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME,
+  PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
+} from './modules/users/infrastructure/payment.rabbit.consumer';
 
 @Module({
   imports: [
@@ -63,6 +70,27 @@ export class AppModule {
           ],
 
           uri: config.rabbitmqUrl,
+
+          queues: [
+            {
+              name: PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME,
+              options: {
+                durable: true,
+                arguments: {
+                  'x-dead-letter-exchange': 'common_exchange',
+                  'x-dead-letter-routing-key': PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
+                },
+              },
+              exchange: 'common_exchange',
+              routingKey: PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
+            },
+            {
+              name: PAYMENT_ENTITLEMENT_DLQ_NAME,
+              options: { durable: true },
+              exchange: 'common_exchange',
+              routingKey: PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY,
+            },
+          ],
 
           connectionInitOptions: { wait: false },
         }),
