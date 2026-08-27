@@ -13,7 +13,9 @@ import {
 
 type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
-type PaymentRabbitMessage = { properties: { headers?: Record<string, unknown> } };
+type PaymentRabbitMessage = {
+  properties: { headers?: Record<string, unknown>; messageId?: string };
+};
 
 type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
 type SafePaymentEntitlementError = {
@@ -101,6 +103,7 @@ export class PaymentRabbitConsumer {
         {
           persistent: true,
           mandatory: true,
+          messageId: this.messageId(input, message),
           ...(terminal ? {} : { expiration: PAYMENT_ENTITLEMENT_RETRY_DELAY_MS }),
           headers: { [PAYMENT_ENTITLEMENT_RETRY_HEADER]: nextAttempt },
         },
@@ -120,6 +123,7 @@ export class PaymentRabbitConsumer {
         message: 'Payment entitlement retry publication failed',
         error: this.safeError(error),
       });
+      await new Promise<void>((resolve) => setTimeout(resolve, PAYMENT_ENTITLEMENT_RETRY_DELAY_MS));
       return new Nack(true);
     }
   }
@@ -127,6 +131,12 @@ export class PaymentRabbitConsumer {
   private retryCount(message: PaymentRabbitMessage | undefined): number {
     const value = message?.properties.headers?.[PAYMENT_ENTITLEMENT_RETRY_HEADER];
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  }
+
+  private messageId(input: unknown, message: PaymentRabbitMessage | undefined): string | undefined {
+    if (typeof message?.properties.messageId === 'string') return message.properties.messageId;
+    if (typeof input !== 'object' || input === null || !('eventId' in input)) return undefined;
+    return typeof input.eventId === 'string' ? input.eventId : undefined;
   }
 
   private async process(

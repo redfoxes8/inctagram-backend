@@ -25,9 +25,12 @@ describe('PaymentRabbitConsumer bounded retry', () => {
     },
   };
 
-  const message = (retryCount?: number): { properties: { headers: Record<string, number> } } => ({
+  const message = (
+    retryCount?: number,
+  ): { properties: { headers: Record<string, number>; messageId: string } } => ({
     properties: {
       headers: retryCount === undefined ? {} : { 'x-payment-entitlement-retry-count': retryCount },
+      messageId: event.eventId,
     },
   });
 
@@ -66,6 +69,8 @@ describe('PaymentRabbitConsumer bounded retry', () => {
       event,
       expect.objectContaining({
         persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
         expiration: 300_000,
         headers: { 'x-payment-entitlement-retry-count': 1 },
       }),
@@ -90,12 +95,29 @@ describe('PaymentRabbitConsumer bounded retry', () => {
   });
 
   it('requeues the original message when retry publication is unavailable', async () => {
+    jest.useFakeTimers();
     const publish = jest.fn().mockRejectedValue(new Error('publish failed'));
 
-    const result = await consumer(publish).handlePaymentEntitlementEvent(event, message());
+    const handling = consumer(publish).handlePaymentEntitlementEvent(event, message());
+    await jest.advanceTimersByTimeAsync(300_000);
+    const result = await handling;
 
     expect(result).toBeInstanceOf(Nack);
     expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
+  });
+
+  it('does not acknowledge when the broker does not confirm retry publication', async () => {
+    jest.useFakeTimers();
+    const publish = jest.fn().mockResolvedValue(false);
+
+    const handling = consumer(publish).handlePaymentEntitlementEvent(event, message());
+    await jest.advanceTimersByTimeAsync(300_000);
+    const result = await handling;
+
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
   });
 
   it('does not acknowledge success before the database transaction commits', async () => {

@@ -23,6 +23,7 @@ import {
   PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
   PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME,
   PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
+  PaymentRabbitConsumer,
 } from './modules/users/infrastructure/payment.rabbit.consumer';
 
 @Module({
@@ -96,7 +97,7 @@ export class AppModule {
         }),
       ],
       controllers: [GatewayController],
-      providers: [FilesHttpClient],
+      providers: [FilesHttpClient, PaymentRabbitConsumer],
     };
   }
 }
