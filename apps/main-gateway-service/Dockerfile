@@ -4,10 +4,6 @@ ARG port
 ARG service
 ENV SERVICE=$service
 ENV PORT=$port
-ENV PNPM_HOME=/home/node/.local/share/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-
-RUN corepack enable
 # Set to a non-root built-in user `node`
 
 USER node
@@ -23,19 +19,21 @@ WORKDIR /home/node/dist/${SERVICE}
 
 
 
-COPY --chown=node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=node package*.json ./
 
-RUN pnpm install --frozen-lockfile
+RUN rm -rf node_modules package-lock.json /tmp/.npm /home/node/.npm \
+&& npm cache clean --force \
+&& npm install --no-audit --no-fund --legacy-peer-deps
 
 # Bundle app source code
 COPY --chown=node . .
 
-RUN pnpm exec prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma
+RUN npx prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma
 
-RUN pnpm run build:${SERVICE}
+RUN npm run build:${SERVICE}
 
 # Bind to all network interfaces so that it can be mapped to the host OS
 
 EXPOSE ${PORT}
 
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy --config apps/main-gateway-service/src/core/prisma/prisma.config.ts && exec pnpm run start:main-gateway-service"]
+CMD ["sh", "-c", "PRISMA_DB_URL_DIRECT=\"$PRISMA_DB_URL\" npx prisma migrate deploy --config apps/main-gateway-service/src/core/prisma/prisma.config.ts && exec npm run start:main-gateway-service"]
