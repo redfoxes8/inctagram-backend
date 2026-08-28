@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AmqpConnection, Nack, RabbitRequest, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import {
+  AmqpConnection,
+  Nack,
+  RabbitPayload,
+  RabbitRequest,
+  RabbitSubscribe,
+} from '@golevelup/nestjs-rabbitmq';
 import { isUUID } from 'class-validator';
 import { Prisma, AccountType } from '../../../core/prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
@@ -14,6 +20,7 @@ import {
 type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
 type PaymentRabbitMessage = {
+  fields?: { redelivered?: boolean };
   properties: { headers?: Record<string, unknown>; messageId?: string };
 };
 
@@ -68,14 +75,31 @@ export class PaymentRabbitConsumer {
     queueOptions: { durable: true },
   })
   public async handlePaymentEntitlementEvent(
-    input: unknown,
+    @RabbitPayload() input: unknown,
     @RabbitRequest() message?: PaymentRabbitMessage,
   ): Promise<Nack | void> {
+    let normalizedInput = input;
     try {
-      const event = this.validateEvent(input);
+      normalizedInput = this.normalizeInput(input);
+      const event = this.validateEvent(normalizedInput);
       await this.prisma.$transaction((transaction) => this.process(transaction, event));
     } catch (error: unknown) {
-      if (error instanceof InvalidPaymentEventError || error instanceof UserNotFoundError) {
+      if (error instanceof InvalidPaymentEventError) {
+        this.logger.warn({
+          message: 'Payment entitlement event rejected',
+          errorKind: 'INVALID_EVENT',
+          ...this.safeEventContext(normalizedInput, message),
+          validationIssue: 'CONTRACT_VALIDATION_FAILED',
+        });
+        return new Nack(false);
+      }
+      if (error instanceof UserNotFoundError) {
+        this.logger.warn({
+          message: 'Payment entitlement event rejected',
+          errorKind: 'USER_NOT_FOUND',
+          ...this.safeEventContext(normalizedInput, message),
+          validationIssue: 'USER_NOT_FOUND',
+        });
         return new Nack(false);
       }
       this.logger.error({
@@ -83,6 +107,18 @@ export class PaymentRabbitConsumer {
         error: this.safeError(error),
       });
       return this.retryOrDeadLetter(input, message);
+    }
+  }
+
+  private normalizeInput(input: unknown): unknown {
+    if (!Buffer.isBuffer(input) && typeof input !== 'string') return input;
+
+    try {
+      const serialized = Buffer.isBuffer(input) ? input.toString('utf8') : input;
+      const parsed: unknown = JSON.parse(serialized);
+      return parsed;
+    } catch {
+      throw new InvalidPaymentEventError();
     }
   }
 
@@ -137,6 +173,20 @@ export class PaymentRabbitConsumer {
     if (typeof message?.properties.messageId === 'string') return message.properties.messageId;
     if (typeof input !== 'object' || input === null || !('eventId' in input)) return undefined;
     return typeof input.eventId === 'string' ? input.eventId : undefined;
+  }
+
+  private safeEventContext(
+    input: unknown,
+    message: PaymentRabbitMessage | undefined,
+  ): Record<string, unknown> {
+    const event = this.isRecord(input) ? input : {};
+    const payload = this.isRecord(event.payload) ? event.payload : {};
+    return {
+      ...(typeof event.eventId === 'string' ? { eventId: event.eventId } : {}),
+      ...(typeof payload.userId === 'string' ? { userId: payload.userId } : {}),
+      ...(typeof event.routingKey === 'string' ? { routingKey: event.routingKey } : {}),
+      redelivered: message?.fields?.redelivered === true,
+    };
   }
 
   private async process(

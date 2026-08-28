@@ -162,4 +162,61 @@ describe('PaymentRabbitConsumer bounded retry', () => {
     expect(result).toBeUndefined();
     expect(publish).not.toHaveBeenCalled();
   });
+
+  it('accepts an already deserialized object payload', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      event,
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('deserializes the publisher wire Buffer before contract validation', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      Buffer.from(JSON.stringify(event)),
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('deserializes a non-JSON-content-type wire string before contract validation', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      JSON.stringify(event),
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed wire JSON without entering the database transaction', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn();
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      Buffer.from('{invalid-json'),
+      message(),
+    );
+
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+  });
 });
