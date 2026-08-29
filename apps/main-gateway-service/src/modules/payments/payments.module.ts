@@ -10,8 +10,10 @@ import { CreateCheckoutSessionHandler } from './application/commands/create-chec
 import { ToggleAutoRenewHandler } from './application/commands/toggle-auto-renew.command';
 import { GetSubscriptionsHandler } from './application/queries/get-subscriptions.query';
 import { GetCheckoutSessionStatusHandler } from './application/queries/get-checkout-session-status.query';
+import { GetAvailableProductsHandler } from './application/queries/get-available-products.query';
 
 const paymentHandlers = [
+  GetAvailableProductsHandler,
   CreateCheckoutSessionHandler,
   ProcessWebhookEventHandler,
   ToggleAutoRenewHandler,

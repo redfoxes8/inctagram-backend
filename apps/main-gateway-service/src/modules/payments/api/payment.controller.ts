@@ -45,6 +45,8 @@ import { GetSubscriptionsResponseDto } from './dto/get-subscriptions.response';
 import { ToggleAutoRenewResponseDto } from './dto/toggle-auto-renew.response';
 import { PaymentApiErrorResponseDto } from './dto/payment-api-error.response';
 import { ProcessWebhookEventResponseDto } from './dto/process-webhook-event.response';
+import { GetAvailableProductsResponseDto } from './dto/get-available-products.response';
+import { GetAvailableProductsQuery } from '../application/queries/get-available-products.query';
 
 import { Req } from '@nestjs/common';
 import type { Request } from 'express';
@@ -65,6 +67,35 @@ export class PaymentController {
     private readonly queryBus: QueryBus,
     private readonly commandBus: CommandBus,
   ) {}
+
+  @Get('products')
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get available payment products',
+    description:
+      'Returns active purchasable Business subscription products. Use productId when creating Checkout.',
+  })
+  @ApiOkResponse({
+    type: GetAvailableProductsResponseDto,
+    description: 'Available products in deterministic billing-period and price order.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service request timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service returned an invalid or internal response.',
+  })
+  public getAvailableProducts(): Promise<GetAvailableProductsResponseDto> {
+    return this.queryBus.execute(new GetAvailableProductsQuery());
+  }
 
   @Get('history')
   @UseGuards(JwtGuard)

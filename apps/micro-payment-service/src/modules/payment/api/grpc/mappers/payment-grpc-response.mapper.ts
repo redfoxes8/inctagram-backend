@@ -4,6 +4,7 @@ import {
   CheckoutSessionStatus,
   CreateCheckoutSessionResponse,
   GetCheckoutSessionStatusResponse,
+  GetAvailableProductsResponse,
   GetPaymentHistoryResponse,
   GetSubscriptionsResponse,
   PaymentKind as ProtoPaymentKind,
@@ -27,6 +28,7 @@ import { SubscriptionStatus } from '../../../domain/enums/subscription-status.en
 import {
   CreateCheckoutSessionResult,
   GetCheckoutSessionStatusResult,
+  GetAvailableProductsResult,
   GetPaymentHistoryResult,
   GetSubscriptionsResult,
   ProcessWebhookEventResult,
@@ -35,6 +37,21 @@ import {
 } from '../../../application/types/payment-grpc.types';
 
 export class PaymentGrpcResponseMapper {
+  public static getAvailableProducts(
+    result: GetAvailableProductsResult,
+  ): GetAvailableProductsResponse {
+    return {
+      items: result.items.map((product) => ({
+        productId: product.productId,
+        name: product.name,
+        amountMinor: product.amountMinor,
+        currency: product.currency,
+        billingInterval: this.billingInterval(product.billingInterval),
+        billingIntervalCount: product.billingIntervalCount,
+      })),
+    };
+  }
+
   public static createCheckoutSession(
     result: CreateCheckoutSessionResult,
   ): CreateCheckoutSessionResponse {

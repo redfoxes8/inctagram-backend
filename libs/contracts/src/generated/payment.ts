@@ -116,6 +116,21 @@ export interface PaymentHistoryItem {
   subscriptionEndsAt?: Timestamp | undefined;
 }
 
+export interface AvailablePaymentProduct {
+  productId: string;
+  name: string;
+  amountMinor: number;
+  currency: string;
+  billingInterval: BillingInterval;
+  billingIntervalCount: number;
+}
+
+export interface GetAvailableProductsRequest {}
+
+export interface GetAvailableProductsResponse {
+  items: AvailablePaymentProduct[];
+}
+
 export interface CreateCheckoutSessionRequest {
   userId: string;
   productId: string;
@@ -199,6 +214,11 @@ export interface GetCheckoutSessionStatusResponse {
 export const INCTAGRAM_PAYMENT_V1_PACKAGE_NAME = 'inctagram.payment.v1';
 
 export interface PaymentServiceClient {
+  getAvailableProducts(
+    request: GetAvailableProductsRequest,
+    metadata?: Metadata,
+  ): Observable<GetAvailableProductsResponse>;
+
   createCheckoutSession(
     request: CreateCheckoutSessionRequest,
     metadata?: Metadata,
@@ -231,6 +251,14 @@ export interface PaymentServiceClient {
 }
 
 export interface PaymentServiceController {
+  getAvailableProducts(
+    request: GetAvailableProductsRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetAvailableProductsResponse>
+    | Observable<GetAvailableProductsResponse>
+    | GetAvailableProductsResponse;
+
   createCheckoutSession(
     request: CreateCheckoutSessionRequest,
     metadata?: Metadata,
@@ -283,6 +311,7 @@ export interface PaymentServiceController {
 export function PaymentServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      'getAvailableProducts',
       'createCheckoutSession',
       'processWebhookEvent',
       'getSubscriptions',

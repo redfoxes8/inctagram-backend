@@ -18,10 +18,16 @@ import { GetSubscriptionsResponseDto } from '../api/dto/get-subscriptions.respon
 import { ToggleAutoRenewResponseDto } from '../api/dto/toggle-auto-renew.response';
 import { GetCheckoutSessionStatusResponseDto } from '../api/dto/get-checkout-session-status.response';
 import { GetCheckoutSessionStatusQueryDto } from '../application/queries/get-checkout-session-status.query';
+import { GetAvailableProductsResponseDto } from '../api/dto/get-available-products.response';
 
 @Injectable()
 export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
   constructor(private readonly paymentGrpcClient: PaymentGrpcClient) {}
+
+  async getAvailableProducts(): Promise<GetAvailableProductsResponseDto> {
+    const response = await this.paymentGrpcClient.getAvailableProducts({});
+    return PaymentResponseMapper.toGetAvailableProducts(response);
+  }
 
   async getPaymentHistory(dto: GetPaymentHistoryQueryDto): Promise<GetPaymentHistoryResponseDto> {
     const request = PaymentRequestMapper.toGetPaymentHistory(dto);

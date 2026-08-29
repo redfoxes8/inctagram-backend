@@ -102,6 +102,21 @@ message PaymentHistoryItem {
   optional google.protobuf.Timestamp subscription_ends_at = 18;
 }
 
+message AvailablePaymentProduct {
+  string product_id = 1;
+  string name = 2;
+  int32 amount_minor = 3;
+  string currency = 4;
+  BillingInterval billing_interval = 5;
+  int32 billing_interval_count = 6;
+}
+
+message GetAvailableProductsRequest {}
+
+message GetAvailableProductsResponse {
+  repeated AvailablePaymentProduct items = 1;
+}
+
 message CreateCheckoutSessionRequest {
   string user_id = 1;
   string product_id = 2;
@@ -189,6 +204,8 @@ message GetCheckoutSessionStatusResponse {
 }
 
 service PaymentService {
+  rpc GetAvailableProducts(GetAvailableProductsRequest)
+      returns (GetAvailableProductsResponse);
   rpc CreateCheckoutSession(CreateCheckoutSessionRequest)
       returns (CreateCheckoutSessionResponse);
   rpc ProcessWebhookEvent(ProcessWebhookEventRequest)

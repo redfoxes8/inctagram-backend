@@ -4,6 +4,8 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   CreateCheckoutSessionRequest,
   CreateCheckoutSessionResponse,
+  GetAvailableProductsRequest,
+  GetAvailableProductsResponse,
   GetCheckoutSessionStatusRequest,
   GetCheckoutSessionStatusResponse,
   GetPaymentHistoryRequest,
@@ -24,6 +26,8 @@ import { GetSubscriptionsResult } from '../../application/types/payment-grpc.typ
 import { GetPaymentHistoryResult } from '../../application/types/payment-grpc.types';
 import { ToggleAutoRenewResult } from '../../application/types/payment-grpc.types';
 import { GetCheckoutSessionStatusResult } from '../../application/types/payment-grpc.types';
+import { GetAvailableProductsResult } from '../../application/types/payment-grpc.types';
+import { GetAvailableProductsQuery } from '../../application/queries/get-available-products.query';
 import { PaymentGrpcRequestMapper } from './mappers/payment-grpc-request.mapper';
 import { PaymentGrpcResponseMapper } from './mappers/payment-grpc-response.mapper';
 
@@ -35,6 +39,16 @@ export class PaymentGrpcController implements PaymentServiceController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
   ) {}
+
+  public async getAvailableProducts(
+    request: GetAvailableProductsRequest,
+  ): Promise<GetAvailableProductsResponse> {
+    void request;
+    const result = await this.queryBus.execute<GetAvailableProductsResult>(
+      new GetAvailableProductsQuery(),
+    );
+    return PaymentGrpcResponseMapper.getAvailableProducts(result);
+  }
 
   public async createCheckoutSession(
     request: CreateCheckoutSessionRequest,

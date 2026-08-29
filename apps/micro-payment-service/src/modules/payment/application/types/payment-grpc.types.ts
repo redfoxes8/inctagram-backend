@@ -46,6 +46,19 @@ export type ProductSummaryResult = Readonly<{
   billingIntervalCount: number;
 }>;
 
+export type AvailableProductResult = Readonly<{
+  productId: string;
+  name: string;
+  amountMinor: number;
+  currency: string;
+  billingInterval: BillingInterval;
+  billingIntervalCount: number;
+}>;
+
+export type GetAvailableProductsResult = Readonly<{
+  items: readonly AvailableProductResult[];
+}>;
+
 export type SubscriptionResult = Readonly<{
   id: string;
   sequence: number;

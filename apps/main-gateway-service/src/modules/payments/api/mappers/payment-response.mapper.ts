@@ -3,6 +3,7 @@ import {
   CheckoutPurpose,
   CheckoutSessionStatus,
   GetCheckoutSessionStatusResponse,
+  GetAvailableProductsResponse,
   GetPaymentHistoryResponse,
   GetSubscriptionsResponse,
   PaymentKind,
@@ -27,8 +28,29 @@ import {
   SubscriptionResponseDto,
 } from '../dto/get-subscriptions.response';
 import { ToggleAutoRenewResponseDto } from '../dto/toggle-auto-renew.response';
+import {
+  GetAvailableProductsResponseDto,
+  ProductBillingIntervalDto,
+} from '../dto/get-available-products.response';
 
 export class PaymentResponseMapper {
+  public static toGetAvailableProducts(
+    response: GetAvailableProductsResponse,
+  ): GetAvailableProductsResponseDto {
+    return {
+      items: (response.items ?? []).map((product) => ({
+        productId: product.productId,
+        name: product.name,
+        amountMinor: product.amountMinor,
+        currency: product.currency,
+        billingInterval: this.billingIntervalToString(
+          product.billingInterval,
+        ) as ProductBillingIntervalDto,
+        billingIntervalCount: product.billingIntervalCount,
+      })),
+    };
+  }
+
   public static toProcessWebhookEvent(
     response: ProcessWebhookEventResponse,
   ): ProcessWebhookEventResult {
