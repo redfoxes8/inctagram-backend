@@ -30,6 +30,7 @@ const corsAllowedHeaders = [
   'Cookie',
   'DNT',
   'Host',
+  'Idempotency-Key',
   'If-Modified-Since',
   'Keep-Alive',
   'Origin',
