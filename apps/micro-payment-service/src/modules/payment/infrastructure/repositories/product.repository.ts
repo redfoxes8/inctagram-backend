@@ -27,6 +27,31 @@ export class ProductRepository implements IProductRepository {
     return records.map((record) => PaymentPrismaMapper.productToDomain(record));
   }
 
+  public async findPurchasable(input: {
+    provider: string;
+    environment: string;
+  }): Promise<ProductEntity[]> {
+    const records = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        providerMappings: {
+          some: {
+            provider: input.provider,
+            environment: input.environment,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: [
+        { billingInterval: 'asc' },
+        { billingIntervalCount: 'asc' },
+        { priceMinor: 'asc' },
+        { id: 'asc' },
+      ],
+    });
+    return records.map((record) => PaymentPrismaMapper.productToDomain(record));
+  }
+
   public async insert(product: ProductEntity): Promise<void> {
     await this.prisma.product.create({ data: PaymentPrismaMapper.productToPrisma(product) });
   }

@@ -8,6 +8,7 @@ import { ToggleAutoRenewHandler } from './application/commands/toggle-auto-renew
 import { GetCheckoutSessionStatusHandler } from './application/queries/get-checkout-session-status.query';
 import { GetPaymentHistoryHandler } from './application/queries/get-payment-history.query';
 import { GetSubscriptionsHandler } from './application/queries/get-subscriptions.query';
+import { GetAvailableProductsHandler } from './application/queries/get-available-products.query';
 import {
   ICheckoutStatusQueryPort,
   IPaymentHistoryQueryPort,
@@ -91,6 +92,7 @@ const providerStrategies = [
 ];
 
 const grpcHandlers = [
+  GetAvailableProductsHandler,
   CreateCheckoutSessionHandler,
   ProcessWebhookEventHandler,
   ToggleAutoRenewHandler,

@@ -12,8 +12,10 @@ import { ToggleAutoRenewCommandDto } from '../../application/commands/toggle-aut
 import { GetPaymentHistoryQueryDto } from '../../application/queries/get-payment-history.query';
 import { GetSubscriptionsQueryDto } from '../../application/queries/get-subscriptions.query';
 import { GetCheckoutSessionStatusQueryDto } from '../../application/queries/get-checkout-session-status.query';
+import { GetAvailableProductsResponseDto } from '../../api/dto/get-available-products.response';
 
 export abstract class IPaymentGrpcAdapter {
+  abstract getAvailableProducts(): Promise<GetAvailableProductsResponseDto>;
   abstract getPaymentHistory(dto: GetPaymentHistoryQueryDto): Promise<GetPaymentHistoryResponseDto>;
 
   abstract getSubscriptions(dto: GetSubscriptionsQueryDto): Promise<GetSubscriptionsResponseDto>;

@@ -52,6 +52,8 @@ export class GetPaymentHistoryHandler implements IQueryHandler<
       status: item.status,
       amountMinor: item.amountMinor,
       checkoutPurpose: item.checkoutPurpose,
+      subscriptionId: item.subscriptionId,
+      subscriptionEndsAt: item.subscriptionEndsAt,
     };
   };
 }

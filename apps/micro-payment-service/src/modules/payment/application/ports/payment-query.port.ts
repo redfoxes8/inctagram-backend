@@ -54,6 +54,8 @@ export type PaymentHistoryItem = Readonly<{
   kind: PaymentKind;
   status: PaymentTransactionStatus;
   checkoutPurpose: CheckoutPurpose | null;
+  subscriptionId: string | null;
+  subscriptionEndsAt: Date | null;
 }>;
 
 export type PaymentHistoryQuery = Readonly<{

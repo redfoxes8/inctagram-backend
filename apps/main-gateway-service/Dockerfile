@@ -28,7 +28,6 @@ RUN rm -rf node_modules package-lock.json /tmp/.npm /home/node/.npm \
 # Bundle app source code
 COPY --chown=node . .
 
-# ДОБАВЬТЕ ЭТУ СТРОКУ:
 RUN npx prisma generate --schema=./apps/main-gateway-service/src/core/prisma/schema.prisma
 
 RUN npm run build:${SERVICE}
@@ -37,4 +36,4 @@ RUN npm run build:${SERVICE}
 
 EXPOSE ${PORT}
 
-CMD npm run 'start:main-gateway-service'
+CMD ["sh", "-c", "PRISMA_DB_URL_DIRECT=\"$PRISMA_DB_URL\" npx prisma migrate deploy --config apps/main-gateway-service/src/core/prisma/prisma.config.ts && exec npm run start:main-gateway-service"]

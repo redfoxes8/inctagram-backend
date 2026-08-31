@@ -79,6 +79,7 @@ export class PaymentQueryRepository
             },
           },
           checkoutSession: { select: { purpose: true } },
+          subscription: { select: { id: true, endsAt: true } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
@@ -103,6 +104,10 @@ export class PaymentQueryRepository
         status: PaymentQueryRepository.paymentStatus(record.status),
         checkoutPurpose: record.checkoutSession
           ? PaymentQueryRepository.checkoutPurpose(record.checkoutSession.purpose)
+          : null,
+        subscriptionId: record.subscription?.id ?? null,
+        subscriptionEndsAt: record.subscription
+          ? new Date(record.subscription.endsAt.getTime())
           : null,
       })),
       page: query.page.page,

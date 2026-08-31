@@ -14,6 +14,7 @@ export function swaggerSetup(app: INestApplication) {
     .addTag('Users')
     .addTag('Profile')
     .addTag('Posts')
+    .addTag('Payments')
     .addTag('Gateway')
     .addTag('Testing')
     .addBearerAuth()

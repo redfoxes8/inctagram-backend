@@ -13,9 +13,14 @@ import {
   ToggleAutoRenewResponse,
   GetCheckoutSessionStatusRequest,
   GetCheckoutSessionStatusResponse,
+  GetAvailableProductsRequest,
+  GetAvailableProductsResponse,
 } from '../../generated/payment';
 
 export abstract class IPaymentServiceClient {
+  abstract getAvailableProducts(
+    request: GetAvailableProductsRequest,
+  ): Observable<GetAvailableProductsResponse>;
   abstract createCheckoutSession(
     request: CreateCheckoutSessionRequest,
   ): Observable<CreateCheckoutSessionResponse>;

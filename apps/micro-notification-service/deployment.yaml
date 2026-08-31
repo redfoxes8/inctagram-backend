@@ -35,11 +35,6 @@ spec:
                  secretKeyRef:
                    name: micro-notification-service-28-04-2026-production-config-secret
                    key: RABBITMQ_URL
-             - name: PRISMA_DB_URL
-               valueFrom:
-                 secretKeyRef:
-                   name: micro-notification-service-28-04-2026-production-config-secret
-                   key: PRISMA_DB_URL
              - name: NOTIFICATION_QUEUE_NAME
                valueFrom:
                  secretKeyRef:
@@ -85,6 +80,61 @@ spec:
                  secretKeyRef:
                    name: micro-notification-service-28-04-2026-production-config-secret
                    key: NODE_ENV
+             - name: SMTP_SECURE
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: SMTP_SECURE
+             - name: GATEWAY_SERVICE_GRPC_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: GATEWAY_SERVICE_GRPC_URL
+             - name: PRISMA_DB_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PRISMA_DB_URL
+             - name: PAYMENT_NOTIFICATION_QUEUE_NAME
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PAYMENT_NOTIFICATION_QUEUE_NAME
+             - name: PAYMENT_NOTIFICATION_DLQ_NAME
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PAYMENT_NOTIFICATION_DLQ_NAME
+             - name: PAYMENT_NOTIFICATION_MAX_ATTEMPTS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PAYMENT_NOTIFICATION_MAX_ATTEMPTS
+             - name: PAYMENT_NOTIFICATION_RETRY_BACKOFF_MS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PAYMENT_NOTIFICATION_RETRY_BACKOFF_MS
+             - name: PAYMENT_NOTIFICATION_PROCESSING_TIMEOUT_SECONDS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: PAYMENT_NOTIFICATION_PROCESSING_TIMEOUT_SECONDS
+             - name: NOTIFICATION_RECIPIENT_GRPC_TIMEOUT_MS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: NOTIFICATION_RECIPIENT_GRPC_TIMEOUT_MS
+             - name: NOTIFICATION_RECIPIENT_GRPC_MAX_RETRIES
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: NOTIFICATION_RECIPIENT_GRPC_MAX_RETRIES
+             - name: NOTIFICATION_RECIPIENT_GRPC_RETRY_BACKOFF_MS
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-notification-service-28-04-2026-production-config-secret
+                   key: NOTIFICATION_RECIPIENT_GRPC_RETRY_BACKOFF_MS
              - name: PORT
                valueFrom:
                  secretKeyRef:

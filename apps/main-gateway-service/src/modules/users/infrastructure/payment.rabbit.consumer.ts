@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Nack, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
+import {
+  AmqpConnection,
+  Nack,
+  RabbitPayload,
+  RabbitRequest,
+  RabbitSubscribe,
+} from '@golevelup/nestjs-rabbitmq';
 import { isUUID } from 'class-validator';
 import { Prisma, AccountType } from '../../../core/prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
@@ -13,6 +19,20 @@ import {
 
 type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
+type PaymentRabbitMessage = {
+  fields?: { redelivered?: boolean; routingKey?: string };
+  properties: { headers?: Record<string, unknown>; messageId?: string };
+};
+
+type PaymentPublishOptions = {
+  persistent: true;
+  mandatory: true;
+  messageId?: string;
+  expiration?: number;
+  headers: Record<string, unknown>;
+};
+
+type TerminalEntitlementReason = 'INVALID_EVENT' | 'USER_NOT_FOUND';
 
 type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
 type SafePaymentEntitlementError = {
@@ -34,32 +54,201 @@ if (!PAYMENT_ACCOUNT_QUEUE_NAME) {
   throw new Error('PAYMENT_ACCOUNT_QUEUE_NAME is required');
 }
 
+export const PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY =
+  'gateway.payment-entitlement.retry.delay';
+export const PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY =
+  'gateway.payment-entitlement.retry.ready';
+export const PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY = 'gateway.payment-entitlement.dlq';
+export const PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.retry`;
+export const PAYMENT_ENTITLEMENT_DLQ_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.dlq`;
+const PAYMENT_ENTITLEMENT_RETRY_HEADER = 'x-payment-entitlement-retry-count';
+const PAYMENT_ENTITLEMENT_TERMINAL_REASON_HEADER = 'x-payment-entitlement-terminal-reason';
+const PAYMENT_ENTITLEMENT_ORIGINAL_ROUTING_KEY_HEADER = 'x-original-routing-key';
+const PAYMENT_ENTITLEMENT_REDELIVERED_HEADER = 'x-original-redelivered';
+const PAYMENT_ENTITLEMENT_RETRY_DELAY_MS = 5 * 60 * 1_000;
+const PAYMENT_ENTITLEMENT_MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class PaymentRabbitConsumer {
   private readonly logger = new Logger(PaymentRabbitConsumer.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly amqpConnection: AmqpConnection,
+  ) {}
 
   @RabbitSubscribe({
     exchange: 'common_exchange',
-    routingKey: [SUBSCRIPTION_ACTIVATED_ROUTING_KEY, 'payment.subscription.expired'],
+    routingKey: [
+      SUBSCRIPTION_ACTIVATED_ROUTING_KEY,
+      'payment.subscription.expired',
+      PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
+    ],
     queue: PAYMENT_ACCOUNT_QUEUE_NAME,
     queueOptions: { durable: true },
   })
-  public async handlePaymentEntitlementEvent(input: unknown): Promise<Nack | void> {
+  public async handlePaymentEntitlementEvent(
+    @RabbitPayload() input: unknown,
+    @RabbitRequest() message?: PaymentRabbitMessage,
+  ): Promise<Nack | void> {
+    let normalizedInput = input;
     try {
-      const event = this.validateEvent(input);
+      normalizedInput = this.normalizeInput(input);
+      const event = this.validateEvent(normalizedInput);
       await this.prisma.$transaction((transaction) => this.process(transaction, event));
     } catch (error: unknown) {
-      if (error instanceof InvalidPaymentEventError || error instanceof UserNotFoundError) {
-        return new Nack(false);
+      if (error instanceof InvalidPaymentEventError) {
+        this.logger.warn({
+          message: 'Payment entitlement event rejected',
+          errorKind: 'INVALID_EVENT',
+          ...this.safeEventContext(normalizedInput, message),
+          validationIssue: 'CONTRACT_VALIDATION_FAILED',
+        });
+        return this.deadLetterTerminal(input, normalizedInput, message, 'INVALID_EVENT');
+      }
+      if (error instanceof UserNotFoundError) {
+        this.logger.warn({
+          message: 'Payment entitlement event rejected',
+          errorKind: 'USER_NOT_FOUND',
+          ...this.safeEventContext(normalizedInput, message),
+          validationIssue: 'USER_NOT_FOUND',
+        });
+        return this.deadLetterTerminal(input, normalizedInput, message, 'USER_NOT_FOUND');
       }
       this.logger.error({
         message: 'Payment entitlement transaction failed',
         error: this.safeError(error),
       });
-      return new Nack(true);
+      return this.retryOrDeadLetter(input, message);
     }
+  }
+
+  private normalizeInput(input: unknown): unknown {
+    if (!Buffer.isBuffer(input) && typeof input !== 'string') return input;
+
+    try {
+      const serialized = Buffer.isBuffer(input) ? input.toString('utf8') : input;
+      const parsed: unknown = JSON.parse(serialized);
+      return parsed;
+    } catch {
+      throw new InvalidPaymentEventError();
+    }
+  }
+
+  private async retryOrDeadLetter(
+    input: unknown,
+    message: PaymentRabbitMessage | undefined,
+  ): Promise<Nack | void> {
+    const retryCount = this.retryCount(message);
+    const nextAttempt = retryCount + 1;
+    const terminal = nextAttempt >= PAYMENT_ENTITLEMENT_MAX_ATTEMPTS;
+    try {
+      await this.publishConfirmed(
+        terminal
+          ? PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY
+          : PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
+        input,
+        {
+          persistent: true,
+          mandatory: true,
+          messageId: this.messageId(input, message),
+          ...(terminal ? {} : { expiration: PAYMENT_ENTITLEMENT_RETRY_DELAY_MS }),
+          headers: { [PAYMENT_ENTITLEMENT_RETRY_HEADER]: nextAttempt },
+        },
+      );
+      this.logger.warn({
+        message: terminal
+          ? 'Payment entitlement event moved to DLQ after bounded retries'
+          : 'Payment entitlement event scheduled for delayed retry',
+        attempt: nextAttempt,
+      });
+      return;
+    } catch (error: unknown) {
+      return this.delayedRequeue(error, 'Payment entitlement retry publication failed');
+    }
+  }
+
+  private async deadLetterTerminal(
+    originalInput: unknown,
+    normalizedInput: unknown,
+    message: PaymentRabbitMessage | undefined,
+    reason: TerminalEntitlementReason,
+  ): Promise<Nack | void> {
+    const retryCount = this.retryCount(message);
+    const context = this.safeEventContext(normalizedInput, message);
+    const originalRoutingKey =
+      typeof context.routingKey === 'string' ? context.routingKey : message?.fields?.routingKey;
+
+    try {
+      await this.publishConfirmed(PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY, originalInput, {
+        persistent: true,
+        mandatory: true,
+        messageId: this.messageId(normalizedInput, message),
+        headers: {
+          [PAYMENT_ENTITLEMENT_RETRY_HEADER]: retryCount,
+          [PAYMENT_ENTITLEMENT_TERMINAL_REASON_HEADER]: reason,
+          ...(originalRoutingKey
+            ? { [PAYMENT_ENTITLEMENT_ORIGINAL_ROUTING_KEY_HEADER]: originalRoutingKey }
+            : {}),
+          [PAYMENT_ENTITLEMENT_REDELIVERED_HEADER]: message?.fields?.redelivered === true,
+        },
+      });
+      this.logger.warn({
+        message: 'Payment entitlement terminal event moved to DLQ',
+        errorKind: reason,
+        ...context,
+      });
+      return;
+    } catch (error: unknown) {
+      return this.delayedRequeue(error, 'Payment entitlement terminal DLQ publication failed');
+    }
+  }
+
+  private async publishConfirmed(
+    routingKey: string,
+    input: unknown,
+    options: PaymentPublishOptions,
+  ): Promise<void> {
+    const published = await this.amqpConnection.publish(
+      'common_exchange',
+      routingKey,
+      input,
+      options,
+    );
+    if (!published) {
+      throw new Error('RabbitMQ did not confirm entitlement publication');
+    }
+  }
+
+  private async delayedRequeue(error: unknown, message: string): Promise<Nack> {
+    this.logger.error({ message, error: this.safeError(error) });
+    await new Promise<void>((resolve) => setTimeout(resolve, PAYMENT_ENTITLEMENT_RETRY_DELAY_MS));
+    return new Nack(true);
+  }
+
+  private retryCount(message: PaymentRabbitMessage | undefined): number {
+    const value = message?.properties.headers?.[PAYMENT_ENTITLEMENT_RETRY_HEADER];
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  }
+
+  private messageId(input: unknown, message: PaymentRabbitMessage | undefined): string | undefined {
+    if (typeof message?.properties.messageId === 'string') return message.properties.messageId;
+    if (typeof input !== 'object' || input === null || !('eventId' in input)) return undefined;
+    return typeof input.eventId === 'string' ? input.eventId : undefined;
+  }
+
+  private safeEventContext(
+    input: unknown,
+    message: PaymentRabbitMessage | undefined,
+  ): Record<string, unknown> {
+    const event = this.isRecord(input) ? input : {};
+    const payload = this.isRecord(event.payload) ? event.payload : {};
+    return {
+      ...(typeof event.eventId === 'string' ? { eventId: event.eventId } : {}),
+      ...(typeof payload.userId === 'string' ? { userId: payload.userId } : {}),
+      ...(typeof event.routingKey === 'string' ? { routingKey: event.routingKey } : {}),
+      redelivered: message?.fields?.redelivered === true,
+    };
   }
 
   private async process(
@@ -82,9 +271,11 @@ export class PaymentRabbitConsumer {
       },
     });
 
-    await transaction.$queryRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtextextended(${event.payload.userId}, 0))
-    `);
+    await transaction.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${event.payload.userId}::text, 0::bigint)
+      ) IS NULL AS "locked"
+    `;
     const user = await transaction.user.findFirst({
       where: { id: event.payload.userId, deletedAt: null },
     });

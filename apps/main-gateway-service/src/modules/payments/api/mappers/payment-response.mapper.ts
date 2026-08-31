@@ -3,6 +3,7 @@ import {
   CheckoutPurpose,
   CheckoutSessionStatus,
   GetCheckoutSessionStatusResponse,
+  GetAvailableProductsResponse,
   GetPaymentHistoryResponse,
   GetSubscriptionsResponse,
   PaymentKind,
@@ -27,8 +28,29 @@ import {
   SubscriptionResponseDto,
 } from '../dto/get-subscriptions.response';
 import { ToggleAutoRenewResponseDto } from '../dto/toggle-auto-renew.response';
+import {
+  GetAvailableProductsResponseDto,
+  ProductBillingIntervalDto,
+} from '../dto/get-available-products.response';
 
 export class PaymentResponseMapper {
+  public static toGetAvailableProducts(
+    response: GetAvailableProductsResponse,
+  ): GetAvailableProductsResponseDto {
+    return {
+      items: (response.items ?? []).map((product) => ({
+        productId: product.productId,
+        name: product.name,
+        amountMinor: product.amountMinor,
+        currency: product.currency,
+        billingInterval: this.billingIntervalToString(
+          product.billingInterval,
+        ) as ProductBillingIntervalDto,
+        billingIntervalCount: product.billingIntervalCount,
+      })),
+    };
+  }
+
   public static toProcessWebhookEvent(
     response: ProcessWebhookEventResponse,
   ): ProcessWebhookEventResult {
@@ -55,7 +77,7 @@ export class PaymentResponseMapper {
     response: GetPaymentHistoryResponse,
   ): GetPaymentHistoryResponseDto {
     return {
-      items: response.items.map((item) => ({
+      items: (response.items ?? []).map((item) => ({
         transactionId: item.transactionId,
         createdAt: this.timestampToIso(this.requireTimestamp(item.createdAt)),
         paidAt: item.paidAt ? this.timestampToIso(item.paidAt) : null,
@@ -71,6 +93,10 @@ export class PaymentResponseMapper {
         checkoutPurpose: item.checkoutPurpose
           ? this.checkoutPurposeToString(item.checkoutPurpose)
           : null,
+        subscriptionId: item.subscriptionId ?? null,
+        subscriptionEndsAt: item.subscriptionEndsAt
+          ? this.timestampToIso(item.subscriptionEndsAt)
+          : null,
       })),
       totalCount: response.totalCount,
       page: response.page,
@@ -84,7 +110,7 @@ export class PaymentResponseMapper {
   ): GetSubscriptionsResponseDto {
     return {
       current: response.current ? this.toSubscription(response.current) : null,
-      queued: response.queued.map((subscription) => this.toSubscription(subscription)),
+      queued: (response.queued ?? []).map((subscription) => this.toSubscription(subscription)),
     };
   }
 

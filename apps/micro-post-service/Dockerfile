@@ -4,6 +4,10 @@ ARG port
 ARG service
 ENV SERVICE=$service
 ENV PORT=$port
+ENV PNPM_HOME=/home/node/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+
+RUN corepack enable
 # Set to a non-root built-in user `node`
 
 USER node
@@ -19,20 +23,19 @@ WORKDIR /home/node/dist/${SERVICE}
 
 
 
-COPY --chown=node package*.json ./
+COPY --chown=node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Bundle app source code
 COPY --chown=node . .
 
-#добавил для генерации клиента Prisma до установки зависимостей
-RUN npm run prisma:post:generate
+RUN pnpm run prisma:post:generate
 
-RUN npm run build:${SERVICE}
+RUN pnpm run build:${SERVICE}
 
 # Bind to all network interfaces so that it can be mapped to the host OS
 
 EXPOSE ${PORT}
 
-CMD npm run 'start:micro-post-service'
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy --config apps/micro-post-service/prisma/prisma.config.ts && exec pnpm run start:micro-post-service"]

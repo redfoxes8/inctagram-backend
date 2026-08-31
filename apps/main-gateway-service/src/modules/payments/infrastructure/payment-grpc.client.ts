@@ -17,6 +17,8 @@ import {
   ProcessWebhookEventResponse,
   GetCheckoutSessionStatusRequest,
   GetCheckoutSessionStatusResponse,
+  GetAvailableProductsRequest,
+  GetAvailableProductsResponse,
 } from '../../../../../../libs/contracts/src';
 
 import { PAYMENT_SERVICE_GRPC_CLIENT } from './payment-grpc.constants';
@@ -36,6 +38,16 @@ export class PaymentGrpcClient implements OnModuleInit {
 
   onModuleInit(): void {
     this.paymentService = this.client.getService<PaymentServiceClient>(PAYMENT_SERVICE_NAME);
+  }
+
+  async getAvailableProducts(
+    request: GetAvailableProductsRequest,
+  ): Promise<GetAvailableProductsResponse> {
+    try {
+      return await firstValueFrom(this.paymentService.getAvailableProducts(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
   }
 
   async getPaymentHistory(request: GetPaymentHistoryRequest): Promise<GetPaymentHistoryResponse> {
