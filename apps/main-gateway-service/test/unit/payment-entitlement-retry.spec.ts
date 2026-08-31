@@ -205,18 +205,118 @@ describe('PaymentRabbitConsumer bounded retry', () => {
     expect(publish).not.toHaveBeenCalled();
   });
 
-  it('rejects malformed wire JSON without entering the database transaction', async () => {
-    const publish = jest.fn();
+  it('dead-letters malformed input once without retry or a database transaction', async () => {
+    let confirmPublish: ((confirmed: boolean) => void) | undefined;
+    const publish = jest.fn().mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        confirmPublish = resolve;
+      }),
+    );
     const transaction = jest.fn();
+    const malformed = Buffer.from('{invalid-json');
+
+    let settled = false;
+    const handling = consumer(publish, transaction)
+      .handlePaymentEntitlementEvent(malformed, message())
+      .then((result) => {
+        settled = true;
+        return result;
+      });
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      dlqRoutingKey,
+      malformed,
+      expect.objectContaining({
+        persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
+        headers: expect.objectContaining({
+          'x-payment-entitlement-terminal-reason': 'INVALID_EVENT',
+          'x-payment-entitlement-retry-count': 0,
+        }),
+      }),
+    );
+    expect(publish).not.toHaveBeenCalledWith(
+      'common_exchange',
+      retryRoutingKey,
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(transaction).not.toHaveBeenCalled();
+
+    confirmPublish?.(true);
+    await expect(handling).resolves.toBeUndefined();
+  });
+
+  it('dead-letters a valid event when the user is missing and preserves it for replay', async () => {
+    const publish = jest.fn().mockResolvedValue(true);
+    const transaction = jest.fn().mockImplementation((work) =>
+      work({
+        paymentEntitlementInbox: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue(undefined),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([{ locked: true }]),
+        user: { findFirst: jest.fn().mockResolvedValue(null) },
+      }),
+    );
 
     const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
-      Buffer.from('{invalid-json'),
+      event,
       message(),
     );
 
-    expect(result).toBeInstanceOf(Nack);
-    expect((result as Nack).requeue).toBe(false);
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      dlqRoutingKey,
+      event,
+      expect.objectContaining({
+        persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
+        headers: expect.objectContaining({
+          'x-payment-entitlement-terminal-reason': 'USER_NOT_FOUND',
+        }),
+      }),
+    );
+    expect(publish).not.toHaveBeenCalledWith(
+      'common_exchange',
+      retryRoutingKey,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('delays requeue when direct terminal DLQ publication fails', async () => {
+    jest.useFakeTimers();
+    const publish = jest.fn().mockRejectedValue(new Error('DLQ unavailable'));
+    const transaction = jest.fn();
+
+    const handling = consumer(publish, transaction).handlePaymentEntitlementEvent(
+      Buffer.from('{invalid-json'),
+      message(),
+    );
+    await Promise.resolve();
+
     expect(transaction).not.toHaveBeenCalled();
-    expect(publish).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledTimes(1);
+    let settled = false;
+    void handling.then(() => {
+      settled = true;
+    });
+    await jest.advanceTimersByTimeAsync(299_999);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+
+    const result = await handling;
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
   });
 });

@@ -20,9 +20,19 @@ import {
 type PaymentEntitlementEvent = SubscriptionActivatedV1 | SubscriptionExpiredV1;
 type TransactionClient = Prisma.TransactionClient;
 type PaymentRabbitMessage = {
-  fields?: { redelivered?: boolean };
+  fields?: { redelivered?: boolean; routingKey?: string };
   properties: { headers?: Record<string, unknown>; messageId?: string };
 };
+
+type PaymentPublishOptions = {
+  persistent: true;
+  mandatory: true;
+  messageId?: string;
+  expiration?: number;
+  headers: Record<string, unknown>;
+};
+
+type TerminalEntitlementReason = 'INVALID_EVENT' | 'USER_NOT_FOUND';
 
 type PaymentEntitlementOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'IGNORED';
 type SafePaymentEntitlementError = {
@@ -52,6 +62,9 @@ export const PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY = 'gateway.payment-entitlement.
 export const PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.retry`;
 export const PAYMENT_ENTITLEMENT_DLQ_NAME = `${PAYMENT_ACCOUNT_QUEUE_NAME}.dlq`;
 const PAYMENT_ENTITLEMENT_RETRY_HEADER = 'x-payment-entitlement-retry-count';
+const PAYMENT_ENTITLEMENT_TERMINAL_REASON_HEADER = 'x-payment-entitlement-terminal-reason';
+const PAYMENT_ENTITLEMENT_ORIGINAL_ROUTING_KEY_HEADER = 'x-original-routing-key';
+const PAYMENT_ENTITLEMENT_REDELIVERED_HEADER = 'x-original-redelivered';
 const PAYMENT_ENTITLEMENT_RETRY_DELAY_MS = 5 * 60 * 1_000;
 const PAYMENT_ENTITLEMENT_MAX_ATTEMPTS = 3;
 
@@ -91,7 +104,7 @@ export class PaymentRabbitConsumer {
           ...this.safeEventContext(normalizedInput, message),
           validationIssue: 'CONTRACT_VALIDATION_FAILED',
         });
-        return new Nack(false);
+        return this.deadLetterTerminal(input, normalizedInput, message, 'INVALID_EVENT');
       }
       if (error instanceof UserNotFoundError) {
         this.logger.warn({
@@ -100,7 +113,7 @@ export class PaymentRabbitConsumer {
           ...this.safeEventContext(normalizedInput, message),
           validationIssue: 'USER_NOT_FOUND',
         });
-        return new Nack(false);
+        return this.deadLetterTerminal(input, normalizedInput, message, 'USER_NOT_FOUND');
       }
       this.logger.error({
         message: 'Payment entitlement transaction failed',
@@ -130,8 +143,7 @@ export class PaymentRabbitConsumer {
     const nextAttempt = retryCount + 1;
     const terminal = nextAttempt >= PAYMENT_ENTITLEMENT_MAX_ATTEMPTS;
     try {
-      const published = await this.amqpConnection.publish(
-        'common_exchange',
+      await this.publishConfirmed(
         terminal
           ? PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY
           : PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
@@ -144,9 +156,6 @@ export class PaymentRabbitConsumer {
           headers: { [PAYMENT_ENTITLEMENT_RETRY_HEADER]: nextAttempt },
         },
       );
-      if (!published) {
-        throw new Error('RabbitMQ did not confirm entitlement retry publication');
-      }
       this.logger.warn({
         message: terminal
           ? 'Payment entitlement event moved to DLQ after bounded retries'
@@ -155,13 +164,66 @@ export class PaymentRabbitConsumer {
       });
       return;
     } catch (error: unknown) {
-      this.logger.error({
-        message: 'Payment entitlement retry publication failed',
-        error: this.safeError(error),
-      });
-      await new Promise<void>((resolve) => setTimeout(resolve, PAYMENT_ENTITLEMENT_RETRY_DELAY_MS));
-      return new Nack(true);
+      return this.delayedRequeue(error, 'Payment entitlement retry publication failed');
     }
+  }
+
+  private async deadLetterTerminal(
+    originalInput: unknown,
+    normalizedInput: unknown,
+    message: PaymentRabbitMessage | undefined,
+    reason: TerminalEntitlementReason,
+  ): Promise<Nack | void> {
+    const retryCount = this.retryCount(message);
+    const context = this.safeEventContext(normalizedInput, message);
+    const originalRoutingKey =
+      typeof context.routingKey === 'string' ? context.routingKey : message?.fields?.routingKey;
+
+    try {
+      await this.publishConfirmed(PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY, originalInput, {
+        persistent: true,
+        mandatory: true,
+        messageId: this.messageId(normalizedInput, message),
+        headers: {
+          [PAYMENT_ENTITLEMENT_RETRY_HEADER]: retryCount,
+          [PAYMENT_ENTITLEMENT_TERMINAL_REASON_HEADER]: reason,
+          ...(originalRoutingKey
+            ? { [PAYMENT_ENTITLEMENT_ORIGINAL_ROUTING_KEY_HEADER]: originalRoutingKey }
+            : {}),
+          [PAYMENT_ENTITLEMENT_REDELIVERED_HEADER]: message?.fields?.redelivered === true,
+        },
+      });
+      this.logger.warn({
+        message: 'Payment entitlement terminal event moved to DLQ',
+        errorKind: reason,
+        ...context,
+      });
+      return;
+    } catch (error: unknown) {
+      return this.delayedRequeue(error, 'Payment entitlement terminal DLQ publication failed');
+    }
+  }
+
+  private async publishConfirmed(
+    routingKey: string,
+    input: unknown,
+    options: PaymentPublishOptions,
+  ): Promise<void> {
+    const published = await this.amqpConnection.publish(
+      'common_exchange',
+      routingKey,
+      input,
+      options,
+    );
+    if (!published) {
+      throw new Error('RabbitMQ did not confirm entitlement publication');
+    }
+  }
+
+  private async delayedRequeue(error: unknown, message: string): Promise<Nack> {
+    this.logger.error({ message, error: this.safeError(error) });
+    await new Promise<void>((resolve) => setTimeout(resolve, PAYMENT_ENTITLEMENT_RETRY_DELAY_MS));
+    return new Nack(true);
   }
 
   private retryCount(message: PaymentRabbitMessage | undefined): number {
