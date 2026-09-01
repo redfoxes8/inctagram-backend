@@ -9,6 +9,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -25,6 +26,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -41,6 +43,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -54,6 +57,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -69,6 +73,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });
@@ -82,6 +87,7 @@ describe('FileEntity - Unit Tests', () => {
       const entity = FileEntity.createNew({
         fileExtension: '.jpg',
         userId: randomUUID(),
+        size: 512,
         fileType: FileTypeDomain.AVATAR,
         region: 'eu-central-1',
       });

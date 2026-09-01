@@ -26,7 +26,7 @@ export class UpdatePostHandler implements ICommandHandler<
   async execute(command: UpdatePostCommand): Promise<CreatePostResponseDto> {
     const { postId, dto, ownerId } = command.params;
 
-    const request = PostRequestMapper.toUpdatePostRequest({ postId, dto, ownerId });
+    const request = PostRequestMapper.toUpdatePost({ postId, dto, ownerId });
     const response = await this.postGrpcClient.updatePost(request);
 
     // Reuse create response mapper since shapes are identical

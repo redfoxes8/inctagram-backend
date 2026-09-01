@@ -28,6 +28,8 @@ import { IGoogleAuthAdapter } from './application/interfaces/google-auth.adapter
 import { GoogleAuthAdapter } from './infrastructure/adapters/google-auth.adapter';
 import { IOAuthAccountsRepository } from './domain/interfaces/oauth-accounts.repository.interface';
 import { PrismaOAuthAccountsRepository } from './infrastructure/oauth-accounts.repository';
+import { PrismaTransactionManager } from '../../core/prisma/transactions/prisma.transaction.manager';
+import { ITransactionManager } from '../../common/interfaces/transaction-manager.interface';
 
 const useCases = [
   RegisterUserUseCase,
@@ -40,6 +42,14 @@ const useCases = [
   AuthEmailResendConfirmationUseCase,
   RefreshTokenUseCase,
 ];
+
+const repositories = [
+  { provide: IOAuthAccountsRepository, useClass: PrismaOAuthAccountsRepository },
+  { provide: IEmailConfirmationRepository, useClass: EmailConfirmationRepositoryImplementation },
+  { provide: IPasswordRecoveryRepository, useClass: PasswordRecoveryRepositoryImplementation },
+];
+
+const managers = [{ provide: ITransactionManager, useClass: PrismaTransactionManager }];
 
 @Module({
   imports: [
@@ -63,10 +73,9 @@ const useCases = [
     JwtStrategy,
     ...useCases,
     { provide: IJwtService, useClass: JwtServiceImplementation },
-    { provide: IEmailConfirmationRepository, useClass: EmailConfirmationRepositoryImplementation },
-    { provide: IPasswordRecoveryRepository, useClass: PasswordRecoveryRepositoryImplementation },
     { provide: IGoogleAuthAdapter, useClass: GoogleAuthAdapter },
-    { provide: IOAuthAccountsRepository, useClass: PrismaOAuthAccountsRepository },
+    ...repositories,
+    ...managers,
   ],
 })
 export class AuthModule {}

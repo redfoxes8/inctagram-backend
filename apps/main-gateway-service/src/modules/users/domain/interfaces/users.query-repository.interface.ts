@@ -1,9 +1,11 @@
-export class UserViewModel {
+import { AccountType } from '../../../../core/prisma/client';
+
+export class UserViewType {
   id: string;
-  username: string;
   email: string;
   createdAt: string;
   isConfirmed: boolean;
+  accountType: AccountType;
 }
 
 export type UserMeViewModel = {
@@ -12,10 +14,9 @@ export type UserMeViewModel = {
 };
 
 export abstract class IUsersQueryRepository {
-  abstract getUserById(id: string): Promise<UserViewModel | null>;
+  abstract getUserById(id: string): Promise<UserViewType | null>;
 
-  abstract getUserByEmail(email: string): Promise<UserViewModel | null>;
+  abstract getUserByEmail(email: string): Promise<UserViewType | null>;
 
-  abstract getProfileById(id: string): Promise<UserMeViewModel | null>;
   abstract countActiveUsers(): Promise<number>;
 }

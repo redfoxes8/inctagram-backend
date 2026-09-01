@@ -77,6 +77,22 @@ message PingResponse {
   string reply = 1;
 }
 
+message GetPostsCountByUserIdRequest {
+  string owner_id = 1;
+}
+
+message GetPostsCountByUserIdResponse {
+  int32 count = 1;
+}
+
+message GetPostByIdRequest {
+  string post_id = 1;
+}
+
+message GetPostByIdResponse {
+  Post post = 1;
+}
+
 service PostService {
   rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
   rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse);
@@ -84,4 +100,6 @@ service PostService {
   rpc GetPostsByUserId(GetPostsByUserIdRequest) returns (GetPostsByUserIdResponse);
   rpc GetLatestPosts(GetLatestPostsRequest) returns (GetLatestPostsResponse);
   rpc Ping(PingRequest) returns (PingResponse);
+  rpc GetPostsCountByUserId(GetPostsCountByUserIdRequest) returns (GetPostsCountByUserIdResponse);
+  rpc GetPostById(GetPostByIdRequest) returns (GetPostByIdResponse);
 }

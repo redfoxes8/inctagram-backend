@@ -7,7 +7,7 @@ export class FilesMessageController implements OnModuleInit {
   onModuleInit(): void {
     // Short startup log to confirm that message controller is present
     this.logger.log(
-      '[RABBIT] consumer registered queue=files_queue exchange=common_exchange routingKey=post.deleted',
+      '[RABBIT] consumer registered queue=files_queue exchange=common_exchange routingKey=post.deleted,profile.avatar.deleted',
     );
   }
 }

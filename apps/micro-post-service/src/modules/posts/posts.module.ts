@@ -14,6 +14,8 @@ import { UpdatePostHandler } from './application/commands/update-post.handler';
 import { DeletePostHandler } from './application/commands/delete-post.handler';
 import { GetUserPostsHandler } from './application/queries/get-user-posts.handler';
 import { GetLatestPostsHandler } from './application/queries/get-latest-posts.query';
+import { GetPostsCountByUserIdHandler } from './application/queries/get-posts-count-by-user-id.handler';
+import { GetPostByIdHandler } from './application/queries/get-post-by-id.handler';
 import { PostQueryRepository } from './infrastructure/repositories/post.query-repository';
 import { IPostQueryRepository } from './domain/interfaces/post-query-repository.interface';
 import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
@@ -26,6 +28,8 @@ const Handlers = [
   DeletePostHandler,
   GetUserPostsHandler,
   GetLatestPostsHandler,
+  GetPostsCountByUserIdHandler,
+  GetPostByIdHandler,
 ];
 const Repositories = [
   PostCommandRepository,

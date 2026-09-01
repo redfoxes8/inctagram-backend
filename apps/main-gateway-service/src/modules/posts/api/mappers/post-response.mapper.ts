@@ -4,6 +4,8 @@ import {
   type CreatePostResponse,
   type GetPostsByUserIdResponse,
   type Post,
+  type GetPostByIdResponse,
+  GetPostsCountByUserIdResponse,
 } from '../../../../../../../libs/contracts/src';
 import {
   CreatePostResponseDto,
@@ -40,6 +42,16 @@ export class PostResponseMapper {
     };
   }
 
+  static toSinglePostResponse(response: GetPostByIdResponse): PostResponseDto {
+    if (!response.post) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Post not found',
+      });
+    }
+    return this.toPostResponse(response.post);
+  }
+
   private static toPostResponse(post: Post): PostResponseDto {
     return {
       id: post.id,
@@ -70,6 +82,10 @@ export class PostResponseMapper {
         updatedAt: this.timestampToDate(post.updatedAt),
       };
     });
+  }
+
+  static getPostsCount(response: GetPostsCountByUserIdResponse): number {
+    return response.count;
   }
 
   private static timestampToDate(timestamp: TimestampLike | undefined): Date {

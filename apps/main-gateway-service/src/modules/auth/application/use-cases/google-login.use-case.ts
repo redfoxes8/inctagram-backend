@@ -1,6 +1,9 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { IGoogleAuthAdapter } from '../interfaces/google-auth.adapter.interface';
-import { IOAuthAccountsRepository } from '../../domain/interfaces/oauth-accounts.repository.interface';
+import { GoogleProfile, IGoogleAuthAdapter } from '../interfaces/google-auth.adapter.interface';
+import {
+  IOAuthAccountsRepository,
+  OAuthAccountData,
+} from '../../domain/interfaces/oauth-accounts.repository.interface';
 import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
 import { IJwtService, AuthTokens, TokenPayload } from '../interfaces/jwt.service.interface';
 import { ISessionsRepository } from '../../../sessions/domain/interfaces/sessions.repository.interface';
@@ -11,7 +14,8 @@ import { UserEntity } from '../../../users/domain/user.entity';
 import { randomUUID } from 'crypto';
 import { SessionEntity } from '../../../sessions/domain/session.entity';
 import { LoginMetadata } from './login.use-case';
-
+import { ProfileEntity } from '../../../users/domain/profile.entity';
+import { IProfileRepository } from '../../../users/domain/interfaces/user-profile.repository.interface';
 
 export class GoogleLoginCommand {
   constructor(
@@ -31,16 +35,20 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
     private readonly sessionsRepository: ISessionsRepository,
     private readonly jwtService: IJwtService,
     private readonly prisma: PrismaService,
+    private readonly profileRepository: IProfileRepository,
   ) {}
 
   async execute(command: GoogleLoginCommand): Promise<AuthTokens> {
     const { authCode, username, metadata, redirectUri } = command;
 
     // Step A: Exchange code for profile
-    const profile = await this.googleAuthAdapter.exchangeCodeForProfile(authCode, redirectUri);
+    const googleProfile: GoogleProfile = await this.googleAuthAdapter.exchangeCodeForProfile(
+      authCode,
+      redirectUri,
+    );
 
     // Step B: Security Check
-    if (!profile.email_verified) {
+    if (!googleProfile.email_verified) {
       throw new DomainException({
         code: DomainExceptionCode.Unauthorized,
         message: 'Google email is not verified',
@@ -48,19 +56,22 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
     }
 
     // Step C: Lookup in OAuthAccountRepository
-    const oauthAccount = await this.oauthAccountsRepository.findByProviderId('google', profile.sub);
+    const oauthAccount: OAuthAccountData | null =
+      await this.oauthAccountsRepository.findByProviderId('google', googleProfile.sub);
     let userId: string;
 
     if (oauthAccount) {
       userId = oauthAccount.userId;
-      const user = await this.usersRepository.findById(userId);
-      if (user && user.email !== profile.email) {
-        user.email = profile.email;
+      const user: UserEntity | null = await this.usersRepository.findById(userId);
+      if (user && user.email !== googleProfile.email) {
+        user.email = googleProfile.email;
         await this.usersRepository.update(user);
       }
     } else {
       // Step D: Account Linking or New User
-      const existingUser = await this.usersRepository.findByEmail(profile.email);
+      const existingUser: UserEntity | null = await this.usersRepository.findByEmail(
+        googleProfile.email,
+      );
 
       if (existingUser) {
         // Account Linking
@@ -68,28 +79,27 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
         await this.oauthAccountsRepository.create({
           userId: userId,
           provider: 'google',
-          providerId: profile.sub,
+          providerId: googleProfile.sub,
         });
       } else {
         // Step E: New User (with Transaction)
-        userId = await this.prisma.$transaction(async (tx) => {
+        userId = await this.prisma.$transaction(async (tx): Promise<string> => {
           // Generate unique username
-          const finalUsername = await this.generateUniqueUsername(username || profile.email.split('@')[0]);
+          const finalUsername: string = await this.generateUniqueUsername(
+            username || googleProfile.email.split('@')[0],
+          );
 
-          const newUser = new UserEntity({
-            id: randomUUID(),
-            username: finalUsername,
-            email: profile.email,
-            passwordHash: null,
-            isConfirmed: true,
-          });
+          const newUser: UserEntity = UserEntity.createNew(googleProfile.email, null);
+          const newProfile: ProfileEntity = ProfileEntity.createNew(newUser.id, finalUsername);
 
-          const createdUser = await this.usersRepository.save(newUser, tx);
+          const createdUser: UserEntity = await this.usersRepository.save(newUser, tx);
+          await this.profileRepository.save(newProfile, tx);
+
           await this.oauthAccountsRepository.create(
             {
               userId: createdUser.id,
               provider: 'google',
-              providerId: profile.sub,
+              providerId: googleProfile.sub,
             },
             tx,
           );
@@ -148,12 +158,7 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
   }
 
   private async checkUsernameAvailability(username: string): Promise<boolean> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        username: username,
-        deletedAt: null,
-      },
-    });
+    const user: ProfileEntity | null = await this.profileRepository.findByUsername(username);
     return !user;
   }
 }

@@ -1,7 +1,9 @@
 import { EmailConfirmationEntity } from '../email-confirmation.entity';
+import { Prisma } from '@prisma/client/extension';
+import TransactionClient = Prisma.TransactionClient;
 
 export abstract class IEmailConfirmationRepository {
-  abstract save(confirmation: EmailConfirmationEntity): Promise<void>;
+  abstract save(confirmation: EmailConfirmationEntity, tx?: TransactionClient): Promise<void>;
 
   abstract findByUserId(userId: string): Promise<EmailConfirmationEntity | null>;
 

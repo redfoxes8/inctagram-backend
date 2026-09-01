@@ -21,10 +21,14 @@ export class NodemailerMailAdapter implements IMailAdapter {
       host: this.notificationConfig.smtpHost,
       port: this.notificationConfig.smtpPort,
       secure: this.notificationConfig.smtpSecure,
-      auth: {
-        user: this.notificationConfig.smtpUser,
-        pass: this.notificationConfig.smtpPassword,
-      },
+      ...(this.notificationConfig.smtpUser && this.notificationConfig.smtpPassword
+        ? {
+            auth: {
+              user: this.notificationConfig.smtpUser,
+              pass: this.notificationConfig.smtpPassword,
+            },
+          }
+        : {}),
     });
   }
 
@@ -63,7 +67,12 @@ export class NodemailerMailAdapter implements IMailAdapter {
   }
 
   private async renderLayout(body: string, context: Record<string, unknown>): Promise<string> {
-    const layoutPath = join(__dirname, 'infrastructure', 'templates', `${MailTemplates.BaseLayout}.hbs`);
+    const layoutPath = join(
+      __dirname,
+      'infrastructure',
+      'templates',
+      `${MailTemplates.BaseLayout}.hbs`,
+    );
     const layoutSource = await readFile(layoutPath, 'utf8');
     const layoutTemplate = Handlebars.compile(layoutSource);
 

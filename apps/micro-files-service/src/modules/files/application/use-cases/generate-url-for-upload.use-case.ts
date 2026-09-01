@@ -42,6 +42,7 @@ export class GenerateUrlForUploadUseCase implements ICommandHandler<
       await this.awsStorageAdapter.generateUploadUrl(presignedUrlRequest);
 
     fileEntity.setS3Props(result.s3Key, result.bucket);
+
     await this.filesRepository.save(fileEntity);
 
     return {

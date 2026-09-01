@@ -5,6 +5,7 @@ import {
 } from '../../../../../../libs/common/src/domain/base.domain.entity';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { randomUUID } from 'crypto';
 
 export type EmailConfirmationEntityProps = BaseDomainEntityProps<string> & {
   userId: string;
@@ -25,6 +26,17 @@ export class EmailConfirmationEntity extends BaseDomainEntity<string> {
     this.confirmationCode = data.confirmationCode;
     this.isConfirmed = data.isConfirmed ?? false;
     this.expirationDate = data.expirationDate ?? add(new Date(), { hours: 1 });
+  }
+
+  public static createNew(userId: string, confirmationCode: string): EmailConfirmationEntity {
+    return new this({
+      id: randomUUID(),
+      userId: userId,
+      confirmationCode: confirmationCode,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    });
   }
 
   public isExpired(): boolean {

@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  SKIPPED
+  FAILED
+}
+
+model NotificationDelivery {
+  eventId              String                    @db.Uuid
+  eventType            String
+  routingKey           String
+  templatePurpose      String
+  templateVersion      Int
+  userId               String
+  status               NotificationDeliveryStatus
+  attempts             Int                       @default(0)
+  availableAt          DateTime                  @default(now())
+  lockedAt             DateTime?
+  processingStartedAt  DateTime?
+  lastErrorCode        String?
+  sentAt               DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@id([eventId, templateVersion])
+  @@index([status, availableAt])
+}

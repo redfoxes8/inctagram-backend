@@ -17,7 +17,7 @@ export class DeletePostHandler implements ICommandHandler<DeletePostCommand, voi
   constructor(private readonly postGrpcClient: PostGrpcClient) {}
 
   async execute(command: DeletePostCommand): Promise<void> {
-    const request = PostRequestMapper.toDeletePostRequest(command.params);
+    const request = PostRequestMapper.toDeletePost(command.params);
 
     await this.postGrpcClient.deletePost(request);
   }

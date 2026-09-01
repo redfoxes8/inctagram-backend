@@ -7,8 +7,10 @@ import {
   type FileServiceClient,
   type GenerateUploadUrlRequest,
   type GenerateUploadUrlResponse,
+  type GetFileStatusRequest,
+  type GetFileStatusResponse,
 } from '../../../../../../libs/contracts/src';
-import { GrpcErrorMapper } from '../../../common/grpc/grpc-error.mapper';
+import { GrpcErrorMapper } from '../../../../../../libs/common/src/grpc/grpc-error.mapper';
 import { FILE_SERVICE_GRPC_CLIENT } from './file-grpc.constants';
 import {
   GetFileStatusBatchRequest,
@@ -40,6 +42,14 @@ export class FileGrpcClient implements OnModuleInit {
       return await firstValueFrom(this.fileService.getFileStatusBatch(request));
     } catch (e) {
       throw GrpcErrorMapper.toDomainException(e);
+    }
+  }
+
+  async getFileStatus(request: GetFileStatusRequest): Promise<GetFileStatusResponse> {
+    try {
+      return await firstValueFrom(this.fileService.getFileStatus(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
     }
   }
 }

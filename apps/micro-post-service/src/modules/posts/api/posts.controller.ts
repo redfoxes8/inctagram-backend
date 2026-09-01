@@ -10,12 +10,18 @@ import {
   type DeletePostResponse,
   type GetPostsByUserIdRequest,
   type GetPostsByUserIdResponse,
+  type GetPostsCountByUserIdRequest,
+  type GetPostsCountByUserIdResponse,
+  type GetPostByIdRequest,
+  type GetPostByIdResponse,
 } from '../../../../../../libs/contracts/src';
 import { GrpcExceptionInterceptor } from '../../../../../../libs/common/src/exceptions/grpc-exception.interceptor';
 import { CreatePostCommand } from '../application/commands/create-post.command';
 import { UpdatePostCommand } from '../application/commands/update-post.command';
 import { DeletePostCommand } from '../application/commands/delete-post.command';
 import { GetUserPostsQuery } from '../application/queries/get-user-posts.query';
+import { GetPostsCountByUserIdQuery } from '../application/queries/get-posts-count-by-user-id.query';
+import { GetPostByIdQuery } from '../application/queries/get-post-by-id.query';
 import type {
   GetLatestPostsRequest,
   GetLatestPostsResponse,
@@ -143,5 +149,36 @@ export class PostsController {
       new GetLatestPostsQuery(data),
     );
     return GrpcResponseMapper.getLatestPostsResponse(result);
+  }
+
+  @GrpcMethod('PostService', 'GetPostsCountByUserId')
+  async getPostsCountByUserId(
+    data: GetPostsCountByUserIdRequest,
+  ): Promise<GetPostsCountByUserIdResponse> {
+    this.logger.log(`[Post MS] gRPC GetPostsCountByUserId received for user: ${data.ownerId}`);
+    const count = await this.queryBus.execute(new GetPostsCountByUserIdQuery(data.ownerId));
+    return { count };
+  }
+
+  @GrpcMethod('PostService', 'GetPostById')
+  async getPostById(data: GetPostByIdRequest): Promise<GetPostByIdResponse> {
+    this.logger.log(`[Post MS] gRPC GetPostById received for post: ${data.postId}`);
+    const post = await this.queryBus.execute(new GetPostByIdQuery(data.postId));
+    return {
+      post: {
+        id: post.id,
+        ownerId: post.ownerId,
+        description: post.description,
+        images: post.images,
+        createdAt: {
+          seconds: Math.floor(post.createdAt.getTime() / 1000),
+          nanos: (post.createdAt.getTime() % 1000) * 1000000,
+        } as any,
+        updatedAt: {
+          seconds: Math.floor(post.updatedAt.getTime() / 1000),
+          nanos: (post.updatedAt.getTime() % 1000) * 1000000,
+        } as any,
+      },
+    };
   }
 }

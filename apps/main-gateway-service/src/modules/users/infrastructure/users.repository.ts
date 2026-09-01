@@ -2,27 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { UserEntity } from '../domain/user.entity';
 import { IUsersRepository } from '../domain/interfaces/users.repository.interface';
-import { UserMapper, type UserRecord } from './mappers/user.mapper';
+import { UserPrismaMapper, type UserRecord } from './mappers/user.prisma.mapper';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
-import { PrismaClient } from '../../../core/prisma/client';
+import { AccountType, PrismaClient } from '../../../core/prisma/client';
+import { Prisma } from '@prisma/client/extension';
+import TransactionClient = Prisma.TransactionClient;
 
 type UserCreateData = {
   id: string;
-  username: string;
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  accountType: AccountType;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 };
 
 type UserUpdateData = {
-  username: string;
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  accountType: AccountType;
   updatedAt: Date;
   deletedAt: Date | null;
 };
@@ -31,13 +33,13 @@ type UserUpdateData = {
 export class PrismaUsersRepository implements IUsersRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(user: UserEntity, tx?: PrismaClient): Promise<UserEntity> {
+  public async save(user: UserEntity, tx?: TransactionClient): Promise<UserEntity> {
     const prisma = tx || this.prismaService;
     const createdUser = await prisma.user.create({
       data: this.toCreateData(user),
     });
 
-    return UserMapper.toDomain(createdUser as UserRecord);
+    return UserPrismaMapper.toDomain(createdUser as UserRecord);
   }
 
   public async findById(id: string): Promise<UserEntity | null> {
@@ -48,7 +50,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       },
     });
 
-    return user ? UserMapper.toDomain(user as UserRecord) : null;
+    return user ? UserPrismaMapper.toDomain(user as UserRecord) : null;
   }
 
   public async findByEmail(email: string): Promise<UserEntity | null> {
@@ -59,18 +61,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       },
     });
 
-    return user ? UserMapper.toDomain(user as UserRecord) : null;
-  }
-
-  public async findByUsernameOrEmail(usernameOrEmail: string): Promise<UserEntity | null> {
-    const user = await this.prismaService.user.findFirst({
-      where: {
-        deletedAt: null,
-        OR: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
-      },
-    });
-
-    return user ? UserMapper.toDomain(user as UserRecord) : null;
+    return user ? UserPrismaMapper.toDomain(user as UserRecord) : null;
   }
 
   public async update(user: UserEntity, tx?: PrismaClient): Promise<UserEntity> {
@@ -99,7 +90,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       throw this.createUserNotFoundException(userId);
     }
 
-    return UserMapper.toDomain(updatedUser as UserRecord);
+    return UserPrismaMapper.toDomain(updatedUser as UserRecord);
   }
 
   private toCreateData(user: UserEntity): UserCreateData {
@@ -107,10 +98,10 @@ export class PrismaUsersRepository implements IUsersRepository {
 
     return {
       id: userId,
-      username: user.username,
       email: user.email,
       passwordHash: user.passwordHash,
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
@@ -120,10 +111,10 @@ export class PrismaUsersRepository implements IUsersRepository {
   private toUpdateData(user: UserEntity): UserUpdateData {
     this.requireUserId(user);
     return {
-      username: user.username,
       email: user.email,
       passwordHash: user.passwordHash,
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
     };

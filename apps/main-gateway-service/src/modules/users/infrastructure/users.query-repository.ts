@@ -2,15 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
   IUsersQueryRepository,
-  type UserMeViewModel,
-  type UserViewModel,
+  type UserViewType,
 } from '../domain/interfaces/users.query-repository.interface';
 
 @Injectable()
 export class PrismaUsersQueryRepository implements IUsersQueryRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async getUserById(id: string): Promise<UserViewModel | null> {
+  public async getUserById(id: string): Promise<UserViewType | null> {
     const user = await this.prismaService.user.findFirst({
       where: {
         id,
@@ -18,10 +17,10 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       },
       select: {
         id: true,
-        username: true,
         email: true,
         createdAt: true,
         isConfirmed: true,
+        accountType: true,
       },
     });
 
@@ -31,14 +30,14 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
 
     return {
       id: user.id,
-      username: user.username,
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isConfirmed: user.isConfirmed,
+      accountType: user.accountType,
     };
   }
 
-  public async getUserByEmail(email: string): Promise<UserViewModel | null> {
+  public async getUserByEmail(email: string): Promise<UserViewType | null> {
     const user = await this.prismaService.user.findFirst({
       where: {
         email,
@@ -46,10 +45,10 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
       },
       select: {
         id: true,
-        username: true,
         email: true,
         createdAt: true,
         isConfirmed: true,
+        accountType: true,
       },
     });
 
@@ -59,32 +58,10 @@ export class PrismaUsersQueryRepository implements IUsersQueryRepository {
 
     return {
       id: user.id,
-      username: user.username,
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       isConfirmed: user.isConfirmed,
-    };
-  }
-
-  public async getProfileById(id: string): Promise<UserMeViewModel | null> {
-    const user = await this.prismaService.user.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
-      select: {
-        username: true,
-        email: true,
-      },
-    });
-
-    if (!user) {
-      return null;
-    }
-
-    return {
-      username: user.username,
-      email: user.email,
+      accountType: user.accountType,
     };
   }
 

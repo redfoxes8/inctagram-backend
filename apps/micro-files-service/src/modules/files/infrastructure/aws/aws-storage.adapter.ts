@@ -14,6 +14,7 @@ import { IStorageAdapter } from '../interfaces/storage-adapter.interface';
 @Injectable()
 export class AwsStorageAdapter implements IStorageAdapter {
   private readonly s3Client: S3Client;
+
   private readonly bucketConfigs: Map<FileTypeDomain, BucketConfig>;
 
   constructor(private readonly config: FilesConfig) {
@@ -31,7 +32,11 @@ export class AwsStorageAdapter implements IStorageAdapter {
   async generateUploadUrl(dto: PresignedUrlRequest): Promise<PresignedUrlResponse> {
     const bucketConfig = this.getBucketConfig(dto.fileType);
 
-    const contentType = CONTENT_TYPE_MAP[dto.fileExtension];
+    const normalizedExtension = dto.fileExtension.startsWith('.')
+      ? dto.fileExtension.toLowerCase()
+      : `.${dto.fileExtension.toLowerCase()}`;
+
+    const contentType = CONTENT_TYPE_MAP[normalizedExtension];
 
     if (!contentType) {
       throw new BadRequestException(
@@ -42,27 +47,32 @@ export class AwsStorageAdapter implements IStorageAdapter {
 
     const s3Key = this.generateS3Key(dto.userId, dto.fileId, dto.fileType);
 
-    const { url, fields } = await createPresignedPost(this.s3Client, {
-      Bucket: bucketConfig.name,
-      Key: s3Key,
-      Expires: bucketConfig.urlExpiration,
-      Fields: {
-        'Content-Type': contentType,
-      },
-      Conditions: [
-        ['content-length-range', 1, bucketConfig.maxFileSize],
-        ['eq', '$Content-Type', contentType],
-      ],
-    });
+    try {
+      const { url, fields } = await createPresignedPost(this.s3Client, {
+        Bucket: bucketConfig.name,
+        Key: s3Key,
+        Expires: bucketConfig.urlExpiration,
+        Fields: {
+          'Content-Type': contentType,
+        },
+        Conditions: [
+          ['content-length-range', 1, bucketConfig.maxFileSize],
+          ['eq', '$Content-Type', contentType],
+        ],
+      });
 
-    return {
-      uploadUrl: url,
-      uploadFields: fields,
-      s3Key: s3Key,
-      bucket: bucketConfig.name,
-      expiresIn: bucketConfig.urlExpiration,
-      fileId: dto.fileId,
-    };
+      return {
+        uploadUrl: url,
+        uploadFields: fields,
+        s3Key: s3Key,
+        bucket: bucketConfig.name,
+        expiresIn: bucketConfig.urlExpiration,
+        fileId: dto.fileId,
+      };
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   }
 
   /**

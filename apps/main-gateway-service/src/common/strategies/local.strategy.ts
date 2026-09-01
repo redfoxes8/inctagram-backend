@@ -7,12 +7,15 @@ import { IUsersRepository } from '../../modules/users/domain/interfaces/users.re
 import { UserEntity } from '../../modules/users/domain/user.entity';
 import { IPasswordService } from '../../modules/users/application/interfaces/password.service.interface';
 import { CurrentUserInfo } from '../../../../../libs/common/types/auth.types';
+import { ProfileEntity } from '../../modules/users/domain/profile.entity';
+import { IProfileRepository } from '../../modules/users/domain/interfaces/user-profile.repository.interface';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
   constructor(
     private userRepository: IUsersRepository,
     private passwordService: IPasswordService,
+    private userProfileRepository: IProfileRepository,
   ) {
     super({
       usernameField: 'usernameOrEmail',
@@ -20,13 +23,27 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(usernameOrEmail: string, password: string): Promise<CurrentUserInfo> {
-    const user: UserEntity | null =
-      await this.userRepository.findByUsernameOrEmail(usernameOrEmail);
-    if (!user) {
-      throw new DomainException({
-        code: DomainExceptionCode.Unauthorized,
-        message: 'Invalid credentials',
-      });
+    let user: UserEntity;
+
+    const userByEmail: UserEntity | null = await this.userRepository.findByEmail(usernameOrEmail);
+
+    if (userByEmail) {
+      user = userByEmail;
+    } else {
+      const userByUsername: ProfileEntity | null =
+        await this.userProfileRepository.findByUsername(usernameOrEmail);
+
+      if (userByUsername) {
+        const userEntity: UserEntity | null = await this.userRepository.findById(
+          userByUsername.userId,
+        );
+        user = userEntity!;
+      } else {
+        throw new DomainException({
+          code: DomainExceptionCode.Unauthorized,
+          message: 'Invalid credentials',
+        });
+      }
     }
 
     if (user.passwordHash === null) {

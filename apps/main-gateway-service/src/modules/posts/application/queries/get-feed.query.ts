@@ -20,7 +20,7 @@ export class GetFeedHandler implements IQueryHandler<GetFeedQuery, GetFeedRespon
   constructor(private readonly postGrpcClient: PostGrpcClient) {}
 
   async execute(query: GetFeedQuery): Promise<GetFeedResponseDto> {
-    const request = PostRequestMapper.toGetPostsByUserIdRequest(query.params);
+    const request = PostRequestMapper.toGetPostsByUserId(query.params);
     const response = await this.postGrpcClient.getPostsByUserId(request);
 
     return PostResponseMapper.toFeedResponse(response);

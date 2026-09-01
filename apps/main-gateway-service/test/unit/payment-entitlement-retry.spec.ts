@@ -1,0 +1,322 @@
+import { AmqpConnection, Nack } from '@golevelup/nestjs-rabbitmq';
+
+import { PrismaService } from '../../src/core/prisma/prisma.service';
+import type { PaymentRabbitConsumer as PaymentRabbitConsumerType } from '../../src/modules/users/infrastructure/payment.rabbit.consumer';
+
+describe('PaymentRabbitConsumer bounded retry', () => {
+  let PaymentRabbitConsumer: typeof PaymentRabbitConsumerType;
+  let retryRoutingKey: string;
+  let dlqRoutingKey: string;
+  const event = {
+    eventId: '6e660aba-669b-4d55-b43b-6ccbfba6e1dd',
+    version: 1,
+    eventType: 'subscription.activated.v1',
+    occurredAt: '2026-08-27T12:00:00.000Z',
+    aggregateType: 'SUBSCRIPTION',
+    aggregateId: '22222222-2222-4222-8222-222222222222',
+    routingKey: 'subscription.activated',
+    payload: {
+      userId: '11111111-1111-4111-8111-111111111111',
+      subscriptionId: '22222222-2222-4222-8222-222222222222',
+      subscriptionSequence: 1,
+      startsAt: '2026-08-27T12:00:00.000Z',
+      endsAt: '2026-09-03T12:00:00.000Z',
+      productId: 'aecb2328-a369-4128-a59a-e4d2f92b155c',
+    },
+  };
+
+  const message = (
+    retryCount?: number,
+  ): { properties: { headers: Record<string, number>; messageId: string } } => ({
+    properties: {
+      headers: retryCount === undefined ? {} : { 'x-payment-entitlement-retry-count': retryCount },
+      messageId: event.eventId,
+    },
+  });
+
+  beforeAll(() => {
+    process.env.PAYMENT_ACCOUNT_QUEUE_NAME = 'gateway-payment-account-test';
+    const consumerModule = jest.requireActual<
+      typeof import('../../src/modules/users/infrastructure/payment.rabbit.consumer')
+    >('../../src/modules/users/infrastructure/payment.rabbit.consumer');
+    PaymentRabbitConsumer = consumerModule.PaymentRabbitConsumer;
+    retryRoutingKey = consumerModule.PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY;
+    dlqRoutingKey = consumerModule.PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY;
+  });
+
+  const consumer = (
+    publish: jest.Mock,
+    transaction: jest.Mock = jest.fn().mockRejectedValue(new Error('transaction failed')),
+  ): PaymentRabbitConsumerType => {
+    const prisma = {
+      $transaction: transaction,
+    };
+    return new PaymentRabbitConsumer(
+      prisma as unknown as PrismaService,
+      { publish } as unknown as AmqpConnection,
+    );
+  };
+
+  it('acknowledges only after scheduling a persistent five-minute retry', async () => {
+    const publish = jest.fn().mockResolvedValue(true);
+
+    const result = await consumer(publish).handlePaymentEntitlementEvent(event, message());
+
+    expect(result).toBeUndefined();
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      retryRoutingKey,
+      event,
+      expect.objectContaining({
+        persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
+        expiration: 300_000,
+        headers: { 'x-payment-entitlement-retry-count': 1 },
+      }),
+    );
+  });
+
+  it('moves the third failed attempt to the durable DLQ route', async () => {
+    const publish = jest.fn().mockResolvedValue(true);
+
+    const result = await consumer(publish).handlePaymentEntitlementEvent(event, message(2));
+
+    expect(result).toBeUndefined();
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      dlqRoutingKey,
+      event,
+      expect.objectContaining({
+        persistent: true,
+        headers: { 'x-payment-entitlement-retry-count': 3 },
+      }),
+    );
+  });
+
+  it('requeues the original message when retry publication is unavailable', async () => {
+    jest.useFakeTimers();
+    const publish = jest.fn().mockRejectedValue(new Error('publish failed'));
+
+    const handling = consumer(publish).handlePaymentEntitlementEvent(event, message());
+    await jest.advanceTimersByTimeAsync(300_000);
+    const result = await handling;
+
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
+  });
+
+  it('does not acknowledge when the broker does not confirm retry publication', async () => {
+    jest.useFakeTimers();
+    const publish = jest.fn().mockResolvedValue(false);
+
+    const handling = consumer(publish).handlePaymentEntitlementEvent(event, message());
+    await jest.advanceTimersByTimeAsync(300_000);
+    const result = await handling;
+
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
+  });
+
+  it('does not acknowledge success before the database transaction commits', async () => {
+    const publish = jest.fn();
+    let commit: (() => void) | undefined;
+    const transaction = jest.fn().mockReturnValue(
+      new Promise<void>((resolve) => {
+        commit = resolve;
+      }),
+    );
+
+    let settled = false;
+    const handling = consumer(publish, transaction)
+      .handlePaymentEntitlementEvent(event, message())
+      .then((result) => {
+        settled = true;
+        return result;
+      });
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+    commit?.();
+    await expect(handling).resolves.toBeUndefined();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps duplicate Inbox events idempotent without retry publication', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockImplementation((work) =>
+      work({
+        paymentEntitlementInbox: {
+          findUnique: jest.fn().mockResolvedValue({ eventId: event.eventId }),
+        },
+      }),
+    );
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      event,
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('accepts an already deserialized object payload', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      event,
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('deserializes the publisher wire Buffer before contract validation', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      Buffer.from(JSON.stringify(event)),
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('deserializes a non-JSON-content-type wire string before contract validation', async () => {
+    const publish = jest.fn();
+    const transaction = jest.fn().mockResolvedValue(undefined);
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      JSON.stringify(event),
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('dead-letters malformed input once without retry or a database transaction', async () => {
+    let confirmPublish: ((confirmed: boolean) => void) | undefined;
+    const publish = jest.fn().mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        confirmPublish = resolve;
+      }),
+    );
+    const transaction = jest.fn();
+    const malformed = Buffer.from('{invalid-json');
+
+    let settled = false;
+    const handling = consumer(publish, transaction)
+      .handlePaymentEntitlementEvent(malformed, message())
+      .then((result) => {
+        settled = true;
+        return result;
+      });
+    await Promise.resolve();
+
+    expect(settled).toBe(false);
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      dlqRoutingKey,
+      malformed,
+      expect.objectContaining({
+        persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
+        headers: expect.objectContaining({
+          'x-payment-entitlement-terminal-reason': 'INVALID_EVENT',
+          'x-payment-entitlement-retry-count': 0,
+        }),
+      }),
+    );
+    expect(publish).not.toHaveBeenCalledWith(
+      'common_exchange',
+      retryRoutingKey,
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(transaction).not.toHaveBeenCalled();
+
+    confirmPublish?.(true);
+    await expect(handling).resolves.toBeUndefined();
+  });
+
+  it('dead-letters a valid event when the user is missing and preserves it for replay', async () => {
+    const publish = jest.fn().mockResolvedValue(true);
+    const transaction = jest.fn().mockImplementation((work) =>
+      work({
+        paymentEntitlementInbox: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue(undefined),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([{ locked: true }]),
+        user: { findFirst: jest.fn().mockResolvedValue(null) },
+      }),
+    );
+
+    const result = await consumer(publish, transaction).handlePaymentEntitlementEvent(
+      event,
+      message(),
+    );
+
+    expect(result).toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      'common_exchange',
+      dlqRoutingKey,
+      event,
+      expect.objectContaining({
+        persistent: true,
+        mandatory: true,
+        messageId: event.eventId,
+        headers: expect.objectContaining({
+          'x-payment-entitlement-terminal-reason': 'USER_NOT_FOUND',
+        }),
+      }),
+    );
+    expect(publish).not.toHaveBeenCalledWith(
+      'common_exchange',
+      retryRoutingKey,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('delays requeue when direct terminal DLQ publication fails', async () => {
+    jest.useFakeTimers();
+    const publish = jest.fn().mockRejectedValue(new Error('DLQ unavailable'));
+    const transaction = jest.fn();
+
+    const handling = consumer(publish, transaction).handlePaymentEntitlementEvent(
+      Buffer.from('{invalid-json'),
+      message(),
+    );
+    await Promise.resolve();
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledTimes(1);
+    let settled = false;
+    void handling.then(() => {
+      settled = true;
+    });
+    await jest.advanceTimersByTimeAsync(299_999);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+
+    const result = await handling;
+    expect(result).toBeInstanceOf(Nack);
+    expect((result as Nack).requeue).toBe(true);
+    jest.useRealTimers();
+  });
+});

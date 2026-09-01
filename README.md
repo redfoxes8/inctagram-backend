@@ -31,6 +31,22 @@
 $ pnpm install
 ```
 
+## Local infrastructure
+
+```bash
+$ pnpm infra:up
+$ pnpm infra:down
+```
+
+`infra:up` creates and waits for healthy PostgreSQL (`localhost:5434`), RabbitMQ
+(`localhost:5672`, management UI at `http://localhost:15672`) and Mailpit
+(`localhost:1025`, UI at `http://localhost:8025`). It starts containers only: run required
+microservices and Prisma migrations separately. Local ignored application env files must use these
+published host ports.
+
+`infra:down` only stops this Compose project's containers. Containers, networks, named volumes and
+stored PostgreSQL/RabbitMQ data are retained for the next `infra:up`.
+
 ## Compile and run the project
 
 ```bash

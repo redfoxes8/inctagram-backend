@@ -1,0 +1,221 @@
+syntax = "proto3";
+
+package inctagram.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+
+enum PaymentProvider {
+  PAYMENT_PROVIDER_UNSPECIFIED = 0;
+  STRIPE = 1;
+  PAYPAL = 2;
+}
+
+enum BillingInterval {
+  BILLING_INTERVAL_UNSPECIFIED = 0;
+  BILLING_INTERVAL_WEEK = 1;
+  BILLING_INTERVAL_MONTH = 2;
+}
+
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  SUBSCRIPTION_STATUS_QUEUED = 2;
+  SUBSCRIPTION_STATUS_EXPIRED = 3;
+  SUBSCRIPTION_STATUS_CANCELED = 4;
+}
+
+enum PaymentKind {
+  PAYMENT_KIND_UNSPECIFIED = 0;
+  PAYMENT_KIND_PURCHASE = 1;
+  PAYMENT_KIND_RENEWAL = 2;
+}
+
+enum PaymentTransactionStatus {
+  PAYMENT_TRANSACTION_STATUS_UNSPECIFIED = 0;
+  PAYMENT_TRANSACTION_STATUS_PENDING = 1;
+  PAYMENT_TRANSACTION_STATUS_PROCESSING = 2;
+  PAYMENT_TRANSACTION_STATUS_SUCCEEDED = 3;
+  PAYMENT_TRANSACTION_STATUS_FAILED = 4;
+  PAYMENT_TRANSACTION_STATUS_REFUNDED = 5;
+  PAYMENT_TRANSACTION_STATUS_PARTIALLY_REFUNDED = 6;
+}
+
+enum CheckoutSessionStatus {
+  CHECKOUT_SESSION_STATUS_UNSPECIFIED = 0;
+  CHECKOUT_SESSION_STATUS_CREATED = 1;
+  CHECKOUT_SESSION_STATUS_COMPLETED = 2;
+  CHECKOUT_SESSION_STATUS_EXPIRED = 3;
+  CHECKOUT_SESSION_STATUS_FAILED = 4;
+}
+
+enum WebhookProcessingStatus {
+  WEBHOOK_PROCESSING_STATUS_UNSPECIFIED = 0;
+  WEBHOOK_PROCESSING_STATUS_RECEIVED = 1;
+  WEBHOOK_PROCESSING_STATUS_PROCESSED = 2;
+  WEBHOOK_PROCESSING_STATUS_IGNORED = 3;
+  WEBHOOK_PROCESSING_STATUS_FAILED = 4;
+}
+
+enum CheckoutPurpose {
+  CHECKOUT_PURPOSE_UNSPECIFIED = 0;
+  CHECKOUT_PURPOSE_INITIAL_SUBSCRIPTION = 1;
+  CHECKOUT_PURPOSE_ADDITIONAL_SUBSCRIPTION = 2;
+}
+
+message ProductSummary {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  BillingInterval billing_interval = 4;
+  int32 billing_interval_count = 5;
+}
+
+message SubscriptionView {
+  string id = 1;
+  int32 sequence = 2;
+  ProductSummary product = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+  optional google.protobuf.Timestamp next_billing_at = 6;
+  bool auto_renew = 7;
+  PaymentProvider provider = 8;
+  SubscriptionStatus status = 9;
+}
+
+message PaymentHistoryItem {
+  string transaction_id = 1;
+  string product_name = 2;
+  reserved 3, 4, 7;
+  reserved "provider", "amount", "subscription_end_date";
+  string currency = 5;
+  optional google.protobuf.Timestamp paid_at = 6;
+  google.protobuf.Timestamp created_at = 8;
+  string product_id = 9;
+  BillingInterval billing_interval = 10;
+  int32 billing_interval_count = 11;
+  PaymentProvider payment_provider = 12;
+  PaymentKind kind = 13;
+  PaymentTransactionStatus status = 14;
+  int32 amount_minor = 15;
+  optional CheckoutPurpose checkout_purpose = 16;
+  optional string subscription_id = 17;
+  optional google.protobuf.Timestamp subscription_ends_at = 18;
+}
+
+message AvailablePaymentProduct {
+  string product_id = 1;
+  string name = 2;
+  int32 amount_minor = 3;
+  string currency = 4;
+  BillingInterval billing_interval = 5;
+  int32 billing_interval_count = 6;
+}
+
+message GetAvailableProductsRequest {}
+
+message GetAvailableProductsResponse {
+  repeated AvailablePaymentProduct items = 1;
+}
+
+message CreateCheckoutSessionRequest {
+  string user_id = 1;
+  string product_id = 2;
+  reserved 3;
+  reserved "provider";
+  string success_url = 4;
+  string cancel_url = 5;
+  bool auto_renew_consent = 6;
+  string idempotency_key = 7;
+  PaymentProvider payment_provider = 8;
+}
+
+message CreateCheckoutSessionResponse {
+  string checkout_url = 1;
+  string checkout_session_id = 2;
+  optional google.protobuf.Timestamp expires_at = 3;
+}
+
+message ProviderSignatureHeader {
+  string name = 1;
+  string value = 2;
+}
+
+message ProcessWebhookEventRequest {
+  PaymentProvider provider = 1;
+  reserved 2;
+  reserved "event_type";
+  bytes raw_payload = 3;
+  repeated ProviderSignatureHeader signature_headers = 4;
+  google.protobuf.Timestamp received_at = 5;
+}
+
+message ProcessWebhookEventResponse {
+  bool accepted = 1;
+  bool duplicate = 2;
+  WebhookProcessingStatus status = 3;
+}
+
+message GetSubscriptionsRequest {
+  string user_id = 1;
+}
+
+message GetSubscriptionsResponse {
+  reserved 1;
+  reserved "subscriptions";
+  optional SubscriptionView current = 2;
+  repeated SubscriptionView queued = 3;
+}
+
+message GetPaymentHistoryRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetPaymentHistoryResponse {
+  repeated PaymentHistoryItem items = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 pages_count = 5;
+}
+
+message ToggleAutoRenewRequest {
+  string subscription_id = 1;
+  string user_id = 2;
+  bool enabled = 3;
+}
+
+message ToggleAutoRenewResponse {
+  bool success = 1;
+  bool auto_renew = 2;
+  optional google.protobuf.Timestamp next_billing_at = 3;
+  optional string provider_status = 4;
+}
+
+message GetCheckoutSessionStatusRequest {
+  string user_id = 1;
+  string checkout_session_id = 2;
+}
+
+message GetCheckoutSessionStatusResponse {
+  CheckoutSessionStatus status = 1;
+  optional string subscription_id = 2;
+}
+
+service PaymentService {
+  rpc GetAvailableProducts(GetAvailableProductsRequest)
+      returns (GetAvailableProductsResponse);
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest)
+      returns (CreateCheckoutSessionResponse);
+  rpc ProcessWebhookEvent(ProcessWebhookEventRequest)
+      returns (ProcessWebhookEventResponse);
+  rpc GetSubscriptions(GetSubscriptionsRequest)
+      returns (GetSubscriptionsResponse);
+  rpc GetPaymentHistory(GetPaymentHistoryRequest)
+      returns (GetPaymentHistoryResponse);
+  rpc ToggleAutoRenew(ToggleAutoRenewRequest)
+      returns (ToggleAutoRenewResponse);
+  rpc GetCheckoutSessionStatus(GetCheckoutSessionStatusRequest)
+      returns (GetCheckoutSessionStatusResponse);
+}

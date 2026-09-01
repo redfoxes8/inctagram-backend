@@ -13,9 +13,10 @@ export class AuthEmailResendConfirmationCommand {
 }
 
 @CommandHandler(AuthEmailResendConfirmationCommand)
-export class AuthEmailResendConfirmationUseCase
-  implements ICommandHandler<AuthEmailResendConfirmationCommand, void | string>
-{
+export class AuthEmailResendConfirmationUseCase implements ICommandHandler<
+  AuthEmailResendConfirmationCommand,
+  void | string
+> {
   constructor(
     private usersRepository: IUsersRepository,
     private emailConfirmationRepository: IEmailConfirmationRepository,
