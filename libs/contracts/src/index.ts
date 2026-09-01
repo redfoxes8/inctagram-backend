@@ -73,6 +73,22 @@ export {
   INCTAGRAM_PAYMENT_V1_PACKAGE_NAME,
 } from './generated/payment';
 
+export {
+  NotificationType,
+  type NotificationItem,
+  type GetNotificationsRequest,
+  type GetNotificationsResponse,
+  type GetUnseenNotificationCountRequest,
+  type GetUnseenNotificationCountResponse,
+  type MarkNotificationsSeenRequest,
+  type MarkNotificationsSeenResponse,
+  type NotificationServiceClient,
+  type NotificationServiceController,
+  NotificationServiceControllerMethods,
+  NOTIFICATION_SERVICE_NAME,
+  INCTAGRAM_NOTIFICATION_V1_PACKAGE_NAME,
+} from './generated/inctagram/notification/v1/notification';
+
 export { type Empty } from './generated/google/protobuf/empty';
 export { type Timestamp } from './generated/google/protobuf/timestamp';
 
@@ -92,9 +108,11 @@ export {
 export * from './post/interfaces/post.service.interface';
 export * from './file/interfaces/file.service.interface';
 export * from './payment/interfaces/payment.service.interface';
+export * from './notification/interfaces/notification.service.interface';
 export * from './events/post-deleted.event';
 export * from './events/avatar-deleted.event';
 export * from './events/payment-subscription-expired.event';
 export * from './events/payment-succeeded.event';
 export * from './events/payment-failed.event';
 export * from './events/payment-integration-events-v1.event';
+export * from './events/notification-events-v1.event';
