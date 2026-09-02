@@ -12,6 +12,13 @@ import { SendPaymentFailedEmailHandler } from './application/commands/send-payme
 import { SendSubscriptionExpiredEmailHandler } from './application/commands/send-subscription-expired-email.command';
 import { PaymentEventsConsumer } from './api/rabbit/payment-events.consumer';
 import { NotificationPrismaService } from '../../core/prisma/prisma.service';
+import { INotificationPersistencePort } from './application/ports/notification-persistence.port';
+import { PersistRequestedNotificationService } from './application/services/persist-requested-notification.service';
+import { PrismaNotificationPersistenceRepository } from './infrastructure/repositories/prisma-notification-persistence.repository';
+import { PersistedPaymentNotificationConsumer } from './api/rabbit/persisted-payment-notification.consumer';
+import { NotificationOutboxRepository } from './infrastructure/repositories/notification-outbox.repository';
+import { NotificationOutboxPublisher } from './infrastructure/messaging/notification-outbox.publisher';
+import { NotificationOutboxRecoveryService } from './infrastructure/messaging/notification-outbox-recovery.service';
 
 const commandHandlers = [
   SendPaymentSucceededEmailHandler,
@@ -25,6 +32,7 @@ const commandHandlers = [
   providers: [
     NotificationsService,
     PaymentEventsConsumer,
+    PersistedPaymentNotificationConsumer,
     {
       provide: IMailAdapter,
       useClass: NodemailerMailAdapter,
@@ -32,7 +40,16 @@ const commandHandlers = [
 
     ...commandHandlers,
     NotificationPrismaService,
+    PersistRequestedNotificationService,
+    PrismaNotificationPersistenceRepository,
+    NotificationOutboxRepository,
+    NotificationOutboxPublisher,
+    NotificationOutboxRecoveryService,
+    {
+      provide: INotificationPersistencePort,
+      useExisting: PrismaNotificationPersistenceRepository,
+    },
   ],
-  exports: [IMailAdapter, NotificationsService],
+  exports: [IMailAdapter, NotificationsService, PersistRequestedNotificationService],
 })
 export class NotificationsModule {}
