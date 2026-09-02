@@ -187,11 +187,16 @@ export class PaymentOutboxPublisher implements IPaymentOutboxPublisher {
       },
     };
     const contract = expected[event.eventType];
+    const notificationContract =
+      event.eventType === 'payment.notification.requested.v1' &&
+      event.routingKey === 'payment.notification.requested' &&
+      (event.aggregateType === 'SUBSCRIPTION' || event.aggregateType === 'PAYMENT_TRANSACTION');
     if (
       event.eventVersion !== 1 ||
-      !contract ||
-      contract.routingKey !== event.routingKey ||
-      contract.aggregateType !== event.aggregateType ||
+      (!notificationContract &&
+        (!contract ||
+          contract.routingKey !== event.routingKey ||
+          contract.aggregateType !== event.aggregateType)) ||
       !Number.isFinite(event.occurredAt.getTime())
     ) {
       throw new Error('OUTBOX_EVENT_CONTRACT_INVALID');

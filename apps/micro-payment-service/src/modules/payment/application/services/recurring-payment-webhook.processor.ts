@@ -30,10 +30,22 @@ import {
   RenewalSucceededProviderEvent,
 } from '../ports/payment-provider.types';
 import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-unit-of-work.port';
+import { StagePaidAccessNotificationService } from './stage-paid-access-notification.service';
+import { PaymentNotificationEventFactory } from '../../domain/payment-notification-event.factory';
+import { PaymentNotificationBusinessKeyFactory } from '../../domain/payment-notification-business-key.factory';
+import { PaymentNotificationType } from '../../../../../../../libs/contracts/src/events/notification-events-v1.event';
+import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
+import { PaymentOutboxRelayService } from '../../infrastructure/messaging/payment-outbox-relay.service';
 
 @Injectable()
 export class RecurringPaymentWebhookProcessor {
-  constructor(private readonly unitOfWork: IPaymentUnitOfWork) {}
+  constructor(
+    private readonly unitOfWork: IPaymentUnitOfWork,
+    private readonly stageNotification: StagePaidAccessNotificationService,
+    private readonly notificationEventFactory: PaymentNotificationEventFactory,
+    private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
+    private readonly outboxRelay: PaymentOutboxRelayService,
+  ) {}
 
   public processCorrelation(event: ProviderRenewalCorrelatedEvent): Promise<void> {
     if (!event.providerSubscriptionId || !event.providerRenewalId) {
@@ -75,8 +87,8 @@ export class RecurringPaymentWebhookProcessor {
     });
   }
 
-  public processFailure(event: RenewalFailedProviderEvent): Promise<void> {
-    return this.unitOfWork.execute(async (context) => {
+  public async processFailure(event: RenewalFailedProviderEvent): Promise<void> {
+    const notificationOutboxEventId = await this.unitOfWork.execute(async (context) => {
       const facts = await this.loadAndValidateFacts(context, event);
       const result = await this.findOrCreateTransaction(context, event, facts);
       const transaction = result.transaction;
@@ -99,19 +111,43 @@ export class RecurringPaymentWebhookProcessor {
       await context.providerWebhookEvents.save(facts.journal);
       if (firstFailure)
         await context.outbox.write(this.paymentFailedEvent(event, facts, transaction));
+      if (firstFailure) {
+        const notificationEvent = this.notificationEventFactory.create({
+          occurredAt: this.parseOccurredAt(event.occurredAt),
+          aggregateType: 'PAYMENT_TRANSACTION',
+          aggregateId: transaction.id,
+          payload: {
+            type: PaymentNotificationType.PAYMENT_FAILED,
+            userId: facts.subscription.getUserId(),
+            businessKey: PaymentNotificationBusinessKeyFactory.paymentFailed(facts.invoiceId),
+            subscriptionId: facts.subscription.id,
+            providerInvoiceId: facts.invoiceId,
+            effectiveAt: event.occurredAt,
+            subscriptionEndsAt: facts.subscription.getEndsAt().toISOString(),
+            reasonCode: null,
+          },
+        });
+        await context.outbox.write(notificationEvent);
+        return notificationEvent.eventId;
+      }
+      return null;
     });
+    if (notificationOutboxEventId) {
+      await this.outboxRelay.publishById(notificationOutboxEventId).catch(() => undefined);
+    }
   }
 
-  public processSuccess(event: RenewalSucceededProviderEvent): Promise<void> {
-    return this.unitOfWork.execute(async (context) => {
+  public async processSuccess(event: RenewalSucceededProviderEvent): Promise<void> {
+    const staged = await this.unitOfWork.execute(async (context) => {
       const facts = await this.loadAndValidateFacts(context, event);
       const result = await this.findOrCreateTransaction(context, event, facts);
       const transaction = result.transaction;
       if (transaction.getStatus() === PaymentTransactionStatus.SUCCEEDED) {
         facts.journal.markProcessed(this.processedAt(facts.journal));
         await context.providerWebhookEvents.save(facts.journal);
-        return;
+        return null;
       }
+      const isRecovery = transaction.getStatus() === PaymentTransactionStatus.FAILED;
 
       const tail = await context.subscriptions.findLatestByUserId(facts.subscription.getUserId());
       if (!tail || tail.id !== facts.subscription.id) throw this.reconciliationRequired();
@@ -165,7 +201,45 @@ export class RecurringPaymentWebhookProcessor {
       if (status === SubscriptionStatus.ACTIVE) {
         await context.outbox.write(this.subscriptionActivatedEvent(event, next));
       }
+      if (isRecovery) {
+        const notificationEvent = this.notificationEventFactory.create({
+          occurredAt: this.parseOccurredAt(event.occurredAt),
+          aggregateType: 'PAYMENT_TRANSACTION',
+          aggregateId: transaction.id,
+          payload: {
+            type: PaymentNotificationType.PAYMENT_RECOVERED,
+            userId: next.getUserId(),
+            businessKey: PaymentNotificationBusinessKeyFactory.paymentRecovered(facts.invoiceId),
+            subscriptionId: next.id,
+            providerInvoiceId: facts.invoiceId,
+            effectiveAt: next.getStartsAt().toISOString(),
+            subscriptionEndsAt: next.getEndsAt().toISOString(),
+            reasonCode: null,
+          },
+        });
+        await context.outbox.write(notificationEvent);
+        return { kind: 'RECOVERY' as const, outboxEventId: notificationEvent.eventId };
+      } else {
+        return this.stageNotification.stage(
+          {
+            userId: next.getUserId(),
+            trigger: 'ADDITIONAL_PURCHASE',
+            sourceTransactionId: transaction.id,
+            sourceSubscriptionId: next.id,
+            effectiveAt: next.getStartsAt(),
+            contiguousPaidEndsAt: next.getEndsAt(),
+            now,
+          },
+          context.notificationSchedules,
+        );
+      }
+      return null;
     });
+    if (staged && 'kind' in staged && staged.kind === 'RECOVERY') {
+      await this.outboxRelay.publishById(staged.outboxEventId).catch(() => undefined);
+    } else if (staged && 'outcome' in staged && staged.outcome === 'CREATED') {
+      await this.schedulerTransport.wake(staged.schedule.id).catch(() => undefined);
+    }
   }
 
   private async loadAndValidateFacts(
