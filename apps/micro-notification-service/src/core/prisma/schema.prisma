@@ -15,6 +15,28 @@ enum NotificationDeliveryStatus {
   FAILED
 }
 
+enum NotificationType {
+  SUBSCRIPTION_ACTIVATED
+  SUBSCRIPTION_EXTENDED
+  UPCOMING_PAYMENT
+  SUBSCRIPTION_EXPIRING
+  PAYMENT_FAILED
+  PAYMENT_RECOVERED
+  SUBSCRIPTION_CANCELLED
+}
+
+enum NotificationInboxOutcome {
+  APPLIED
+  DUPLICATE
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
 model NotificationDelivery {
   eventId              String                    @db.Uuid
   eventType            String
@@ -34,4 +56,57 @@ model NotificationDelivery {
 
   @@id([eventId, templateVersion])
   @@index([status, availableAt])
+}
+
+model Notification {
+  id                 String              @id @default(uuid()) @db.Uuid
+  userId             String              @db.Uuid
+  type               NotificationType
+  businessKey        String              @unique
+  subscriptionId     String?             @db.Uuid
+  providerInvoiceId  String?             @db.VarChar(255)
+  effectiveAt        DateTime            @db.Timestamptz(3)
+  subscriptionEndsAt DateTime?           @db.Timestamptz(3)
+  reasonCode         String?             @db.VarChar(100)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  seenAt             DateTime?           @db.Timestamptz(3)
+  inboxEvents        NotificationInbox[]
+  outboxEvents       NotificationOutbox[]
+
+  @@index([userId, createdAt, id])
+  @@index([userId, seenAt, createdAt])
+  @@index([createdAt])
+}
+
+model NotificationInbox {
+  eventId        String                   @id @db.Uuid
+  eventType      String
+  businessKey    String
+  outcome        NotificationInboxOutcome
+  notificationId String?                  @db.Uuid
+  receivedAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  processedAt    DateTime                 @default(now()) @db.Timestamptz(3)
+  notification   Notification?            @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+}
+
+model NotificationOutbox {
+  id             String                    @id @default(uuid()) @db.Uuid
+  eventId        String                    @unique @db.Uuid
+  aggregateId    String                    @unique @db.Uuid
+  eventType      String
+  eventVersion   Int
+  routingKey     String
+  payload        Json
+  status         NotificationOutboxStatus  @default(PENDING)
+  attempts       Int                       @default(0)
+  availableAt    DateTime                  @default(now()) @db.Timestamptz(3)
+  lockedAt       DateTime?                 @db.Timestamptz(3)
+  lockedBy       String?                   @db.VarChar(100)
+  lastErrorCode  String?                   @db.VarChar(100)
+  occurredAt     DateTime                  @db.Timestamptz(3)
+  publishedAt    DateTime?                 @db.Timestamptz(3)
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  notification   Notification              @relation(fields: [aggregateId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt, occurredAt])
 }

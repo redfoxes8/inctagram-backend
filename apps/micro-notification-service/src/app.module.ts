@@ -8,6 +8,17 @@ import { NotificationConfig } from './core/notification.config';
 import { NotificationConfigModule } from './core/notification-config.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
+import { ScheduleModule } from '@nestjs/schedule';
+import {
+  PERSISTED_NOTIFICATION_DLQ_NAME,
+  PERSISTED_NOTIFICATION_DLQ_ROUTING_KEY,
+  PERSISTED_NOTIFICATION_EXCHANGE,
+  PERSISTED_NOTIFICATION_QUEUE_NAME,
+  PERSISTED_NOTIFICATION_RETRY_DELAY_MS,
+  PERSISTED_NOTIFICATION_RETRY_QUEUE_NAME,
+  PERSISTED_NOTIFICATION_RETRY_ROUTING_KEY,
+} from './modules/notifications/api/rabbit/persisted-notification-rabbit.constants';
+import { PAYMENT_NOTIFICATION_REQUESTED_ROUTING_KEY } from '../../../libs/contracts/src/events/notification-events-v1.event';
 
 @Module({
   imports: [CoreModule, NotificationConfigModule],
@@ -22,6 +33,7 @@ export class AppModule {
       imports: [
         CoreModule,
         NotificationConfigModule,
+        ScheduleModule.forRoot(),
         RabbitMQModule.forRoot({
           exchanges: [{ name: 'common_exchange', type: 'topic' }],
           uri: process.env.RABBITMQ_URL || '',
@@ -44,6 +56,31 @@ export class AppModule {
                 'payment.subscription.expired',
                 'subscription.auto-renew.changed',
               ],
+            },
+            {
+              name: PERSISTED_NOTIFICATION_RETRY_QUEUE_NAME,
+              options: {
+                durable: true,
+                arguments: {
+                  'x-message-ttl': PERSISTED_NOTIFICATION_RETRY_DELAY_MS,
+                  'x-dead-letter-exchange': PERSISTED_NOTIFICATION_EXCHANGE,
+                  'x-dead-letter-routing-key': PAYMENT_NOTIFICATION_REQUESTED_ROUTING_KEY,
+                },
+              },
+              exchange: PERSISTED_NOTIFICATION_EXCHANGE,
+              routingKey: PERSISTED_NOTIFICATION_RETRY_ROUTING_KEY,
+            },
+            {
+              name: PERSISTED_NOTIFICATION_DLQ_NAME,
+              options: { durable: true },
+              exchange: PERSISTED_NOTIFICATION_EXCHANGE,
+              routingKey: PERSISTED_NOTIFICATION_DLQ_ROUTING_KEY,
+            },
+            {
+              name: PERSISTED_NOTIFICATION_QUEUE_NAME,
+              options: { durable: true },
+              exchange: PERSISTED_NOTIFICATION_EXCHANGE,
+              routingKey: PAYMENT_NOTIFICATION_REQUESTED_ROUTING_KEY,
             },
             {
               name: process.env.PAYMENT_NOTIFICATION_DLQ_NAME || 'payment-notification-dlq',
