@@ -2,8 +2,12 @@ import { OutboxStatus, Prisma } from '../../../../core/prisma/client';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { PaymentIntegrationEventV1 } from '../../../../../../../libs/contracts/src/events/payment-integration-events-v1.event';
+import { PaymentNotificationRequestedV1 } from '../../../../../../../libs/contracts/src/events/notification-events-v1.event';
 import { IPaymentOutboxWriter } from '../../application/ports/payment-outbox-writer.port';
-import { serializePaymentIntegrationEvent } from '../../application/services/payment-integration-event.serializer';
+import {
+  serializePaymentIntegrationEvent,
+  serializePaymentNotificationRequestedEvent,
+} from '../../application/services/payment-integration-event.serializer';
 import { PaymentPrismaMapper } from '../mappers/payment-prisma.mapper';
 import type { PaymentPrismaClient } from './payment-prisma-client.type';
 
@@ -14,8 +18,13 @@ export class PaymentOutboxWriter implements IPaymentOutboxWriter {
     return new PaymentOutboxWriter(transaction);
   }
 
-  public async write(event: PaymentIntegrationEventV1): Promise<void> {
-    const serialized = serializePaymentIntegrationEvent(event);
+  public async write(
+    event: PaymentIntegrationEventV1 | PaymentNotificationRequestedV1,
+  ): Promise<void> {
+    const serialized =
+      event.eventType === 'payment.notification.requested.v1'
+        ? serializePaymentNotificationRequestedEvent(event)
+        : serializePaymentIntegrationEvent(event);
     try {
       await this.transaction.outboxEvent.create({
         data: {

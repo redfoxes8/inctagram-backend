@@ -6,6 +6,11 @@ import {
   PAYMENT_INTEGRATION_EVENT_VERSION,
   PaymentIntegrationEventV1,
 } from '../../../../../../../libs/contracts/src/events/payment-integration-events-v1.event';
+import {
+  PAYMENT_NOTIFICATION_REQUESTED_EVENT_TYPE,
+  PAYMENT_NOTIFICATION_REQUESTED_ROUTING_KEY,
+  PaymentNotificationRequestedV1,
+} from '../../../../../../../libs/contracts/src/events/notification-events-v1.event';
 import { assertPaymentFailureDetails } from '../../domain/specifications/payment-transaction-lifecycle.specification';
 import { assertPositivePersistedInteger } from '../../domain/specifications/persisted-integer.specification';
 import { assertUuidIdentifier } from '../../domain/specifications/uuid-identifier.specification';
@@ -159,6 +164,43 @@ export function serializePaymentIntegrationEvent(
     eventVersion: event.version,
     routingKey: event.routingKey,
     payload: cloneJsonObject(payload),
+    occurredAt: new Date(event.occurredAt),
+  };
+}
+
+export function serializePaymentNotificationRequestedEvent(
+  event: PaymentNotificationRequestedV1,
+): SerializedPaymentIntegrationEvent {
+  if (
+    event.version !== 1 ||
+    event.eventType !== PAYMENT_NOTIFICATION_REQUESTED_EVENT_TYPE ||
+    event.routingKey !== PAYMENT_NOTIFICATION_REQUESTED_ROUTING_KEY ||
+    !event.payload.userId ||
+    !event.payload.businessKey
+  ) {
+    throw badRequest('Payment notification event is invalid');
+  }
+  assertUuidIdentifier(event.eventId);
+  assertUuidIdentifier(event.aggregateId);
+  assertUtcInstant(event.occurredAt);
+  assertUtcInstant(event.payload.effectiveAt);
+  return {
+    id: event.eventId,
+    aggregateType: event.aggregateType,
+    aggregateId: event.aggregateId,
+    eventType: event.eventType,
+    eventVersion: event.version,
+    routingKey: event.routingKey,
+    payload: {
+      type: event.payload.type,
+      userId: event.payload.userId,
+      businessKey: event.payload.businessKey,
+      subscriptionId: event.payload.subscriptionId,
+      providerInvoiceId: event.payload.providerInvoiceId,
+      effectiveAt: event.payload.effectiveAt,
+      subscriptionEndsAt: event.payload.subscriptionEndsAt,
+      reasonCode: event.payload.reasonCode,
+    },
     occurredAt: new Date(event.occurredAt),
   };
 }

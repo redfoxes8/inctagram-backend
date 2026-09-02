@@ -57,6 +57,14 @@ import { PaymentOutboxRelayService } from './infrastructure/messaging/payment-ou
 import { SubscriptionLifecycleService } from './application/services/subscription-lifecycle.service';
 import { SubscriptionLifecycleScheduler } from './infrastructure/schedulers/subscription-lifecycle.scheduler';
 import { RecurringPaymentWebhookProcessor } from './application/services/recurring-payment-webhook.processor';
+import { PaymentNotificationEventFactory } from './domain/payment-notification-event.factory';
+import { StagePaidAccessNotificationService } from './application/services/stage-paid-access-notification.service';
+import { ProcessDuePaymentNotificationScheduleService } from './application/services/process-due-payment-notification-schedule.service';
+import { PaymentNotificationSchedulerTransport } from './infrastructure/messaging/payment-notification-scheduler.transport';
+import { PaymentNotificationRecoveryService } from './application/services/payment-notification-recovery.service';
+import { PaymentNotificationRecoveryScheduler } from './infrastructure/schedulers/payment-notification-recovery.scheduler';
+import { IPaymentNotificationRecoveryRepository } from './domain/interfaces/payment-notification-schedule.repository.interface';
+import { PaymentNotificationRecoveryRepository } from './infrastructure/repositories/payment-notification-schedule.repository';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -123,6 +131,20 @@ const outboxRelay = [
 
 const subscriptionLifecycle = [SubscriptionLifecycleService, SubscriptionLifecycleScheduler];
 
+const notificationFoundation = [
+  PaymentNotificationEventFactory,
+  StagePaidAccessNotificationService,
+  ProcessDuePaymentNotificationScheduleService,
+  PaymentNotificationSchedulerTransport,
+  PaymentNotificationRecoveryService,
+  PaymentNotificationRecoveryScheduler,
+  PaymentNotificationRecoveryRepository,
+  {
+    provide: IPaymentNotificationRecoveryRepository,
+    useExisting: PaymentNotificationRecoveryRepository,
+  },
+];
+
 @Module({
   imports: [CqrsModule],
   providers: [
@@ -133,6 +155,7 @@ const subscriptionLifecycle = [SubscriptionLifecycleService, SubscriptionLifecyc
     ...grpcHandlers,
     ...outboxRelay,
     ...subscriptionLifecycle,
+    ...notificationFoundation,
   ],
   controllers: [PaymentGrpcController],
   exports: [

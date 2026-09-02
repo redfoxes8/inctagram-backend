@@ -6,6 +6,7 @@ import { IProviderWebhookEventRepository } from '../../domain/interfaces/provide
 import { IPaymentTransactionRepository } from '../../domain/interfaces/payment-transaction.repository.interface';
 import { ISubscriptionRepository } from '../../domain/interfaces/subscription.repository.interface';
 import { IPaymentOutboxWriter } from './payment-outbox-writer.port';
+import { IPaymentNotificationScheduleRepository } from '../../domain/interfaces/payment-notification-schedule.repository.interface';
 
 export type PaymentUnitOfWorkContext = Readonly<{
   databaseNow: () => Promise<Date>;
@@ -16,6 +17,7 @@ export type PaymentUnitOfWorkContext = Readonly<{
   paymentTransactions: IPaymentTransactionRepository;
   subscriptions: ISubscriptionRepository;
   providerWebhookEvents: IProviderWebhookEventRepository;
+  notificationSchedules: IPaymentNotificationScheduleRepository;
   outbox: IPaymentOutboxWriter;
   lockUser(userId: string): Promise<void>;
 }>;

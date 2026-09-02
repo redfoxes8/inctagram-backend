@@ -185,6 +185,38 @@ model OutboxEvent {
   @@map("outbox_events")
 }
 
+model PaymentNotificationSchedule {
+  id                 String                            @id @default(uuid()) @db.Uuid
+  userId             String                            @map("user_id") @db.Uuid
+  notificationType   PaymentNotificationScheduleType   @map("notification_type")
+  businessKey        String                            @unique @map("business_key") @db.VarChar(512)
+  sourceSubscriptionId String?                         @map("source_subscription_id") @db.Uuid
+  effectiveAt        DateTime                          @map("effective_at") @db.Timestamptz(3)
+  subscriptionEndsAt DateTime?                         @map("subscription_ends_at") @db.Timestamptz(3)
+  providerInvoiceId  String?                           @map("provider_invoice_id") @db.VarChar(255)
+  reasonCode         String?                           @map("reason_code") @db.VarChar(100)
+  dueAt              DateTime                          @map("due_at") @db.Timestamptz(3)
+  status             PaymentNotificationScheduleStatus @default(PENDING)
+  processedAt        DateTime?                         @map("processed_at") @db.Timestamptz(3)
+  createdAt          DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sources            PaymentNotificationScheduleSource[]
+
+  @@index([status, dueAt], map: "payment_notification_schedules_status_due_idx")
+  @@index([userId, status, dueAt], map: "payment_notification_schedules_user_status_due_idx")
+  @@map("payment_notification_schedules")
+}
+
+model PaymentNotificationScheduleSource {
+  sourceTransactionId String                      @id @map("source_transaction_id") @db.Uuid
+  scheduleId          String                      @map("schedule_id") @db.Uuid
+  createdAt           DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  schedule            PaymentNotificationSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@index([scheduleId], map: "payment_notification_schedule_sources_schedule_idx")
+  @@map("payment_notification_schedule_sources")
+}
+
 enum BillingInterval {
   WEEK
   MONTH
@@ -235,5 +267,21 @@ enum OutboxStatus {
   PENDING
   PROCESSING
   PUBLISHED
+  FAILED
+}
+
+enum PaymentNotificationScheduleType {
+  SUBSCRIPTION_ACTIVATED
+  SUBSCRIPTION_EXTENDED
+  PAYMENT_FAILED
+  PAYMENT_RECOVERED
+  SUBSCRIPTION_CANCELLED
+}
+
+enum PaymentNotificationScheduleStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
   FAILED
 }

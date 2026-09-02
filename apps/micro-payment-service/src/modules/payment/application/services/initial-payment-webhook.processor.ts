@@ -35,6 +35,8 @@ import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-u
 import { PaymentWebhookProcessor } from '../ports/payment-webhook-processor.port';
 import { AdditionalPaymentWebhookProcessor } from './additional-payment-webhook.processor';
 import { RecurringPaymentWebhookProcessor } from './recurring-payment-webhook.processor';
+import { StagePaidAccessNotificationService } from './stage-paid-access-notification.service';
+import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
 
 @Injectable()
 export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
@@ -42,6 +44,8 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
     private readonly unitOfWork: IPaymentUnitOfWork,
     private readonly additionalProcessor: AdditionalPaymentWebhookProcessor,
     private readonly recurringProcessor: RecurringPaymentWebhookProcessor,
+    private readonly stageNotification: StagePaidAccessNotificationService,
+    private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
   ) {}
 
   public process(event: NormalizedProviderEvent): Promise<void> {
@@ -83,7 +87,7 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
 
   private async processSuccess(event: CheckoutPaymentSucceededProviderEvent): Promise<void> {
     this.assertRequiredSuccessFacts(event);
-    await this.unitOfWork.execute(async (context) => {
+    const staged = await this.unitOfWork.execute(async (context) => {
       const facts = await this.loadInitialFacts(context, event);
       this.assertCommonFacts({ event, ...facts });
       this.assertSuccessState({
@@ -128,7 +132,22 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
       await context.providerWebhookEvents.save(facts.journal);
       await context.outbox.write(this.paymentSucceededEvent(event, facts, subscription));
       await context.outbox.write(this.subscriptionActivatedEvent(event, facts, subscription));
+      return this.stageNotification.stage(
+        {
+          userId: subscription.getUserId(),
+          trigger: 'INITIAL_PURCHASE',
+          sourceTransactionId: facts.transaction.id,
+          sourceSubscriptionId: subscription.id,
+          effectiveAt: subscription.getStartsAt(),
+          contiguousPaidEndsAt: subscription.getEndsAt(),
+          now: paidAt,
+        },
+        context.notificationSchedules,
+      );
     });
+    if (staged.outcome === 'CREATED') {
+      await this.schedulerTransport.wake(staged.schedule.id).catch(() => undefined);
+    }
   }
 
   private async processFailure(event: CheckoutPaymentFailedProviderEvent): Promise<void> {

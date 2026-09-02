@@ -125,6 +125,9 @@ export class PaymentConfig {
   @Max(100, { message: 'SUBSCRIPTION_LIFECYCLE_BATCH_SIZE must not exceed 100' })
   subscriptionLifecycleBatchSize: number;
 
+  paymentNotificationRecoveryEnabled: boolean;
+  paymentNotificationRecoveryBatchSize: number;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
 
@@ -186,6 +189,12 @@ export class PaymentConfig {
 
     this.subscriptionLifecycleBatchSize = Number(
       this.configService.get('SUBSCRIPTION_LIFECYCLE_BATCH_SIZE'),
+    );
+
+    this.paymentNotificationRecoveryEnabled =
+      this.configService.get('PAYMENT_NOTIFICATION_RECOVERY_ENABLED') === 'true';
+    this.paymentNotificationRecoveryBatchSize = Number(
+      this.configService.get('PAYMENT_NOTIFICATION_RECOVERY_BATCH_SIZE') ?? '20',
     );
 
     configValidationUtility.validateConfig(this);

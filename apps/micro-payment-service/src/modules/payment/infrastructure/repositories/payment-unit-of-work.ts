@@ -9,6 +9,7 @@ import {
 import { assertUuidIdentifier } from '../../domain/specifications/uuid-identifier.specification';
 import { CheckoutSessionRepository } from './checkout-session.repository';
 import { PaymentOutboxWriter } from './payment-outbox.writer';
+import { PaymentNotificationScheduleRepository } from './payment-notification-schedule.repository';
 import { PaymentTransactionRepository } from './payment-transaction.repository';
 import { ProductRepository } from './product.repository';
 import { ProductProviderRepository } from './product-provider.repository';
@@ -39,6 +40,7 @@ export class PaymentUnitOfWork implements IPaymentUnitOfWork {
         paymentTransactions: new PaymentTransactionRepository(transaction),
         subscriptions: new SubscriptionRepository(transaction),
         providerWebhookEvents: new ProviderWebhookEventRepository(transaction),
+        notificationSchedules: PaymentNotificationScheduleRepository.forTransaction(transaction),
         outbox: PaymentOutboxWriter.forTransaction(transaction),
         lockUser: async (userId: string): Promise<void> => {
           assertUuidIdentifier(userId);
