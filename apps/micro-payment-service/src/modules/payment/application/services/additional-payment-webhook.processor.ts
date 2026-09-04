@@ -173,7 +173,9 @@ export class AdditionalPaymentWebhookProcessor {
       sequence: prepared.tailSequence + 1,
       period: prepared.period,
     });
-    tail.disableAutoRenew({ providerStatus: providerState.providerStatus });
+    if (tail.getAutoRenew()) {
+      tail.disableAutoRenew({ providerStatus: providerState.providerStatus });
+    }
     const paidAt = this.parseOccurredAt(event.occurredAt);
     facts.transaction.succeed({
       subscriptionId: queued.id,
