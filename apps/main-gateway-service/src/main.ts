@@ -86,7 +86,6 @@ async function bootstrap() {
       options: grpcOptions,
     },
   });
-
   swaggerSetup(app);
 
   app.enableShutdownHooks();
