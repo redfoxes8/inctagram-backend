@@ -19,6 +19,14 @@ import { PersistedPaymentNotificationConsumer } from './api/rabbit/persisted-pay
 import { NotificationOutboxRepository } from './infrastructure/repositories/notification-outbox.repository';
 import { NotificationOutboxPublisher } from './infrastructure/messaging/notification-outbox.publisher';
 import { NotificationOutboxRecoveryService } from './infrastructure/messaging/notification-outbox-recovery.service';
+import { INotificationHistoryPort } from './application/ports/notification-history.port';
+import { PrismaNotificationHistoryRepository } from './infrastructure/repositories/prisma-notification-history.repository';
+import { NotificationClock } from './application/ports/notification-clock.port';
+import { SystemNotificationClock } from './infrastructure/clock/system-notification.clock';
+import { GetNotificationsService } from './application/services/get-notifications.service';
+import { GetUnseenNotificationCountService } from './application/services/get-unseen-notification-count.service';
+import { MarkNotificationsSeenService } from './application/services/mark-notifications-seen.service';
+import { NotificationGrpcController } from './api/grpc/notification-grpc.controller';
 
 const commandHandlers = [
   SendPaymentSucceededEmailHandler,
@@ -28,7 +36,7 @@ const commandHandlers = [
 
 @Module({
   imports: [CqrsModule, NotificationConfigModule, UserGrpcClientModule],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, NotificationGrpcController],
   providers: [
     NotificationsService,
     PaymentEventsConsumer,
@@ -45,9 +53,22 @@ const commandHandlers = [
     NotificationOutboxRepository,
     NotificationOutboxPublisher,
     NotificationOutboxRecoveryService,
+    PrismaNotificationHistoryRepository,
+    SystemNotificationClock,
+    GetNotificationsService,
+    GetUnseenNotificationCountService,
+    MarkNotificationsSeenService,
     {
       provide: INotificationPersistencePort,
       useExisting: PrismaNotificationPersistenceRepository,
+    },
+    {
+      provide: INotificationHistoryPort,
+      useExisting: PrismaNotificationHistoryRepository,
+    },
+    {
+      provide: NotificationClock,
+      useExisting: SystemNotificationClock,
     },
   ],
   exports: [IMailAdapter, NotificationsService, PersistRequestedNotificationService],

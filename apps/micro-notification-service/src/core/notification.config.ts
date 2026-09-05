@@ -24,6 +24,14 @@ export class NotificationConfig {
   port: number;
 
   @IsString()
+  @IsNotEmpty()
+  grpcHost: string;
+
+  @IsInt()
+  @Min(1)
+  grpcPort: number;
+
+  @IsString()
   @IsNotEmpty({ message: 'Set Env variable FRONTEND_URL, example: https://inctagram.com' })
   frontEndUrl: string;
 
@@ -111,6 +119,8 @@ export class NotificationConfig {
 
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
+    this.grpcHost = this.readString(NOTIFICATION_ENV_KEYS.NOTIFICATION_GRPC_HOST, '0.0.0.0');
+    this.grpcPort = this.readPositiveInt(NOTIFICATION_ENV_KEYS.NOTIFICATION_GRPC_PORT, 50054, 1);
     this.frontEndUrl = this.configService.get(NOTIFICATION_ENV_KEYS.FRONTEND_URL);
     this.rabbitmqUrl = this.configService.get(NOTIFICATION_ENV_KEYS.RABBITMQ_URL);
     this.notificationQueueName = this.configService.get(
