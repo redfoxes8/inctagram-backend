@@ -6,6 +6,7 @@ import {
 import { NotificationsController } from '../../src/modules/notifications/api/notifications.controller';
 import { NotificationResponseMapper } from '../../src/modules/notifications/api/notification-response.mapper';
 import { NotificationGrpcClient } from '../../src/modules/notifications/infrastructure/notification-grpc.client';
+import { NotificationRealtimePublisher } from '../../src/modules/notifications/realtime/notification-realtime.publisher';
 
 const USER_ID = '10000000-0000-4000-8000-000000000001';
 
@@ -14,10 +15,12 @@ function createController(): {
   getNotifications: jest.Mock;
   getUnseenNotificationCount: jest.Mock;
   markNotificationsSeen: jest.Mock;
+  publishUnseenCount: jest.Mock;
 } {
   const getNotifications = jest.fn();
   const getUnseenNotificationCount = jest.fn();
   const markNotificationsSeen = jest.fn();
+  const publishUnseenCount = jest.fn();
   const client = {
     getNotifications,
     getUnseenNotificationCount,
@@ -25,17 +28,25 @@ function createController(): {
   } as unknown as NotificationGrpcClient;
 
   return {
-    controller: new NotificationsController(client),
+    controller: new NotificationsController(client, {
+      publishUnseenCount,
+    } as unknown as NotificationRealtimePublisher),
     getNotifications,
     getUnseenNotificationCount,
     markNotificationsSeen,
+    publishUnseenCount,
   };
 }
 
 describe('NotificationsController', () => {
   it('maps history and count with one authenticated gRPC call per endpoint', async () => {
-    const { controller, getNotifications, getUnseenNotificationCount, markNotificationsSeen } =
-      createController();
+    const {
+      controller,
+      getNotifications,
+      getUnseenNotificationCount,
+      markNotificationsSeen,
+      publishUnseenCount,
+    } = createController();
     const historyResponse: GetNotificationsResponse = {
       items: [
         {
@@ -83,6 +94,7 @@ describe('NotificationsController', () => {
     expect(getUnseenNotificationCount).toHaveBeenCalledTimes(1);
     expect(getUnseenNotificationCount).toHaveBeenCalledWith({ userId: USER_ID });
     expect(markNotificationsSeen).not.toHaveBeenCalled();
+    expect(publishUnseenCount).not.toHaveBeenCalled();
 
     expect(NotificationResponseMapper.history({} as GetNotificationsResponse)).toEqual({
       items: [],
@@ -91,8 +103,13 @@ describe('NotificationsController', () => {
   });
 
   it('marks seen with only the authenticated user and returns server-owned boundary', async () => {
-    const { controller, getNotifications, getUnseenNotificationCount, markNotificationsSeen } =
-      createController();
+    const {
+      controller,
+      getNotifications,
+      getUnseenNotificationCount,
+      markNotificationsSeen,
+      publishUnseenCount,
+    } = createController();
     const response: MarkNotificationsSeenResponse = {
       seenThrough: { seconds: 1_788_260_500, nanos: 0 },
       unseenCount: 0,
@@ -106,6 +123,8 @@ describe('NotificationsController', () => {
 
     expect(markNotificationsSeen).toHaveBeenCalledTimes(1);
     expect(markNotificationsSeen).toHaveBeenCalledWith({ userId: USER_ID });
+    expect(publishUnseenCount).toHaveBeenCalledTimes(1);
+    expect(publishUnseenCount).toHaveBeenCalledWith(USER_ID, { unseenCount: 0 });
     expect(getNotifications).not.toHaveBeenCalled();
     expect(getUnseenNotificationCount).not.toHaveBeenCalled();
   });

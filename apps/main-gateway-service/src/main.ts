@@ -8,6 +8,7 @@ import { swaggerSetup } from './core/config/swagger.setup';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { INCTAGRAM_USER_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 import { join } from 'path';
+import { NotificationSocketIoAdapter } from './core/notification-socket-io.adapter';
 
 const corsAllowedOrigins = [
   'http://localhost:3000',
@@ -53,6 +54,7 @@ async function bootstrap() {
   });
 
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
+  app.useWebSocketAdapter(new NotificationSocketIoAdapter(app, gatewayConfig));
 
   const grpcOptions: MicroserviceOptions = {
     transport: Transport.GRPC,

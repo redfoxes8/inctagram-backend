@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsBoolean, IsNotEmpty, IsNumber, IsString, Matches, Min } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
 
 import { configValidationUtility } from '../../../../libs/common/src/utils/config-validation.utility';
 
@@ -26,6 +35,11 @@ export class GatewayConfig {
   @IsString({ message: 'Env variable FRONTEND_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable FRONTEND_URL, example: https://inctagram.com' })
   frontEndUrl: string;
+
+  @IsArray({ message: 'NOTIFICATION_WS_ALLOWED_ORIGINS must contain exact origins' })
+  @ArrayNotEmpty({ message: 'NOTIFICATION_WS_ALLOWED_ORIGINS must not be empty' })
+  @IsString({ each: true })
+  notificationWsAllowedOrigins: string[];
 
   @IsString({ message: 'Env variable SUCCESS_PAYMENT_URL must be a string' })
   @Matches(/^(?:https:\/\/[^\s]+|http:\/\/localhost(?::[1-9][0-9]{0,4})?(?:\/[^\s]*)?)$/, {
@@ -137,6 +151,9 @@ export class GatewayConfig {
     );
     this.filesServiceUrl = this.configService.get('FILES_SERVICE_URL');
     this.frontEndUrl = this.configService.get('FRONTEND_URL');
+    this.notificationWsAllowedOrigins = this.readNotificationWsAllowedOrigins(
+      this.configService.get('NOTIFICATION_WS_ALLOWED_ORIGINS'),
+    );
     this.successPaymentUrl = this.configService.get('SUCCESS_PAYMENT_URL');
     this.cancelPaymentUrl = this.configService.get('CANCEL_PAYMENT_URL');
 
@@ -168,5 +185,42 @@ export class GatewayConfig {
     this.recaptchaSecret = this.configService.get('RECAPTCHA_SECRET');
 
     configValidationUtility.validateConfig(this);
+  }
+
+  private readNotificationWsAllowedOrigins(value: string | undefined): string[] {
+    if (!value?.trim()) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Set Env variable NOTIFICATION_WS_ALLOWED_ORIGINS in production');
+      }
+      return ['http://localhost:3000'];
+    }
+
+    const origins = value
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)
+      .map((origin) => this.normalizeNotificationWsOrigin(origin));
+
+    if (origins.length === 0) {
+      throw new Error('NOTIFICATION_WS_ALLOWED_ORIGINS must contain at least one origin');
+    }
+    return [...new Set(origins)];
+  }
+
+  private normalizeNotificationWsOrigin(value: string): string {
+    let origin: URL;
+    try {
+      origin = new URL(value);
+    } catch {
+      throw new Error('NOTIFICATION_WS_ALLOWED_ORIGINS must contain absolute HTTP origins');
+    }
+
+    if (origin.protocol !== 'http:' && origin.protocol !== 'https:') {
+      throw new Error('NOTIFICATION_WS_ALLOWED_ORIGINS must contain HTTP origins');
+    }
+    if (process.env.NODE_ENV === 'production' && origin.hostname === 'localhost') {
+      throw new Error('NOTIFICATION_WS_ALLOWED_ORIGINS cannot contain localhost in production');
+    }
+    return origin.origin;
   }
 }
