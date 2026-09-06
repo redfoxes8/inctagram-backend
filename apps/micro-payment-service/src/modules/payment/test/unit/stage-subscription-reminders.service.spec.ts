@@ -9,6 +9,7 @@ import {
   ReconcileSubscriptionReminderSlotsInput,
   SubscriptionReminderReconciliationResult,
   SubscriptionReminderSlot,
+  UpdatePendingSubscriptionRemindersInput,
 } from '../../domain/interfaces/subscription-reminder.repository.interface';
 import { BillingPeriod } from '../../domain/value-objects/billing-period.value-object';
 import { ProviderCode } from '../../domain/value-objects/provider-code.value-object';
@@ -47,15 +48,15 @@ class InMemorySubscriptionReminderRepository extends ISubscriptionReminderReposi
     return Promise.resolve({ created, updated });
   }
 
-  public suppressPendingForSubscription(input: {
-    subscriptionId: string;
+  public suppressPendingForSubscriptions(input: {
+    subscriptionIds: string[];
     suppressedAt: Date;
   }): Promise<number> {
     void input.suppressedAt;
     let suppressed = 0;
     for (const slot of this.slots) {
       if (
-        slot.subscriptionId === input.subscriptionId &&
+        input.subscriptionIds.includes(slot.subscriptionId) &&
         slot.status === SubscriptionReminderStatus.PENDING
       ) {
         slot.status = SubscriptionReminderStatus.SUPPRESSED;
@@ -63,6 +64,26 @@ class InMemorySubscriptionReminderRepository extends ISubscriptionReminderReposi
       }
     }
     return Promise.resolve(suppressed);
+  }
+
+  public updatePendingForSubscription(
+    input: UpdatePendingSubscriptionRemindersInput,
+  ): Promise<number> {
+    let updated = 0;
+    for (const slot of this.slots) {
+      if (
+        slot.subscriptionId !== input.subscriptionId ||
+        slot.status !== SubscriptionReminderStatus.PENDING ||
+        (slot.notificationType === input.notificationType &&
+          slot.expectedAutoRenew === input.expectedAutoRenew)
+      ) {
+        continue;
+      }
+      slot.notificationType = input.notificationType;
+      slot.expectedAutoRenew = input.expectedAutoRenew;
+      updated += 1;
+    }
+    return Promise.resolve(updated);
   }
 
   private find(slot: SubscriptionReminderSlot): StoredSlot | undefined {

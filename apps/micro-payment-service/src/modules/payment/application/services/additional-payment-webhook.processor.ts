@@ -34,6 +34,7 @@ import {
 } from '../ports/payment-provider.types';
 import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-unit-of-work.port';
 import { StagePaidAccessNotificationService } from './stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from './stage-subscription-reminders.service';
 import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
 
 @Injectable()
@@ -42,6 +43,7 @@ export class AdditionalPaymentWebhookProcessor {
     private readonly unitOfWork: IPaymentUnitOfWork,
     private readonly providerResolver: PaymentProviderResolver,
     private readonly stageNotification: StagePaidAccessNotificationService,
+    private readonly stageReminders: StageSubscriptionRemindersService,
     private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
   ) {}
 
@@ -192,6 +194,21 @@ export class AdditionalPaymentWebhookProcessor {
     await context.providerWebhookEvents.save(facts.journal);
     await context.outbox.write(this.paymentSucceededEvent(event, facts, queued));
     await context.outbox.write(this.queuedPurchasedEvent(event, facts, queued));
+    const reminderNow = await context.databaseNow();
+    await this.stageReminders.stageBatch(
+      {
+        periods: [
+          { subscription: tail, immediateSuccessor: queued },
+          {
+            subscription: queued,
+            billingInterval: facts.product.getBillingInterval(),
+            immediateSuccessor: null,
+          },
+        ],
+        now: reminderNow,
+      },
+      context.subscriptionReminders,
+    );
     return this.stageNotification.stage(
       {
         userId: queued.getUserId(),

@@ -11,6 +11,7 @@ import {
   ISubscriptionReminderRepository,
   ReconcileSubscriptionReminderSlotsInput,
   SubscriptionReminderReconciliationResult,
+  UpdatePendingSubscriptionRemindersInput,
 } from '../../domain/interfaces/subscription-reminder.repository.interface';
 import type { PaymentPrismaClient } from './payment-prisma-client.type';
 
@@ -29,18 +30,23 @@ export class SubscriptionReminderRepository implements ISubscriptionReminderRepo
   ): Promise<SubscriptionReminderReconciliationResult> {
     if (input.desiredSlots.length === 0) return { created: 0, updated: 0 };
 
-    const created = await this.prisma.subscriptionReminder.createMany({
-      data: input.slotsToCreate.map((slot) => ({
-        subscriptionId: slot.subscriptionId,
-        userId: slot.userId,
-        notificationType: this.toPrismaNotificationType(slot.notificationType),
-        leadDays: slot.leadDays,
-        dueAt: slot.dueAt,
-        subscriptionEndsAt: slot.subscriptionEndsAt,
-        expectedAutoRenew: slot.expectedAutoRenew,
-      })),
-      skipDuplicates: true,
-    });
+    const created =
+      input.slotsToCreate.length === 0
+        ? 0
+        : (
+            await this.prisma.subscriptionReminder.createMany({
+              data: input.slotsToCreate.map((slot) => ({
+                subscriptionId: slot.subscriptionId,
+                userId: slot.userId,
+                notificationType: this.toPrismaNotificationType(slot.notificationType),
+                leadDays: slot.leadDays,
+                dueAt: slot.dueAt,
+                subscriptionEndsAt: slot.subscriptionEndsAt,
+                expectedAutoRenew: slot.expectedAutoRenew,
+              })),
+              skipDuplicates: true,
+            })
+          ).count;
 
     const desiredSlots = JSON.stringify(
       input.desiredSlots.map((slot) => ({
@@ -78,21 +84,42 @@ export class SubscriptionReminderRepository implements ISubscriptionReminderRepo
         )
       RETURNING "reminder"."id"
     `);
-    return { created: created.count, updated: updated.length };
+    return { created, updated: updated.length };
   }
 
-  public async suppressPendingForSubscription(input: {
-    subscriptionId: string;
+  public async suppressPendingForSubscriptions(input: {
+    subscriptionIds: string[];
     suppressedAt: Date;
   }): Promise<number> {
+    if (input.subscriptionIds.length === 0) return 0;
     const result = await this.prisma.subscriptionReminder.updateMany({
       where: {
-        subscriptionId: input.subscriptionId,
+        subscriptionId: { in: input.subscriptionIds },
         status: PrismaSubscriptionReminderStatus.PENDING,
       },
       data: {
         status: PrismaSubscriptionReminderStatus.SUPPRESSED,
         suppressedAt: input.suppressedAt,
+      },
+    });
+    return result.count;
+  }
+
+  public async updatePendingForSubscription(
+    input: UpdatePendingSubscriptionRemindersInput,
+  ): Promise<number> {
+    const result = await this.prisma.subscriptionReminder.updateMany({
+      where: {
+        subscriptionId: input.subscriptionId,
+        status: PrismaSubscriptionReminderStatus.PENDING,
+        OR: [
+          { notificationType: { not: this.toPrismaNotificationType(input.notificationType) } },
+          { expectedAutoRenew: { not: input.expectedAutoRenew } },
+        ],
+      },
+      data: {
+        notificationType: this.toPrismaNotificationType(input.notificationType),
+        expectedAutoRenew: input.expectedAutoRenew,
       },
     });
     return result.count;

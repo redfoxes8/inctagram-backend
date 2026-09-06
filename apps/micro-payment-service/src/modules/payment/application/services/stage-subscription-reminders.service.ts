@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { BillingInterval } from '../../domain/enums/billing-interval.enum';
 import { SubscriptionReminderNotificationType } from '../../domain/enums/subscription-reminder-notification-type.enum';
 import { SubscriptionStatus } from '../../domain/enums/subscription-status.enum';
@@ -13,8 +15,13 @@ const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000;
 
 export type StageSubscriptionRemindersInput = Readonly<{
   subscription: SubscriptionEntity;
-  billingInterval: BillingInterval;
+  billingInterval?: BillingInterval;
   immediateSuccessor: SubscriptionEntity | null;
+  now: Date;
+}>;
+
+export type StageSubscriptionRemindersBatchInput = Readonly<{
+  periods: Omit<StageSubscriptionRemindersInput, 'now'>[];
   now: Date;
 }>;
 
@@ -31,26 +38,64 @@ export class StageSubscriptionRemindersService {
     input: StageSubscriptionRemindersInput,
     reminders: ISubscriptionReminderRepository,
   ): Promise<StageSubscriptionRemindersResult> {
-    if (
-      !this.isReminderEligibleStatus(input.subscription) ||
-      this.isSuppressingSuccessor(input.subscription, input.immediateSuccessor)
-    ) {
-      const suppressed = await reminders.suppressPendingForSubscription({
-        subscriptionId: input.subscription.id,
-        suppressedAt: input.now,
-      });
-      return { created: 0, updated: 0, suppressed, pastDueSkipped: 0 };
+    return this.stageBatch({ periods: [input], now: input.now }, reminders);
+  }
+
+  public async stageBatch(
+    input: StageSubscriptionRemindersBatchInput,
+    reminders: ISubscriptionReminderRepository,
+  ): Promise<StageSubscriptionRemindersResult> {
+    const subscriptionIdsToSuppress = new Set<string>();
+    const desiredSlots: SubscriptionReminderSlot[] = [];
+
+    for (const period of input.periods) {
+      if (
+        !this.isReminderEligibleStatus(period.subscription) ||
+        this.isSuppressingSuccessor(period.subscription, period.immediateSuccessor)
+      ) {
+        subscriptionIdsToSuppress.add(period.subscription.id);
+        continue;
+      }
+      const billingInterval = period.billingInterval;
+      if (!billingInterval) {
+        throw new DomainException({
+          code: DomainExceptionCode.InternalServerError,
+          message: 'Reminder materialization requires billing interval',
+        });
+      }
+      desiredSlots.push(...this.desiredSlots({ ...period, billingInterval, now: input.now }));
     }
 
-    const desiredSlots = this.desiredSlots(input);
     const slotsToCreate = desiredSlots.filter((slot) => slot.dueAt.getTime() > input.now.getTime());
-    const reconciled = await reminders.reconcile({ desiredSlots, slotsToCreate });
+    const reconciled =
+      desiredSlots.length === 0
+        ? { created: 0, updated: 0 }
+        : await reminders.reconcile({ desiredSlots, slotsToCreate });
+    const suppressed = await reminders.suppressPendingForSubscriptions({
+      subscriptionIds: [...subscriptionIdsToSuppress],
+      suppressedAt: input.now,
+    });
     return {
       created: reconciled.created,
       updated: reconciled.updated,
-      suppressed: 0,
+      suppressed,
       pastDueSkipped: desiredSlots.length - slotsToCreate.length,
     };
+  }
+
+  public async reconcileAutoRenew(
+    input: Readonly<{ subscription: SubscriptionEntity }>,
+    reminders: ISubscriptionReminderRepository,
+  ): Promise<StageSubscriptionRemindersResult> {
+    const notificationType = input.subscription.getAutoRenew()
+      ? SubscriptionReminderNotificationType.UPCOMING_PAYMENT
+      : SubscriptionReminderNotificationType.SUBSCRIPTION_EXPIRING;
+    const updated = await reminders.updatePendingForSubscription({
+      subscriptionId: input.subscription.id,
+      notificationType,
+      expectedAutoRenew: input.subscription.getAutoRenew(),
+    });
+    return { created: 0, updated, suppressed: 0, pastDueSkipped: 0 };
   }
 
   private desiredSlots(input: StageSubscriptionRemindersInput): SubscriptionReminderSlot[] {

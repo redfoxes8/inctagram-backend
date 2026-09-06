@@ -20,12 +20,21 @@ export type SubscriptionReminderReconciliationResult = Readonly<{
   updated: number;
 }>;
 
+export type UpdatePendingSubscriptionRemindersInput = Readonly<{
+  subscriptionId: string;
+  notificationType: SubscriptionReminderNotificationType;
+  expectedAutoRenew: boolean;
+}>;
+
 export abstract class ISubscriptionReminderRepository {
   abstract reconcile(
     input: ReconcileSubscriptionReminderSlotsInput,
   ): Promise<SubscriptionReminderReconciliationResult>;
-  abstract suppressPendingForSubscription(input: {
-    subscriptionId: string;
+  abstract suppressPendingForSubscriptions(input: {
+    subscriptionIds: string[];
     suppressedAt: Date;
   }): Promise<number>;
+  abstract updatePendingForSubscription(
+    input: UpdatePendingSubscriptionRemindersInput,
+  ): Promise<number>;
 }
