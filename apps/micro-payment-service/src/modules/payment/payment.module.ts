@@ -65,6 +65,7 @@ import { PaymentNotificationRecoveryService } from './application/services/payme
 import { PaymentNotificationRecoveryScheduler } from './infrastructure/schedulers/payment-notification-recovery.scheduler';
 import { IPaymentNotificationRecoveryRepository } from './domain/interfaces/payment-notification-schedule.repository.interface';
 import { PaymentNotificationRecoveryRepository } from './infrastructure/repositories/payment-notification-schedule.repository';
+import { StageSubscriptionRemindersService } from './application/services/stage-subscription-reminders.service';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -145,6 +146,8 @@ const notificationFoundation = [
   },
 ];
 
+const subscriptionReminderFoundation = [StageSubscriptionRemindersService];
+
 @Module({
   imports: [CqrsModule],
   providers: [
@@ -156,6 +159,7 @@ const notificationFoundation = [
     ...outboxRelay,
     ...subscriptionLifecycle,
     ...notificationFoundation,
+    ...subscriptionReminderFoundation,
   ],
   controllers: [PaymentGrpcController],
   exports: [

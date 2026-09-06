@@ -16,6 +16,7 @@ import { ProductProviderRepository } from './product-provider.repository';
 import { ProviderCustomerRepository } from './provider-customer.repository';
 import { ProviderWebhookEventRepository } from './provider-webhook-event.repository';
 import { SubscriptionRepository } from './subscription.repository';
+import { SubscriptionReminderRepository } from './subscription-reminder.repository';
 
 type AdvisoryLockResult = { acquired: number };
 type DatabaseNowResult = { now: Date };
@@ -41,6 +42,7 @@ export class PaymentUnitOfWork implements IPaymentUnitOfWork {
         subscriptions: new SubscriptionRepository(transaction),
         providerWebhookEvents: new ProviderWebhookEventRepository(transaction),
         notificationSchedules: PaymentNotificationScheduleRepository.forTransaction(transaction),
+        subscriptionReminders: SubscriptionReminderRepository.forTransaction(transaction),
         outbox: PaymentOutboxWriter.forTransaction(transaction),
         lockUser: async (userId: string): Promise<void> => {
           assertUuidIdentifier(userId);

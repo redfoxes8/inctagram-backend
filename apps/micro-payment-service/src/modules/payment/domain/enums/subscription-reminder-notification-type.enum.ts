@@ -1,0 +1,4 @@
+export enum SubscriptionReminderNotificationType {
+  UPCOMING_PAYMENT = 'UPCOMING_PAYMENT',
+  SUBSCRIPTION_EXPIRING = 'SUBSCRIPTION_EXPIRING',
+}
