@@ -22,7 +22,7 @@ import {
   UnseenNotificationCountResponseDto,
 } from './dto/notification-response.dto';
 import { NotificationResponseMapper } from './notification-response.mapper';
-import { NotificationRealtimePublisher } from '../realtime/notification-realtime.publisher';
+import { NotificationLiveEventPublisher } from '../infrastructure/notification-live-event.publisher';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
@@ -31,7 +31,7 @@ import { NotificationRealtimePublisher } from '../realtime/notification-realtime
 export class NotificationsController {
   constructor(
     private readonly notificationGrpcClient: NotificationGrpcClient,
-    private readonly realtimePublisher: NotificationRealtimePublisher,
+    private readonly liveEventPublisher: NotificationLiveEventPublisher,
   ) {}
 
   @Get()
@@ -109,7 +109,11 @@ export class NotificationsController {
   ): Promise<MarkNotificationsSeenResponseDto> {
     const response = await this.notificationGrpcClient.markNotificationsSeen({ userId });
     const result = NotificationResponseMapper.markSeen(response);
-    this.realtimePublisher.publishUnseenCount(userId, { unseenCount: result.unseenCount });
+    await this.liveEventPublisher.publishUnseenCountChanged({
+      userId,
+      unseenCount: result.unseenCount,
+      seenThrough: result.seenThrough,
+    });
     return result;
   }
 }

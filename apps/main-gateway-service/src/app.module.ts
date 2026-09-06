@@ -16,15 +16,12 @@ import { CoreConfig } from '../../../libs/common/src/core.config';
 import { PostsModule } from './modules/posts/posts.module';
 import { FilesModule } from './modules/files/files.module';
 import { PaymentsModule } from './modules/payments/payments.module';
-import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
-import {
-  PAYMENT_ENTITLEMENT_DLQ_NAME,
-  PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY,
-  PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
-  PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME,
-  PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
-  PaymentRabbitConsumer,
-} from './modules/users/infrastructure/payment.rabbit.consumer';
+import { PaymentRabbitConsumer } from './modules/users/infrastructure/payment.rabbit.consumer';
+import { GatewayRabbitMqModule } from './core/gateway-rabbitmq.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { NotificationsController } from './modules/notifications/api/notifications.controller';
+import { NotificationLiveEventConsumer } from './modules/notifications/infrastructure/notification-live-event.consumer';
+import { NotificationLiveEventPublisher } from './modules/notifications/infrastructure/notification-live-event.publisher';
 
 @Module({
   imports: [
@@ -39,6 +36,7 @@ import {
     PostsModule,
     FilesModule,
     PaymentsModule,
+    NotificationsModule,
     GoogleRecaptchaModule.forRootAsync({
       inject: [GatewayConfig, CoreConfig],
       useFactory: (config: GatewayConfig, coreConfig: CoreConfig) => {
@@ -61,43 +59,14 @@ export class AppModule {
 
     return {
       module: AppModule,
-      imports: [
-        RabbitMQModule.forRoot({
-          exchanges: [
-            {
-              name: 'common_exchange',
-              type: 'topic',
-            },
-          ],
-
-          uri: config.rabbitmqUrl,
-
-          queues: [
-            {
-              name: PAYMENT_ENTITLEMENT_RETRY_QUEUE_NAME,
-              options: {
-                durable: true,
-                arguments: {
-                  'x-dead-letter-exchange': 'common_exchange',
-                  'x-dead-letter-routing-key': PAYMENT_ENTITLEMENT_RETRY_READY_ROUTING_KEY,
-                },
-              },
-              exchange: 'common_exchange',
-              routingKey: PAYMENT_ENTITLEMENT_RETRY_DELAY_ROUTING_KEY,
-            },
-            {
-              name: PAYMENT_ENTITLEMENT_DLQ_NAME,
-              options: { durable: true },
-              exchange: 'common_exchange',
-              routingKey: PAYMENT_ENTITLEMENT_DLQ_ROUTING_KEY,
-            },
-          ],
-
-          connectionInitOptions: { wait: false },
-        }),
+      imports: [GatewayRabbitMqModule.forRoot(config)],
+      controllers: [GatewayController, NotificationsController],
+      providers: [
+        FilesHttpClient,
+        PaymentRabbitConsumer,
+        NotificationLiveEventPublisher,
+        NotificationLiveEventConsumer,
       ],
-      controllers: [GatewayController],
-      providers: [FilesHttpClient, PaymentRabbitConsumer],
     };
   }
 }

@@ -1,4 +1,5 @@
 import { createServer, type Server as HttpServer } from 'node:http';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 
 import {
   type AuthTokens,
@@ -8,6 +9,12 @@ import {
 import { NotificationsController } from '../../src/modules/notifications/api/notifications.controller';
 import { NotificationsGateway } from '../../src/modules/notifications/api/ws/notifications.gateway';
 import { NotificationGrpcClient } from '../../src/modules/notifications/infrastructure/notification-grpc.client';
+import { NotificationLiveEventPublisher } from '../../src/modules/notifications/infrastructure/notification-live-event.publisher';
+import { NotificationLiveEventConsumer } from '../../src/modules/notifications/infrastructure/notification-live-event.consumer';
+import {
+  GATEWAY_NOTIFICATION_UNSEEN_COUNT_CHANGED_EVENT_TYPE,
+  GATEWAY_NOTIFICATION_UNSEEN_COUNT_CHANGED_ROUTING_KEY,
+} from '../../src/modules/notifications/infrastructure/notification-live-event.constants';
 import { NotificationRealtimePublisher } from '../../src/modules/notifications/realtime/notification-realtime.publisher';
 import { NotificationUserRoomFactory } from '../../src/modules/notifications/realtime/notification-user-room.factory';
 import { NOTIFICATION_WEBSOCKET_EVENT } from '../../../../libs/contracts/src';
@@ -16,6 +23,10 @@ import { Server, type Namespace } from 'socket.io';
 
 const FIRST_USER_ID = '10000000-0000-4000-8000-000000000001';
 const SECOND_USER_ID = '20000000-0000-4000-8000-000000000001';
+const LIVE_EVENT_ID = '40000000-0000-4000-8000-000000000001';
+const SEEN_THROUGH = '2026-09-01T11:01:40.000Z';
+
+type Subscriber = (input: unknown) => Promise<void>;
 
 class TestJwtService extends IJwtService {
   public createTokens(): AuthTokens {
@@ -116,7 +127,7 @@ describe('NotificationsGateway', () => {
     expect(socket.connected).toBe(true);
   });
 
-  it('delivers mark-seen unseen count to both local user tabs after one gRPC call', async () => {
+  it('publishes one broker fan-out event after one mark-seen gRPC call', async () => {
     const firstTab = await connectedSocket({ accessToken: 'access-first-user' });
     const secondTab = await connectedSocket({ accessToken: 'access-first-user' });
     const otherUserTab = await connectedSocket({ accessToken: 'access-second-user' });
@@ -133,26 +144,61 @@ describe('NotificationsGateway', () => {
       getNotifications,
       getUnseenNotificationCount,
     } as unknown as NotificationGrpcClient;
-    const controller = new NotificationsController(notificationGrpcClient, publisher);
+    const publishUnseenCountChanged = jest.fn().mockResolvedValue(undefined);
+    const controller = new NotificationsController(notificationGrpcClient, {
+      publishUnseenCountChanged,
+    } as unknown as NotificationLiveEventPublisher);
+    let subscriber: Subscriber | undefined;
+    const liveConsumer = new NotificationLiveEventConsumer(
+      {
+        createSubscriber: (handler: Subscriber): Promise<{ consumerTag: string }> => {
+          subscriber = handler;
+          return Promise.resolve({ consumerTag: 'test-live-notification-consumer' });
+        },
+      } as unknown as AmqpConnection,
+      publisher,
+    );
+    await liveConsumer.onApplicationBootstrap();
     const firstEvent = event(firstTab, NOTIFICATION_WEBSOCKET_EVENT.UNSEEN_COUNT);
     const secondEvent = event(secondTab, NOTIFICATION_WEBSOCKET_EVENT.UNSEEN_COUNT);
     const otherUserListener = jest.fn();
     otherUserTab.on(NOTIFICATION_WEBSOCKET_EVENT.UNSEEN_COUNT, otherUserListener);
 
     await expect(controller.markNotificationsSeen(FIRST_USER_ID)).resolves.toEqual({
-      seenThrough: '2026-09-01T11:01:40.000Z',
+      seenThrough: SEEN_THROUGH,
       unseenCount: 0,
     });
-    await expect(Promise.all([firstEvent, secondEvent])).resolves.toEqual([
-      { unseenCount: 0 },
-      { unseenCount: 0 },
-    ]);
-    await nextTick();
-
     expect(markNotificationsSeen).toHaveBeenCalledTimes(1);
     expect(markNotificationsSeen).toHaveBeenCalledWith({ userId: FIRST_USER_ID });
+    expect(publishUnseenCountChanged).toHaveBeenCalledTimes(1);
+    expect(publishUnseenCountChanged).toHaveBeenCalledWith({
+      userId: FIRST_USER_ID,
+      unseenCount: 0,
+      seenThrough: SEEN_THROUGH,
+    });
     expect(getUnseenNotificationCount).not.toHaveBeenCalled();
     expect(getNotifications).not.toHaveBeenCalled();
+
+    await subscriber?.({
+      eventId: LIVE_EVENT_ID,
+      version: 1,
+      eventType: GATEWAY_NOTIFICATION_UNSEEN_COUNT_CHANGED_EVENT_TYPE,
+      occurredAt: SEEN_THROUGH,
+      aggregateType: 'USER_NOTIFICATION_STATE',
+      aggregateId: FIRST_USER_ID,
+      routingKey: GATEWAY_NOTIFICATION_UNSEEN_COUNT_CHANGED_ROUTING_KEY,
+      payload: {
+        userId: FIRST_USER_ID,
+        unseenCount: 0,
+        seenThrough: SEEN_THROUGH,
+      },
+    });
+
+    await expect(Promise.all([firstEvent, secondEvent])).resolves.toEqual([
+      { unseenCount: 0, seenThrough: SEEN_THROUGH },
+      { unseenCount: 0, seenThrough: SEEN_THROUGH },
+    ]);
+    await nextTick();
     expect(otherUserListener).not.toHaveBeenCalled();
   });
 
@@ -190,11 +236,11 @@ describe('NotificationsGateway', () => {
     });
   }
 
-  function event(socket: ClientSocket, event: string): Promise<unknown> {
-    return new Promise((resolve) => socket.once(event, resolve));
-  }
-
   function nextTick(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
+  }
+
+  function event(socket: ClientSocket, eventName: string): Promise<unknown> {
+    return new Promise((resolve) => socket.once(eventName, resolve));
   }
 });
