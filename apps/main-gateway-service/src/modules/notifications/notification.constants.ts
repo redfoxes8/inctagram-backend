@@ -1,4 +1,5 @@
 export const NOTIFICATION_CLIENT = 'NOTIFICATION_CLIENT';
+export const NOTIFICATION_SERVICE_GRPC_CLIENT = 'NOTIFICATION_SERVICE_GRPC_CLIENT';
 
 export enum NotificationEvents {
   RegistrationEmailSent = 'RegistrationEmailSent',

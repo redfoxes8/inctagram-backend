@@ -67,6 +67,16 @@ export class GatewayConfig {
   )
   paymentServiceGrpcUrl: string;
 
+  @IsString()
+  @IsNotEmpty({
+    message: 'Set Env variable NOTIFICATION_SERVICE_GRPC_URL, example: localhost:50054',
+  })
+  @Matches(
+    /^(?!.*:\/\/)[A-Za-z0-9.-]+:(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/,
+    { message: 'Env variable NOTIFICATION_SERVICE_GRPC_URL must use host:port format' },
+  )
+  notificationServiceGrpcUrl: string;
+
   // JWT Configuration
   @IsNotEmpty({ message: 'Set Env variable JWT_SECRET' })
   jwtSecret: string;
@@ -137,6 +147,7 @@ export class GatewayConfig {
     this.postServiceGrpcUrl = this.configService.get('POST_SERVICE_GRPC_URL');
     this.fileServiceGrpcUrl = this.configService.get('FILE_SERVICE_GRPC_URL');
     this.paymentServiceGrpcUrl = this.configService.get('PAYMENT_SERVICE_GRPC_URL');
+    this.notificationServiceGrpcUrl = this.configService.get('NOTIFICATION_SERVICE_GRPC_URL');
 
     // JWT Configuration
     this.jwtSecret = this.configService.get('JWT_SECRET');
