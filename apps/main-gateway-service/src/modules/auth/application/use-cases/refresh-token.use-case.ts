@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { UnauthorizedException } from '@nestjs/common';
-import { IJwtService, AuthTokens } from '../interfaces/jwt.service.interface';
+import { IJwtService, AuthTokens, TokenPayload } from '../interfaces/jwt.service.interface';
 import { ISessionsRepository } from '../../../sessions/domain/interfaces/sessions.repository.interface';
 
 export class RefreshTokenCommand {
@@ -16,10 +16,10 @@ export class RefreshTokenUseCase implements ICommandHandler<RefreshTokenCommand,
 
   async execute({ refreshToken }: RefreshTokenCommand): Promise<AuthTokens> {
     // 1. Валидация токена
-    let payload;
+    let payload: TokenPayload;
     try {
-      payload = this.jwtService.verify(refreshToken);
-    } catch (e) {
+      payload = this.jwtService.verifyRefreshToken(refreshToken);
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -57,7 +57,7 @@ export class RefreshTokenUseCase implements ICommandHandler<RefreshTokenCommand,
       // Если токен валиден, но iat не совпал -> токен был украден/использован повторно
       // Отзываем сессию (удаляем ее)
       await this.sessionsRepository.deleteByDeviceId(payload.deviceId);
-      
+
       throw new UnauthorizedException('Token reuse detected. Session revoked.');
     }
 
