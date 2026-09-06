@@ -9,11 +9,14 @@ import { NOTIFICATION_CLIENT, NOTIFICATION_SERVICE_GRPC_CLIENT } from './notific
 import { RabbitNotificationAdapter } from './infrastructure/rabbit-notification.adapter';
 import { INCTAGRAM_NOTIFICATION_V1_PACKAGE_NAME } from '../../../../../libs/contracts/src';
 import { NotificationGrpcClient } from './infrastructure/notification-grpc.client';
-import { NotificationsController } from './api/notifications.controller';
+import { AuthTokenModule } from '../auth/auth-token.module';
+import { NotificationsGateway } from './api/ws/notifications.gateway';
+import { NotificationRealtimePublisher } from './realtime/notification-realtime.publisher';
 
 @Module({
   imports: [
     GatewayConfigModule,
+    AuthTokenModule,
     ClientsModule.registerAsync([
       {
         name: NOTIFICATION_CLIENT,
@@ -50,11 +53,12 @@ import { NotificationsController } from './api/notifications.controller';
       },
     ]),
   ],
-  controllers: [NotificationsController],
   providers: [
     { provide: IEmailAdapter, useClass: RabbitNotificationAdapter },
     NotificationGrpcClient,
+    NotificationsGateway,
+    NotificationRealtimePublisher,
   ],
-  exports: [IEmailAdapter],
+  exports: [IEmailAdapter, NotificationGrpcClient, NotificationRealtimePublisher],
 })
 export class NotificationsModule {}
