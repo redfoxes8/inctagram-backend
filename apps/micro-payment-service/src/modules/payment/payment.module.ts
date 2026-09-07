@@ -66,6 +66,7 @@ import { PaymentNotificationRecoveryScheduler } from './infrastructure/scheduler
 import { IPaymentNotificationRecoveryRepository } from './domain/interfaces/payment-notification-schedule.repository.interface';
 import { PaymentNotificationRecoveryRepository } from './infrastructure/repositories/payment-notification-schedule.repository';
 import { StageSubscriptionRemindersService } from './application/services/stage-subscription-reminders.service';
+import { ProcessDueSubscriptionRemindersService } from './application/services/process-due-subscription-reminders.service';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -146,7 +147,10 @@ const notificationFoundation = [
   },
 ];
 
-const subscriptionReminderFoundation = [StageSubscriptionRemindersService];
+const subscriptionReminderFoundation = [
+  StageSubscriptionRemindersService,
+  ProcessDueSubscriptionRemindersService,
+];
 
 @Module({
   imports: [CqrsModule],

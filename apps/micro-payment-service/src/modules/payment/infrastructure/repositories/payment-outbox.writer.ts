@@ -55,4 +55,31 @@ export class PaymentOutboxWriter implements IPaymentOutboxWriter {
       });
     }
   }
+  public async writeMany(events: PaymentNotificationRequestedV1[]): Promise<number> {
+    if (events.length === 0) return 0;
+    const serialized = events.map(serializePaymentNotificationRequestedEvent);
+    try {
+      const result = await this.transaction.outboxEvent.createMany({
+        data: serialized.map((event) => ({
+          id: event.id,
+          aggregateType: event.aggregateType,
+          aggregateId: event.aggregateId,
+          eventType: event.eventType,
+          eventVersion: event.eventVersion,
+          routingKey: event.routingKey,
+          payload: PaymentPrismaMapper.jsonToPrisma(event.payload),
+          status: OutboxStatus.PENDING,
+          attempts: 0,
+          availableAt: event.occurredAt,
+          occurredAt: event.occurredAt,
+        })),
+      });
+      return result.count;
+    } catch {
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'Payment integration events could not be stored',
+      });
+    }
+  }
 }

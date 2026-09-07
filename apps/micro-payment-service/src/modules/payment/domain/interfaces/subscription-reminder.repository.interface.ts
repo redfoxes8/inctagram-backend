@@ -25,6 +25,20 @@ export type UpdatePendingSubscriptionRemindersInput = Readonly<{
   notificationType: SubscriptionReminderNotificationType;
   expectedAutoRenew: boolean;
 }>;
+export type DueReminderCandidate = Readonly<{ id: string; userId: string; now: Date }>;
+export type ClaimedDueReminder = Readonly<{
+  id: string;
+  notificationType: SubscriptionReminderNotificationType;
+  leadDays: number;
+  expectedAutoRenew: boolean;
+  subscriptionEndsAt: Date;
+  ownerStatus: string;
+  subscriptionId: string;
+  userId: string;
+  ownerEndsAt: Date;
+  ownerAutoRenew: boolean;
+  hasSuppressingSuccessor: boolean;
+}>;
 
 export abstract class ISubscriptionReminderRepository {
   abstract reconcile(
@@ -37,4 +51,9 @@ export abstract class ISubscriptionReminderRepository {
   abstract updatePendingForSubscription(
     input: UpdatePendingSubscriptionRemindersInput,
   ): Promise<number>;
+  abstract findDueCandidates(limit: number): Promise<DueReminderCandidate[]>;
+  abstract claimDue(ids: string[]): Promise<string[]>;
+  abstract loadClaimed(ids: string[]): Promise<ClaimedDueReminder[]>;
+  abstract complete(ids: string[], completedAt: Date): Promise<number>;
+  abstract suppress(ids: string[], suppressedAt: Date): Promise<number>;
 }

@@ -12,6 +12,8 @@ import {
   ReconcileSubscriptionReminderSlotsInput,
   SubscriptionReminderReconciliationResult,
   UpdatePendingSubscriptionRemindersInput,
+  DueReminderCandidate,
+  ClaimedDueReminder,
 } from '../../domain/interfaces/subscription-reminder.repository.interface';
 import type { PaymentPrismaClient } from './payment-prisma-client.type';
 
@@ -125,6 +127,77 @@ export class SubscriptionReminderRepository implements ISubscriptionReminderRepo
     return result.count;
   }
 
+  public async findDueCandidates(limit: number): Promise<DueReminderCandidate[]> {
+    return this.prisma.$queryRaw<DueReminderCandidate[]>(Prisma.sql`
+      SELECT "reminder"."id", "reminder"."user_id" AS "userId", transaction_timestamp() AS "now"
+      FROM "subscription_reminders" AS "reminder"
+      INNER JOIN "subscriptions" AS "subscription"
+        ON "subscription"."id" = "reminder"."subscription_id"
+      WHERE "reminder"."status" = 'PENDING'::"SubscriptionReminderStatus"
+        AND "due_at" <= transaction_timestamp()
+        AND "subscription"."status" <> 'QUEUED'::"SubscriptionStatus"
+      ORDER BY "reminder"."due_at", "reminder"."id" LIMIT ${limit}
+    `);
+  }
+
+  public async claimDue(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.$queryRaw<UpdatedReminderRow[]>(Prisma.sql`
+      SELECT "id" FROM "subscription_reminders"
+      WHERE "id" = ANY(${ids}::uuid[]) AND "status" = 'PENDING'::"SubscriptionReminderStatus"
+      FOR UPDATE SKIP LOCKED
+    `);
+    return rows.map((row) => row.id);
+  }
+
+  public async complete(ids: string[], completedAt: Date): Promise<number> {
+    if (ids.length === 0) return 0;
+    const result = await this.prisma.subscriptionReminder.updateMany({
+      where: { id: { in: ids }, status: PrismaSubscriptionReminderStatus.PENDING },
+      data: { status: PrismaSubscriptionReminderStatus.COMPLETED, completedAt },
+    });
+    return result.count;
+  }
+  public async suppress(ids: string[], suppressedAt: Date): Promise<number> {
+    if (!ids.length) return 0;
+    const result = await this.prisma.subscriptionReminder.updateMany({
+      where: { id: { in: ids }, status: PrismaSubscriptionReminderStatus.PENDING },
+      data: { status: PrismaSubscriptionReminderStatus.SUPPRESSED, suppressedAt },
+    });
+    return result.count;
+  }
+
+  public async loadClaimed(ids: string[]): Promise<ClaimedDueReminder[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.$queryRaw<AuthoritativeDueReminderRow[]>(Prisma.sql`
+      SELECT reminder."id", reminder."subscription_id" AS "subscriptionId", reminder."user_id" AS "userId", reminder."notification_type" AS "notificationType",
+        reminder."lead_days" AS "leadDays", reminder."expected_auto_renew" AS "expectedAutoRenew",
+        reminder."subscription_ends_at" AS "subscriptionEndsAt", owner."status" AS "ownerStatus",
+        owner."ends_at" AS "ownerEndsAt", owner."auto_renew" AS "ownerAutoRenew",
+        EXISTS(SELECT 1 FROM "subscriptions" successor WHERE successor."user_id"=owner."user_id"
+          AND successor."status"='QUEUED'::"SubscriptionStatus" AND successor."sequence"=owner."sequence"+1
+          AND successor."starts_at"=owner."ends_at" AND successor."ends_at">successor."starts_at") AS "hasSuppressingSuccessor"
+      FROM "subscription_reminders" reminder INNER JOIN "subscriptions" owner ON owner."id"=reminder."subscription_id"
+      WHERE reminder."id" = ANY(${ids}::uuid[]) AND reminder."status"='PENDING'::"SubscriptionReminderStatus"
+    `);
+    return rows.map((row) => ({
+      id: row.id,
+      subscriptionId: row.subscriptionId,
+      userId: row.userId,
+      notificationType:
+        row.notificationType === PrismaSubscriptionReminderNotificationType.UPCOMING_PAYMENT
+          ? SubscriptionReminderNotificationType.UPCOMING_PAYMENT
+          : SubscriptionReminderNotificationType.SUBSCRIPTION_EXPIRING,
+      leadDays: row.leadDays,
+      expectedAutoRenew: row.expectedAutoRenew,
+      subscriptionEndsAt: row.subscriptionEndsAt,
+      ownerStatus: row.ownerStatus,
+      ownerEndsAt: row.ownerEndsAt,
+      ownerAutoRenew: row.ownerAutoRenew,
+      hasSuppressingSuccessor: row.hasSuppressingSuccessor,
+    }));
+  }
+
   private toPrismaNotificationType(
     notificationType: SubscriptionReminderNotificationType,
   ): PrismaSubscriptionReminderNotificationType {
@@ -133,3 +206,16 @@ export class SubscriptionReminderRepository implements ISubscriptionReminderRepo
       : PrismaSubscriptionReminderNotificationType.SUBSCRIPTION_EXPIRING;
   }
 }
+
+type AuthoritativeDueReminderRow = UpdatedReminderRow & {
+  notificationType: PrismaSubscriptionReminderNotificationType;
+  subscriptionId: string;
+  userId: string;
+  leadDays: number;
+  expectedAutoRenew: boolean;
+  subscriptionEndsAt: Date;
+  ownerStatus: string;
+  ownerEndsAt: Date;
+  ownerAutoRenew: boolean;
+  hasSuppressingSuccessor: boolean;
+};
