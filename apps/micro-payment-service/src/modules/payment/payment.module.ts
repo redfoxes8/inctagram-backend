@@ -67,6 +67,7 @@ import { IPaymentNotificationRecoveryRepository } from './domain/interfaces/paym
 import { PaymentNotificationRecoveryRepository } from './infrastructure/repositories/payment-notification-schedule.repository';
 import { StageSubscriptionRemindersService } from './application/services/stage-subscription-reminders.service';
 import { ProcessDueSubscriptionRemindersService } from './application/services/process-due-subscription-reminders.service';
+import { SubscriptionReminderScheduler } from './infrastructure/schedulers/subscription-reminder.scheduler';
 
 const repositories = [
   { provide: IProductRepository, useClass: ProductRepository },
@@ -150,6 +151,7 @@ const notificationFoundation = [
 const subscriptionReminderFoundation = [
   StageSubscriptionRemindersService,
   ProcessDueSubscriptionRemindersService,
+  SubscriptionReminderScheduler,
 ];
 
 @Module({
