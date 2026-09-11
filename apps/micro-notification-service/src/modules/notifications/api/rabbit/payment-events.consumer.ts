@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { RabbitSubscribe, Nack } from '@golevelup/nestjs-rabbitmq';
+import { Injectable, Logger } from '@nestjs/common';
+import { MessageHandlerErrorBehavior, RabbitSubscribe, Nack } from '@golevelup/nestjs-rabbitmq';
 import { isUUID } from 'class-validator';
 import { DomainException, DomainExceptionCode } from '../../../../../../../libs/common/src';
 import {
@@ -30,6 +30,8 @@ const PAYMENT_ROUTING_KEYS = [
   SUBSCRIPTION_AUTO_RENEW_CHANGED_ROUTING_KEY,
 ] as const;
 const TEMPLATE_VERSION = 1;
+export const PAYMENT_NOTIFICATION_EMAIL_CHANNEL = 'payment-notification-email';
+export const PAYMENT_NOTIFICATION_EMAIL_PREFETCH_COUNT = 1;
 
 type PaymentPurpose =
   | 'PAYMENT_SUCCEEDED'
@@ -50,6 +52,8 @@ type NotificationTransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class PaymentEventsConsumer {
+  private readonly logger = new Logger(PaymentEventsConsumer.name);
+
   constructor(
     private readonly prisma: NotificationPrismaService,
     private readonly config: NotificationConfig,
@@ -62,12 +66,14 @@ export class PaymentEventsConsumer {
     routingKey: [...PAYMENT_ROUTING_KEYS],
     queue: process.env.PAYMENT_NOTIFICATION_QUEUE_NAME || 'payment-notification-queue',
     queueOptions: {
+      channel: PAYMENT_NOTIFICATION_EMAIL_CHANNEL,
       durable: true,
       arguments: {
         'x-dead-letter-exchange': 'common_exchange',
         'x-dead-letter-routing-key': 'notification.payment.dlq',
       },
     },
+    errorBehavior: MessageHandlerErrorBehavior.NACK,
   })
   public async handlePaymentEvent(event: unknown): Promise<Nack | void> {
     let mapped: MappedEvent;
@@ -77,9 +83,19 @@ export class PaymentEventsConsumer {
       return new Nack(false);
     }
 
-    const claimed = await this.prisma.$transaction((transaction) =>
-      this.claim(transaction, mapped),
-    );
+    let claimed: 'claimed' | 'terminal' | 'processing';
+    try {
+      claimed = await this.prisma.$transaction((transaction) => this.claim(transaction, mapped));
+    } catch (error: unknown) {
+      if (this.isPrismaTransactionStartError(error)) {
+        this.logger.warn({
+          message: 'Payment notification claim transaction could not start',
+          errorCode: 'P2028',
+        });
+        return new Nack(false);
+      }
+      throw error;
+    }
     if (claimed === 'terminal' || claimed === 'processing') return;
     if (mapped.skip) {
       await this.prisma.notificationDelivery.update({
@@ -290,6 +306,15 @@ export class PaymentEventsConsumer {
     if (error instanceof DomainException) return `DOMAIN_${error.code}`;
     if (error instanceof Error) return error.name;
     return 'UNKNOWN_ERROR';
+  }
+
+  private isPrismaTransactionStartError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'P2028'
+    );
   }
 }
 

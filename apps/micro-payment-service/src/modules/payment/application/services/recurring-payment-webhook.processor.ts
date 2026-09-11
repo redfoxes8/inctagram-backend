@@ -36,6 +36,7 @@ import { PaymentNotificationBusinessKeyFactory } from '../../domain/payment-noti
 import { PaymentNotificationType } from '../../../../../../../libs/contracts/src/events/notification-events-v1.event';
 import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
 import { PaymentOutboxRelayService } from '../../infrastructure/messaging/payment-outbox-relay.service';
+import { StageSubscriptionRemindersService } from './stage-subscription-reminders.service';
 
 @Injectable()
 export class RecurringPaymentWebhookProcessor {
@@ -45,6 +46,7 @@ export class RecurringPaymentWebhookProcessor {
     private readonly notificationEventFactory: PaymentNotificationEventFactory,
     private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
     private readonly outboxRelay: PaymentOutboxRelayService,
+    private readonly stageReminders: StageSubscriptionRemindersService,
   ) {}
 
   public processCorrelation(event: ProviderRenewalCorrelatedEvent): Promise<void> {
@@ -201,6 +203,20 @@ export class RecurringPaymentWebhookProcessor {
       if (status === SubscriptionStatus.ACTIVE) {
         await context.outbox.write(this.subscriptionActivatedEvent(event, next));
       }
+      await this.stageReminders.stageBatch(
+        {
+          periods: [
+            { subscription: tail, immediateSuccessor: next },
+            {
+              subscription: next,
+              billingInterval: facts.product.getBillingInterval(),
+              immediateSuccessor: null,
+            },
+          ],
+          now,
+        },
+        context.subscriptionReminders,
+      );
       if (isRecovery) {
         const notificationEvent = this.notificationEventFactory.create({
           occurredAt: this.parseOccurredAt(event.occurredAt),

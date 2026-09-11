@@ -1,4 +1,8 @@
 import { RecurringPaymentWebhookProcessor } from '../../src/modules/payment/application/services/recurring-payment-webhook.processor';
+import { StagePaidAccessNotificationService } from '../../src/modules/payment/application/services/stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from '../../src/modules/payment/application/services/stage-subscription-reminders.service';
+import { PaymentNotificationEventFactory } from '../../src/modules/payment/domain/payment-notification-event.factory';
+import { PaymentOutboxRelayService } from '../../src/modules/payment/infrastructure/messaging/payment-outbox-relay.service';
 import {
   RenewalFailedProviderEvent,
   RenewalSucceededProviderEvent,
@@ -143,6 +147,8 @@ describe('Recurring payment webhook lifecycle', () => {
         save: jest.fn().mockResolvedValue(undefined),
       },
       paymentTransactions,
+      notificationSchedules: {},
+      subscriptionReminders: {},
       outbox: {
         write: jest.fn().mockImplementation((event: unknown) => {
           outboxEvents.push(event);
@@ -153,7 +159,29 @@ describe('Recurring payment webhook lifecycle', () => {
     const unitOfWork = {
       execute: jest.fn().mockImplementation((work) => work(context)),
     } as unknown as IPaymentUnitOfWork;
-    const processor = new RecurringPaymentWebhookProcessor(unitOfWork);
+    const notificationEventFactory = {
+      create: jest.fn().mockImplementation((input: { payload: unknown }) => ({
+        eventId: '77777777-7777-4777-8777-777777777777',
+        ...input,
+      })),
+    } as unknown as PaymentNotificationEventFactory;
+    const stageBatch = jest.fn().mockResolvedValue({
+      created: 1,
+      updated: 0,
+      suppressed: 0,
+      pastDueSkipped: 0,
+    });
+    const stageReminders = { stageBatch } as unknown as StageSubscriptionRemindersService;
+    const processor = new RecurringPaymentWebhookProcessor(
+      unitOfWork,
+      { stage: jest.fn() } as unknown as StagePaidAccessNotificationService,
+      notificationEventFactory,
+      { wake: jest.fn() } as never,
+      {
+        publishById: jest.fn().mockResolvedValue(undefined),
+      } as unknown as PaymentOutboxRelayService,
+      stageReminders,
+    );
 
     await processor.processFailure(
       providerEvent('RENEWAL_FAILED', 'evt_failure') as RenewalFailedProviderEvent,
@@ -161,8 +189,9 @@ describe('Recurring payment webhook lifecycle', () => {
     expect(transaction?.getStatus()).toBe(PaymentTransactionStatus.FAILED);
     expect(active.getStatus()).toBe(SubscriptionStatus.ACTIVE);
     expect(active.getEndsAt()).toEqual(PERIOD_END);
-    expect(outboxEvents).toHaveLength(1);
+    expect(outboxEvents).toHaveLength(2);
     expect(outboxEvents[0]).toEqual(expect.objectContaining({ eventType: 'payment.failed.v1' }));
+    expect(stageBatch).not.toHaveBeenCalled();
 
     await processor.processSuccess(
       providerEvent('RENEWAL_SUCCEEDED', 'evt_success') as RenewalSucceededProviderEvent,
@@ -173,14 +202,15 @@ describe('Recurring payment webhook lifecycle', () => {
     expect(insertedSubscriptions[0].getStartsAt()).toEqual(PERIOD_END);
     expect(active.getStatus()).toBe(SubscriptionStatus.ACTIVE);
     expect(active.getAutoRenew()).toBe(false);
-    expect(outboxEvents).toHaveLength(2);
-    expect(outboxEvents[1]).toEqual(expect.objectContaining({ eventType: 'payment.succeeded.v1' }));
+    expect(outboxEvents).toHaveLength(4);
+    expect(outboxEvents[2]).toEqual(expect.objectContaining({ eventType: 'payment.succeeded.v1' }));
+    expect(stageBatch).toHaveBeenCalledTimes(1);
 
     await processor.processFailure(
       providerEvent('RENEWAL_FAILED', 'evt_late_failure') as RenewalFailedProviderEvent,
     );
     expect(transaction?.getStatus()).toBe(PaymentTransactionStatus.SUCCEEDED);
     expect(insertedSubscriptions).toHaveLength(1);
-    expect(outboxEvents).toHaveLength(2);
+    expect(outboxEvents).toHaveLength(4);
   });
 });

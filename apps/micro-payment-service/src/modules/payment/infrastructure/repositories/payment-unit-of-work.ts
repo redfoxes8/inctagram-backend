@@ -16,6 +16,8 @@ import { ProductProviderRepository } from './product-provider.repository';
 import { ProviderCustomerRepository } from './provider-customer.repository';
 import { ProviderWebhookEventRepository } from './provider-webhook-event.repository';
 import { SubscriptionRepository } from './subscription.repository';
+import { SubscriptionReminderRepository } from './subscription-reminder.repository';
+import { SubscriptionReminderBackfillRepository } from './subscription-reminder-backfill.repository';
 
 type AdvisoryLockResult = { acquired: number };
 type DatabaseNowResult = { now: Date };
@@ -41,12 +43,30 @@ export class PaymentUnitOfWork implements IPaymentUnitOfWork {
         subscriptions: new SubscriptionRepository(transaction),
         providerWebhookEvents: new ProviderWebhookEventRepository(transaction),
         notificationSchedules: PaymentNotificationScheduleRepository.forTransaction(transaction),
+        subscriptionReminders: SubscriptionReminderRepository.forTransaction(transaction),
+        subscriptionReminderBackfill:
+          SubscriptionReminderBackfillRepository.forTransaction(transaction),
         outbox: PaymentOutboxWriter.forTransaction(transaction),
         lockUser: async (userId: string): Promise<void> => {
           assertUuidIdentifier(userId);
           await transaction.$queryRaw<AdvisoryLockResult[]>(Prisma.sql`
             SELECT 1::integer AS acquired
             FROM (SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))) AS locked
+          `);
+        },
+        lockUsers: async (userIds: string[]): Promise<void> => {
+          const sortedUserIds = [...new Set(userIds)].sort();
+          if (sortedUserIds.length === 0) return;
+          await transaction.$queryRaw<AdvisoryLockResult[]>(Prisma.sql`
+            SELECT 1::integer AS acquired
+            FROM (
+              SELECT user_id
+              FROM unnest(${sortedUserIds}::uuid[]) AS users(user_id)
+              ORDER BY user_id
+            ) AS ordered_users
+            CROSS JOIN LATERAL (
+              SELECT pg_advisory_xact_lock(hashtextextended(ordered_users.user_id::text, 0))
+            ) AS locked
           `);
         },
       };

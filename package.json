@@ -27,6 +27,7 @@
     "start:notification": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-notification-service/.env.development nest start micro-notification-service --watch",
     "start:post": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-post-service/.env.development nest start micro-post-service --watch",
     "start:payment": "cross-env NODE_ENV=development ENV_FILE_PATH=apps/micro-payment-service/.env.development nest start micro-payment-service --watch",
+    "payment:reminders:backfill": "ts-node -r tsconfig-paths/register apps/micro-payment-service/src/modules/payment/backfill/subscription-reminder-backfill.command.ts",
     "start:all": "concurrently \"pnpm run start:dev\" \"pnpm run start:files\" \"pnpm run start:notification\" \"pnpm run start:post\" \"pnpm run start:payment\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/main-gateway-service/main",

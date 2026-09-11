@@ -1,6 +1,7 @@
 import { ProcessWebhookEventHandler } from '../../src/modules/payment/application/commands/process-webhook-event.command';
 import { AdditionalPaymentWebhookProcessor } from '../../src/modules/payment/application/services/additional-payment-webhook.processor';
 import { StagePaidAccessNotificationService } from '../../src/modules/payment/application/services/stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from '../../src/modules/payment/application/services/stage-subscription-reminders.service';
 import { PaymentProviderResolver } from '../../src/modules/payment/application/ports/payment-provider-resolver.port';
 import { PaymentProviderStrategy } from '../../src/modules/payment/application/ports/payment-provider.strategy';
 import { PaymentWebhookProcessor } from '../../src/modules/payment/application/ports/payment-webhook-processor.port';
@@ -116,6 +117,7 @@ describe('Additional payment webhook lifecycle', () => {
       nextBillingAt: '2026-10-08T00:00:00.000Z',
     });
     const context = {
+      databaseNow: jest.fn().mockResolvedValue(PAID_AT),
       lockUser: jest.fn().mockResolvedValue(undefined),
       checkoutSessions: {
         findByProviderCheckoutId: jest.fn().mockResolvedValue(checkout),
@@ -147,6 +149,7 @@ describe('Additional payment webhook lifecycle', () => {
       },
       outbox: { write: jest.fn().mockResolvedValue(undefined) },
       notificationSchedules: {},
+      subscriptionReminders: {},
     };
     const unitOfWork = {
       execute: jest.fn().mockImplementation((work) => work(context)),
@@ -161,10 +164,20 @@ describe('Additional payment webhook lifecycle', () => {
       }),
     } as unknown as StagePaidAccessNotificationService;
     const schedulerTransport = { wake: jest.fn().mockResolvedValue(undefined) };
+    const stageBatch = jest.fn().mockResolvedValue({
+      created: 2,
+      updated: 0,
+      suppressed: 0,
+      pastDueSkipped: 0,
+    });
+    const stageReminders = {
+      stageBatch,
+    } as unknown as StageSubscriptionRemindersService;
     const processor = new AdditionalPaymentWebhookProcessor(
       unitOfWork,
       resolver,
       stageNotification,
+      stageReminders,
       schedulerTransport as never,
     );
 
@@ -181,6 +194,15 @@ describe('Additional payment webhook lifecycle', () => {
     expect(synchronizeNextBilling).toHaveBeenCalledTimes(1);
     expect(synchronizeNextBilling).toHaveBeenCalledWith(
       expect.objectContaining({ providerIdempotencyKey: `align-${CHECKOUT_ID}` }),
+    );
+    expect(stageBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        periods: [
+          expect.objectContaining({ subscription: active, immediateSuccessor: queued }),
+          expect.objectContaining({ subscription: queued, immediateSuccessor: null }),
+        ],
+      }),
+      context.subscriptionReminders,
     );
   });
 

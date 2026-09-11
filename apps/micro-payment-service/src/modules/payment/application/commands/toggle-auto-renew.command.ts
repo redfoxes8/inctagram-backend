@@ -19,6 +19,7 @@ import {
 } from '../ports/payment-provider.types';
 import { IPaymentUnitOfWork } from '../ports/payment-unit-of-work.port';
 import { ToggleAutoRenewInput, ToggleAutoRenewResult } from '../types/payment-grpc.types';
+import { StageSubscriptionRemindersService } from '../services/stage-subscription-reminders.service';
 
 export class ToggleAutoRenewCommand extends Command<ToggleAutoRenewResult> {
   constructor(public readonly input: ToggleAutoRenewInput) {
@@ -35,6 +36,7 @@ export class ToggleAutoRenewHandler implements ICommandHandler<
     private readonly unitOfWork: IPaymentUnitOfWork,
     private readonly providerResolver: PaymentProviderResolver,
     private readonly paymentConfig: PaymentConfig,
+    private readonly stageReminders: StageSubscriptionRemindersService,
   ) {}
 
   public async execute(command: ToggleAutoRenewCommand): Promise<ToggleAutoRenewResult> {
@@ -127,6 +129,10 @@ export class ToggleAutoRenewHandler implements ICommandHandler<
       }
       await context.subscriptions.save(current);
       const effectiveAt = await context.databaseNow();
+      await this.stageReminders.reconcileAutoRenew(
+        { subscription: current },
+        context.subscriptionReminders,
+      );
       await context.outbox.write({
         eventId: randomUUID(),
         version: PAYMENT_INTEGRATION_EVENT_VERSION,

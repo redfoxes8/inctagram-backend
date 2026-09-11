@@ -3,4 +3,5 @@ import { PaymentNotificationRequestedV1 } from '../../../../../../../libs/contra
 
 export abstract class IPaymentOutboxWriter {
   abstract write(event: PaymentIntegrationEventV1 | PaymentNotificationRequestedV1): Promise<void>;
+  abstract writeMany(events: PaymentNotificationRequestedV1[]): Promise<number>;
 }

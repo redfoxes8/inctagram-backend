@@ -11,7 +11,11 @@ import { UserGrpcClientModule } from './infrastructure/grpc/user/user-grpc-clien
 import { SendPaymentSucceededEmailHandler } from './application/commands/send-payment-succeeded-email.command';
 import { SendPaymentFailedEmailHandler } from './application/commands/send-payment-failed-email.command';
 import { SendSubscriptionExpiredEmailHandler } from './application/commands/send-subscription-expired-email.command';
-import { PaymentEventsConsumer } from './api/rabbit/payment-events.consumer';
+import {
+  PaymentEventsConsumer,
+  PAYMENT_NOTIFICATION_EMAIL_CHANNEL,
+  PAYMENT_NOTIFICATION_EMAIL_PREFETCH_COUNT,
+} from './api/rabbit/payment-events.consumer';
 import { NotificationPrismaService } from '../../core/prisma/prisma.service';
 import { INotificationPersistencePort } from './application/ports/notification-persistence.port';
 import { PersistRequestedNotificationService } from './application/services/persist-requested-notification.service';
@@ -53,6 +57,11 @@ const commandHandlers = [
     RabbitMQModule.forRoot({
       exchanges: [{ name: 'common_exchange', type: 'topic' }],
       uri: process.env.RABBITMQ_URL || '',
+      channels: {
+        [PAYMENT_NOTIFICATION_EMAIL_CHANNEL]: {
+          prefetchCount: PAYMENT_NOTIFICATION_EMAIL_PREFETCH_COUNT,
+        },
+      },
       queues: [
         {
           name: process.env.PAYMENT_NOTIFICATION_QUEUE_NAME || 'payment-notification-queue',

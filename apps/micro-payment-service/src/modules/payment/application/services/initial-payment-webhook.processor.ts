@@ -36,6 +36,7 @@ import { PaymentWebhookProcessor } from '../ports/payment-webhook-processor.port
 import { AdditionalPaymentWebhookProcessor } from './additional-payment-webhook.processor';
 import { RecurringPaymentWebhookProcessor } from './recurring-payment-webhook.processor';
 import { StagePaidAccessNotificationService } from './stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from './stage-subscription-reminders.service';
 import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
 
 @Injectable()
@@ -45,6 +46,7 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
     private readonly additionalProcessor: AdditionalPaymentWebhookProcessor,
     private readonly recurringProcessor: RecurringPaymentWebhookProcessor,
     private readonly stageNotification: StagePaidAccessNotificationService,
+    private readonly stageReminders: StageSubscriptionRemindersService,
     private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
   ) {}
 
@@ -132,6 +134,16 @@ export class InitialPaymentWebhookProcessor implements PaymentWebhookProcessor {
       await context.providerWebhookEvents.save(facts.journal);
       await context.outbox.write(this.paymentSucceededEvent(event, facts, subscription));
       await context.outbox.write(this.subscriptionActivatedEvent(event, facts, subscription));
+      const reminderNow = await context.databaseNow();
+      await this.stageReminders.stage(
+        {
+          subscription,
+          billingInterval: facts.product.getBillingInterval(),
+          immediateSuccessor: null,
+          now: reminderNow,
+        },
+        context.subscriptionReminders,
+      );
       return this.stageNotification.stage(
         {
           userId: subscription.getUserId(),
