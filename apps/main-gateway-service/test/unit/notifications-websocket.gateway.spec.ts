@@ -18,6 +18,7 @@ import {
 import { NotificationRealtimePublisher } from '../../src/modules/notifications/realtime/notification-realtime.publisher';
 import { NotificationUserRoomFactory } from '../../src/modules/notifications/realtime/notification-user-room.factory';
 import { NOTIFICATION_WEBSOCKET_EVENT } from '../../../../libs/contracts/src';
+import { Logger } from '@nestjs/common';
 import { io, type Socket as ClientSocket } from 'socket.io-client';
 import { Server, type Namespace } from 'socket.io';
 
@@ -200,6 +201,56 @@ describe('NotificationsGateway', () => {
     ]);
     await nextTick();
     expect(otherUserListener).not.toHaveBeenCalled();
+  });
+
+  it('logs local delivery count and offline state without changing room emission', async () => {
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    const firstTab = await connectedSocket({ accessToken: 'access-first-user' });
+    const secondTab = await connectedSocket({ accessToken: 'access-first-user' });
+    await nextTick();
+
+    publisher.publishNotificationCreated(FIRST_USER_ID, {
+      notification: {
+        id: LIVE_EVENT_ID,
+        type: 'UPCOMING_PAYMENT',
+        subscriptionId: null,
+        providerInvoiceId: null,
+        effectiveAt: SEEN_THROUGH,
+        subscriptionEndsAt: null,
+        reasonCode: null,
+        createdAt: SEEN_THROUGH,
+        seenAt: null,
+      },
+      unseenCount: 1,
+    });
+    await nextTick();
+    expect(log).toHaveBeenCalledWith({
+      event: 'notification.websocket.delivered',
+      connections: 2,
+    });
+
+    firstTab.disconnect();
+    secondTab.disconnect();
+    await nextTick();
+    publisher.publishNotificationCreated(FIRST_USER_ID, {
+      notification: {
+        id: LIVE_EVENT_ID,
+        type: 'UPCOMING_PAYMENT',
+        subscriptionId: null,
+        providerInvoiceId: null,
+        effectiveAt: SEEN_THROUGH,
+        subscriptionEndsAt: null,
+        reasonCode: null,
+        createdAt: SEEN_THROUGH,
+        seenAt: null,
+      },
+      unseenCount: 1,
+    });
+    expect(log).toHaveBeenCalledWith({
+      event: 'notification.websocket.offline',
+      connections: 0,
+    });
+    log.mockRestore();
   });
 
   function connectedSocket(auth: Record<string, string>): Promise<ClientSocket> {

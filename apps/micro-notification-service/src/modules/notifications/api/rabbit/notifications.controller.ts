@@ -32,8 +32,6 @@ export class NotificationsController {
     @Ctx() context: RmqContext,
   ): Promise<void> {
     try {
-      console.log('RegistrationEmailSent ===>', dto);
-
       await this.notificationsService.sendEmail(
         this.buildRegistrationEmailParams(dto.email, dto.confirmationCode),
       );
@@ -77,7 +75,7 @@ export class NotificationsController {
     const message = context.getMessage();
 
     if (this.isValidationError(error)) {
-      this.logger.warn(`Validation failed for ${eventName} message from ${email}`);
+      this.logger.warn({ event: 'notification.legacy.validation_failed' });
       context.getChannelRef().ack(message);
       return;
     }
@@ -85,9 +83,11 @@ export class NotificationsController {
     const retryCount = this.getRetryCount(message);
 
     if (retryCount < this.maxRetryAttempts - 1) {
-      this.logger.warn(
-        `Retrying ${eventName} for ${email}. Attempt ${retryCount + 1} of ${this.maxRetryAttempts}`,
-      );
+      this.logger.warn({
+        event: 'notification.legacy.retrying',
+        attempt: retryCount + 1,
+        maxAttempts: this.maxRetryAttempts,
+      });
 
       this.requeueMessage(context, {
         eventName,
@@ -98,10 +98,11 @@ export class NotificationsController {
       return;
     }
 
-    this.logger.error(
-      `Critical failure for ${eventName} and ${email}. Moving message to DLQ after ${this.maxRetryAttempts} attempts.`,
-      error instanceof Error ? error.stack : undefined,
-    );
+    this.logger.error({
+      event: 'notification.legacy.dlq',
+      reasonCode: 'MAX_RETRIES_EXCEEDED',
+      maxAttempts: this.maxRetryAttempts,
+    });
     this.routeToDeadLetterQueue(context, {
       eventName,
       email,
@@ -239,8 +240,6 @@ export class NotificationsController {
 
   private buildFrontendLink(path: string, code: string): string {
     const normalizedFrontendUrl = this.notificationConfig.frontEndUrl.replace(/\/+$/, '');
-    console.log('Link ===>', `${normalizedFrontendUrl}/${path}?code=${encodeURIComponent(code)}`);
-
     return `${normalizedFrontendUrl}/${path}?code=${encodeURIComponent(code)}`;
   }
 }

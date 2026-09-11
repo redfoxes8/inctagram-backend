@@ -89,6 +89,16 @@ export class SubscriptionReminderScheduler
           stoppedByLimit,
         }),
       );
+      if (outboxCreated > 0) {
+        this.logger.log(
+          JSON.stringify({ event: 'payment.reminder.created', count: outboxCreated }),
+        );
+      }
+      if (suppressed > 0) {
+        this.logger.log(
+          JSON.stringify({ event: 'payment.reminder.suppressed', count: suppressed }),
+        );
+      }
     } catch {
       this.logger.error(
         JSON.stringify({

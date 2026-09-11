@@ -15,7 +15,10 @@ import {
   type PaymentNotificationRequestedV1,
 } from '../../../../../../../libs/contracts/src/events/notification-events-v1.event';
 import { PersistRequestedNotificationService } from '../../application/services/persist-requested-notification.service';
-import { type PersistRequestedNotificationInput } from '../../application/types/persist-requested-notification.types';
+import {
+  PersistRequestedNotificationOutcome,
+  type PersistRequestedNotificationInput,
+} from '../../application/types/persist-requested-notification.types';
 import { NotificationOutboxPublisher } from '../../infrastructure/messaging/notification-outbox.publisher';
 import {
   PERSISTED_NOTIFICATION_DLQ_ROUTING_KEY,
@@ -55,18 +58,29 @@ export class PersistedPaymentNotificationConsumer {
     @RabbitPayload() input: unknown,
     @RabbitRequest() message?: RabbitMessage,
   ): Promise<Nack | void> {
+    this.logger.log({
+      event: 'notification.persistence.received',
+      redelivered: message?.fields?.redelivered === true,
+    });
     let normalized: unknown = input;
     try {
       normalized = this.normalize(input);
       const event = this.validate(normalized);
       const result = await this.persistence.execute(event);
+      if (result.outcome === PersistRequestedNotificationOutcome.APPLIED) {
+        this.logger.log({ event: 'notification.persistence.persisted' });
+      } else {
+        this.logger.log({
+          event: 'notification.persistence.duplicate',
+          outcome: result.outcome,
+        });
+      }
       if (result.outboxEventId) {
         try {
           await this.outboxPublisher.publishByEventId(result.outboxEventId);
         } catch (error: unknown) {
           this.logger.warn({
             message: 'Notification outbox immediate publish could not be started',
-            eventId: result.outboxEventId,
             errorCode: this.errorCode(error),
           });
         }
@@ -74,17 +88,12 @@ export class PersistedPaymentNotificationConsumer {
       return;
     } catch (error: unknown) {
       if (error instanceof InvalidPersistedNotificationEventError) {
-        this.logger.warn({
-          message: 'Persisted notification event rejected',
-          errorKind: 'INVALID_EVENT',
-          ...this.safeContext(normalized, message),
-        });
+        this.logger.warn({ event: 'notification.persistence.invalid' });
         return this.deadLetter(input, message, 'INVALID_EVENT');
       }
       this.logger.error({
         message: 'Persisted notification transaction failed',
         errorCode: this.errorCode(error),
-        ...this.safeContext(normalized, message),
       });
       return this.retryOrDeadLetter(input, message);
     }
@@ -197,6 +206,12 @@ export class PersistedPaymentNotificationConsumer {
             : {}),
         },
       );
+      if (terminal) {
+        this.logger.warn({
+          event: 'notification.persistence.dlq',
+          reasonCode: 'PERSISTENCE_ERROR',
+        });
+      }
       return;
     } catch (error: unknown) {
       return this.delayedRequeue(error, 'Persisted notification retry publication failed');
@@ -213,6 +228,7 @@ export class PersistedPaymentNotificationConsumer {
         [PERSISTED_NOTIFICATION_RETRY_HEADER]: this.retryCount(message),
         [PERSISTED_NOTIFICATION_TERMINAL_REASON_HEADER]: reason,
       });
+      this.logger.warn({ event: 'notification.persistence.dlq', reasonCode: reason });
       return;
     } catch (error: unknown) {
       return this.delayedRequeue(error, 'Persisted notification DLQ publication failed');
@@ -303,19 +319,6 @@ export class PersistedPaymentNotificationConsumer {
   private messageId(input: unknown, message: RabbitMessage | undefined): string | undefined {
     if (typeof message?.properties.messageId === 'string') return message.properties.messageId;
     return this.isRecord(input) && typeof input.eventId === 'string' ? input.eventId : undefined;
-  }
-
-  private safeContext(input: unknown, message: RabbitMessage | undefined): Record<string, unknown> {
-    const event = this.isRecord(input) ? input : {};
-    return {
-      ...(typeof event.eventId === 'string' ? { eventId: event.eventId } : {}),
-      ...(typeof event.routingKey === 'string' ? { routingKey: event.routingKey } : {}),
-      ...(typeof message?.properties.messageId === 'string'
-        ? { originalMessageId: message.properties.messageId }
-        : {}),
-      redelivered: message?.fields?.redelivered === true,
-      validationIssue: 'CONTRACT_VALIDATION_FAILED',
-    };
   }
 
   private errorCode(error: unknown): string {
