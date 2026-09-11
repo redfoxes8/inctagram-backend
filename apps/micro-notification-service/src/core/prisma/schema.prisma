@@ -76,6 +76,7 @@ model Notification {
   @@index([userId, createdAt, id])
   @@index([userId, seenAt, createdAt])
   @@index([createdAt])
+  @@index([createdAt, id], map: "Notification_createdAt_id_idx")
 }
 
 model NotificationInbox {

@@ -8,6 +8,8 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  Matches,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -117,6 +119,28 @@ export class NotificationConfig {
   @Min(1)
   paymentNotificationProcessingTimeoutSeconds: number;
 
+  @IsBoolean()
+  notificationCleanupEnabled: boolean;
+
+  @IsString()
+  @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/)
+  notificationCleanupCron: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  notificationCleanupRetentionDays: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  notificationCleanupBatchSize: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  notificationCleanupMaxBatchesPerRun: number;
+
   constructor(private readonly configService: ConfigService<NotificationEnvRecord, true>) {
     this.port = Number(this.configService.get(NOTIFICATION_ENV_KEYS.PORT));
     this.grpcHost = this.readString(NOTIFICATION_ENV_KEYS.NOTIFICATION_GRPC_HOST, '0.0.0.0');
@@ -177,9 +201,34 @@ export class NotificationConfig {
       300,
       1,
     );
+    this.notificationCleanupEnabled = this.requiredBoolean(
+      this.configService.get(NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_ENABLED) ?? 'false',
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_ENABLED,
+    );
+    this.notificationCleanupCron =
+      this.configService.get(NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_CRON) ?? '0 0 3 * * *';
+    this.notificationCleanupRetentionDays = this.readBoundedInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_RETENTION_DAYS,
+      90,
+      1,
+      3650,
+    );
+    this.notificationCleanupBatchSize = this.readBoundedInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_BATCH_SIZE,
+      100,
+      1,
+      1000,
+    );
+    this.notificationCleanupMaxBatchesPerRun = this.readBoundedInt(
+      NOTIFICATION_ENV_KEYS.NOTIFICATION_CLEANUP_MAX_BATCHES_PER_RUN,
+      5,
+      1,
+      100,
+    );
 
     configValidationUtility.validateConfig(this);
     this.assertSmtpCredentialPair();
+    this.assertCron(this.notificationCleanupCron);
   }
 
   @IsEmail({}, { message: 'Set Env variable SMTP_FROM_EMAIL, example: no-reply@inctagram.com' })
@@ -217,6 +266,40 @@ export class NotificationConfig {
   private readNonNegativeInt(key: NotificationEnvKey, defaultValue: number): number {
     const value = Number(this.configService.get<string | undefined>(key));
     return Number.isInteger(value) && value >= 0 ? value : defaultValue;
+  }
+
+  private readBoundedInt(
+    key: NotificationEnvKey,
+    defaultValue: number,
+    minimum: number,
+    maximum: number,
+  ): number {
+    const value = this.configService.get<string | undefined>(key);
+    if (value === undefined) return defaultValue;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+      throw new Error(`${key} must be an integer between ${minimum} and ${maximum}`);
+    }
+    return parsed;
+  }
+
+  private assertCron(expression: string): void {
+    const limits = [59, 59, 23, 31, 12, 6];
+    const fields = expression.split(/\s+/u);
+    const valid =
+      fields.length === limits.length &&
+      fields.every((field, index) => {
+        if (field === '*') return true;
+        if (field.startsWith('*/')) {
+          const step = Number(field.slice(2));
+          return Number.isInteger(step) && step > 0 && step <= limits[index] + 1;
+        }
+        const value = Number(field);
+        const minimum = index === 3 || index === 4 ? 1 : 0;
+        return Number.isInteger(value) && value >= minimum && value <= limits[index];
+      });
+    if (!valid)
+      throw new Error('NOTIFICATION_CLEANUP_CRON must be a valid six-field cron expression');
   }
 
   private readString(key: NotificationEnvKey, defaultValue: string): string {
