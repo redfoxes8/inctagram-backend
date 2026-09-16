@@ -9,6 +9,7 @@ import { PersistRequestedNotificationService } from '../../src/modules/notificat
 import { PersistRequestedNotificationOutcome } from '../../src/modules/notifications/application/types/persist-requested-notification.types';
 import { NotificationOutboxPublisher } from '../../src/modules/notifications/infrastructure/messaging/notification-outbox.publisher';
 import { NotificationOutboxRepository } from '../../src/modules/notifications/infrastructure/repositories/notification-outbox.repository';
+import { Logger } from '@nestjs/common';
 
 const EVENT = {
   eventId: '11111111-1111-4111-8111-111111111111',
@@ -43,6 +44,8 @@ function message(retryCount?: number) {
 
 describe('persisted notification messaging', () => {
   it('normalizes valid object and Buffer events, persists before immediate outbox publish, and ACKs duplicates', async () => {
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const execute = jest
       .fn()
       .mockResolvedValueOnce({
@@ -70,9 +73,18 @@ describe('persisted notification messaging', () => {
     expect(publishByEventId).toHaveBeenCalledTimes(1);
     expect(publishByEventId).toHaveBeenCalledWith('55555555-5555-4555-8555-555555555555');
     expect(amqp.publish).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith({ event: 'notification.persistence.persisted' });
+    expect(log).toHaveBeenCalledWith({
+      event: 'notification.persistence.duplicate',
+      outcome: PersistRequestedNotificationOutcome.DUPLICATE_EVENT,
+    });
+    expect(warn).not.toHaveBeenCalled();
+    log.mockRestore();
+    warn.mockRestore();
   });
 
   it('moves malformed input to terminal INVALID_EVENT DLQ without persistence', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const execute = jest.fn();
     const amqp = { publish: jest.fn().mockResolvedValue(true) };
     const consumer = new PersistedPaymentNotificationConsumer(
@@ -96,9 +108,16 @@ describe('persisted notification messaging', () => {
         }),
       }),
     );
+    expect(warn).toHaveBeenCalledWith({ event: 'notification.persistence.invalid' });
+    expect(warn).toHaveBeenCalledWith({
+      event: 'notification.persistence.dlq',
+      reasonCode: 'INVALID_EVENT',
+    });
+    warn.mockRestore();
   });
 
   it('uses bounded persistence retry and preserves failed outgoing rows for recovery', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const execute = jest.fn().mockRejectedValue(new Error('DATABASE_UNAVAILABLE'));
     const amqp = { publish: jest.fn().mockResolvedValue(true) };
     const consumer = new PersistedPaymentNotificationConsumer(
@@ -125,6 +144,13 @@ describe('persisted notification messaging', () => {
           [PERSISTED_NOTIFICATION_TERMINAL_REASON_HEADER]: 'PERSISTENCE_ERROR',
         }),
       }),
+    );
+    expect(warn).toHaveBeenCalledWith({
+      event: 'notification.persistence.dlq',
+      reasonCode: 'PERSISTENCE_ERROR',
+    });
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'notification.persistence.dlq', reasonCode: 'RETRY' }),
     );
 
     const outbox = {
@@ -159,5 +185,6 @@ describe('persisted notification messaging', () => {
     await expect(publisher.publishClaimed(outbox)).resolves.toBe(false);
     expect(markFailed).toHaveBeenCalledTimes(1);
     expect(markPublished).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

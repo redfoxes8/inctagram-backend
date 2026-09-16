@@ -63,7 +63,6 @@ export class NotificationOutboxPublisher {
       });
       this.logger.warn({
         message: 'Notification outbox publish deferred for recovery',
-        eventId: event.eventId,
         errorCode: this.errorCode(error),
       });
       return false;

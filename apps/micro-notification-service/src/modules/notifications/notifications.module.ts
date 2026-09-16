@@ -24,6 +24,9 @@ import { PersistedPaymentNotificationConsumer } from './api/rabbit/persisted-pay
 import { NotificationOutboxRepository } from './infrastructure/repositories/notification-outbox.repository';
 import { NotificationOutboxPublisher } from './infrastructure/messaging/notification-outbox.publisher';
 import { NotificationOutboxRecoveryService } from './infrastructure/messaging/notification-outbox-recovery.service';
+import { NotificationCleanupRepository } from './infrastructure/repositories/notification-cleanup.repository';
+import { NotificationCleanupService } from './application/services/notification-cleanup.service';
+import { NotificationCleanupScheduler } from './infrastructure/schedulers/notification-cleanup.scheduler';
 import { INotificationHistoryPort } from './application/ports/notification-history.port';
 import { PrismaNotificationHistoryRepository } from './infrastructure/repositories/prisma-notification-history.repository';
 import { NotificationClock } from './application/ports/notification-clock.port';
@@ -134,6 +137,9 @@ const commandHandlers = [
     NotificationOutboxRepository,
     NotificationOutboxPublisher,
     NotificationOutboxRecoveryService,
+    NotificationCleanupRepository,
+    NotificationCleanupService,
+    NotificationCleanupScheduler,
     PrismaNotificationHistoryRepository,
     SystemNotificationClock,
     GetNotificationsService,

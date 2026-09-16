@@ -145,11 +145,31 @@ spec:
                  secretKeyRef:
                    name: micro-payment-service-10-07-2026-production-config-secret
                    key: NODE_ENV
-             - name: NODE_ENV
+             - name: PAYMENT_NOTIFICATION_RECOVERY_ENABLED
                valueFrom:
                  secretKeyRef:
                    name: micro-payment-service-10-07-2026-production-config-secret
-                   key: NODE_ENV
+                   key: PAYMENT_NOTIFICATION_RECOVERY_ENABLED
+             - name: PAYMENT_REMINDER_SCHEDULER_ENABLED
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: PAYMENT_REMINDER_SCHEDULER_ENABLED
+             - name: PAYMENT_REMINDER_SCHEDULER_CRON
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: PAYMENT_REMINDER_SCHEDULER_CRON
+             - name: PAYMENT_REMINDER_BATCH_SIZE
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: PAYMENT_REMINDER_BATCH_SIZE
+             - name: PAYMENT_REMINDER_MAX_BATCHES_PER_TICK
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: PAYMENT_REMINDER_MAX_BATCHES_PER_TICK
              - name: PORT
                valueFrom:
                  secretKeyRef:

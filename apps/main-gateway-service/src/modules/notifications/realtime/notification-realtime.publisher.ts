@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Namespace } from 'socket.io';
 
 import {
@@ -10,6 +10,7 @@ import { NotificationUserRoomFactory } from './notification-user-room.factory';
 
 @Injectable()
 export class NotificationRealtimePublisher {
+  private readonly logger = new Logger(NotificationRealtimePublisher.name);
   private namespace: Namespace | undefined;
 
   public bind(namespace: Namespace): void {
@@ -32,7 +33,16 @@ export class NotificationRealtimePublisher {
 
   private emit(userId: string, event: string, payload: object): void {
     try {
-      this.namespace?.to(NotificationUserRoomFactory.forUser(userId)).emit(event, payload);
+      const namespace = this.namespace;
+      if (!namespace) return;
+      const room = namespace.adapter.rooms.get(NotificationUserRoomFactory.forUser(userId));
+      const connections = room?.size ?? 0;
+      if (connections === 0) {
+        this.logger.log({ event: 'notification.websocket.offline', connections: 0 });
+        return;
+      }
+      namespace.to(NotificationUserRoomFactory.forUser(userId)).emit(event, payload);
+      this.logger.log({ event: 'notification.websocket.delivered', connections });
     } catch {
       // Realtime delivery is best-effort; persisted Notification state remains authoritative.
     }
