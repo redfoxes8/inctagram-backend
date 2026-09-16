@@ -17,7 +17,11 @@ import {
 } from '../../src/modules/notifications/infrastructure/notification-live-event.constants';
 import { NotificationRealtimePublisher } from '../../src/modules/notifications/realtime/notification-realtime.publisher';
 import { NotificationUserRoomFactory } from '../../src/modules/notifications/realtime/notification-user-room.factory';
-import { NOTIFICATION_WEBSOCKET_EVENT } from '../../../../libs/contracts/src';
+import {
+  NOTIFICATION_WEBSOCKET_EVENT,
+  type NotificationCreatedWebSocketPayload,
+  PaymentNotificationType,
+} from '../../../../libs/contracts/src';
 import { Logger } from '@nestjs/common';
 import { io, type Socket as ClientSocket } from 'socket.io-client';
 import { Server, type Namespace } from 'socket.io';
@@ -200,6 +204,50 @@ describe('NotificationsGateway', () => {
       { unseenCount: 0, seenThrough: SEEN_THROUGH },
     ]);
     await nextTick();
+    expect(otherUserListener).not.toHaveBeenCalled();
+  });
+
+  it('delivers notification.created payload to all sessions of target user and isolates other users', async () => {
+    const firstTab = await connectedSocket({ accessToken: 'access-first-user' });
+    const secondTab = await connectedSocket({ accessToken: 'access-first-user' });
+    const otherUserTab = await connectedSocket({ accessToken: 'access-second-user' });
+    await nextTick();
+
+    const payload: NotificationCreatedWebSocketPayload = {
+      notification: {
+        id: LIVE_EVENT_ID,
+        type: PaymentNotificationType.SUBSCRIPTION_ACTIVATED,
+        subscriptionId: 'sub-test-40000000-0000-0001',
+        providerInvoiceId: 'in_test_live_invoice_0001',
+        effectiveAt: SEEN_THROUGH,
+        subscriptionEndsAt: '2026-10-01T11:01:40.000Z',
+        reasonCode: 'SUBSCRIPTION_PROCESSED',
+        createdAt: SEEN_THROUGH,
+        seenAt: null,
+      },
+      unseenCount: 3,
+    };
+
+    const firstTabListener = jest.fn();
+    const secondTabListener = jest.fn();
+    const otherUserListener = jest.fn();
+
+    firstTab.on(NOTIFICATION_WEBSOCKET_EVENT.CREATED, firstTabListener);
+    secondTab.on(NOTIFICATION_WEBSOCKET_EVENT.CREATED, secondTabListener);
+    otherUserTab.on(NOTIFICATION_WEBSOCKET_EVENT.CREATED, otherUserListener);
+
+    const firstEvent = event(firstTab, NOTIFICATION_WEBSOCKET_EVENT.CREATED);
+    const secondEvent = event(secondTab, NOTIFICATION_WEBSOCKET_EVENT.CREATED);
+
+    publisher.publishNotificationCreated(FIRST_USER_ID, payload);
+
+    await expect(Promise.all([firstEvent, secondEvent])).resolves.toEqual([payload, payload]);
+    await nextTick();
+
+    expect(firstTabListener).toHaveBeenCalledTimes(1);
+    expect(firstTabListener).toHaveBeenCalledWith(payload);
+    expect(secondTabListener).toHaveBeenCalledTimes(1);
+    expect(secondTabListener).toHaveBeenCalledWith(payload);
     expect(otherUserListener).not.toHaveBeenCalled();
   });
 
