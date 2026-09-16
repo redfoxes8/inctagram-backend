@@ -1,6 +1,14 @@
+export const AuthTokenType = {
+  ACCESS: 'ACCESS',
+  REFRESH: 'REFRESH',
+} as const;
+
+export type AuthTokenType = (typeof AuthTokenType)[keyof typeof AuthTokenType];
+
 export interface TokenPayload {
   userId: string;
   deviceId: string;
+  tokenType: AuthTokenType;
   iat: number;
   exp: number;
 }
@@ -15,5 +23,7 @@ export abstract class IJwtService {
 
   abstract getPayload(token: string): Promise<TokenPayload | null>;
 
-  abstract verify(token: string): TokenPayload;
+  abstract verifyAccessToken(token: string): TokenPayload;
+
+  abstract verifyRefreshToken(token: string): TokenPayload;
 }

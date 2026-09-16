@@ -33,6 +33,11 @@ export abstract class IPaymentOutboxRelayRepository {
   abstract claim(options: PaymentOutboxClaimOptions): Promise<ClaimedPaymentOutboxEvent[]>;
   abstract markPublished(id: string, workerId: string, publishedAt: Date): Promise<boolean>;
   abstract markFailedOrRetry(options: PaymentOutboxFailureOptions): Promise<boolean>;
+  abstract claimById(options: {
+    id: string;
+    workerId: string;
+    now: Date;
+  }): Promise<ClaimedPaymentOutboxEvent | null>;
 }
 
 export abstract class IPaymentOutboxPublisher {

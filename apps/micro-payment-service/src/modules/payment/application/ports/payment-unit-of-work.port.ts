@@ -6,6 +6,9 @@ import { IProviderWebhookEventRepository } from '../../domain/interfaces/provide
 import { IPaymentTransactionRepository } from '../../domain/interfaces/payment-transaction.repository.interface';
 import { ISubscriptionRepository } from '../../domain/interfaces/subscription.repository.interface';
 import { IPaymentOutboxWriter } from './payment-outbox-writer.port';
+import { IPaymentNotificationScheduleRepository } from '../../domain/interfaces/payment-notification-schedule.repository.interface';
+import { ISubscriptionReminderRepository } from '../../domain/interfaces/subscription-reminder.repository.interface';
+import { ISubscriptionReminderBackfillRepository } from '../../domain/interfaces/subscription-reminder-backfill.repository.interface';
 
 export type PaymentUnitOfWorkContext = Readonly<{
   databaseNow: () => Promise<Date>;
@@ -16,8 +19,12 @@ export type PaymentUnitOfWorkContext = Readonly<{
   paymentTransactions: IPaymentTransactionRepository;
   subscriptions: ISubscriptionRepository;
   providerWebhookEvents: IProviderWebhookEventRepository;
+  notificationSchedules: IPaymentNotificationScheduleRepository;
+  subscriptionReminders: ISubscriptionReminderRepository;
+  subscriptionReminderBackfill: ISubscriptionReminderBackfillRepository;
   outbox: IPaymentOutboxWriter;
   lockUser(userId: string): Promise<void>;
+  lockUsers(userIds: string[]): Promise<void>;
 }>;
 
 export type PaymentUnitOfWorkCallback<TResult> = (

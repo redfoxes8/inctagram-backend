@@ -33,12 +33,18 @@ import {
   ProviderSubscriptionState,
 } from '../ports/payment-provider.types';
 import { IPaymentUnitOfWork, PaymentUnitOfWorkContext } from '../ports/payment-unit-of-work.port';
+import { StagePaidAccessNotificationService } from './stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from './stage-subscription-reminders.service';
+import { PaymentNotificationSchedulerTransport } from '../../infrastructure/messaging/payment-notification-scheduler.transport';
 
 @Injectable()
 export class AdditionalPaymentWebhookProcessor {
   constructor(
     private readonly unitOfWork: IPaymentUnitOfWork,
     private readonly providerResolver: PaymentProviderResolver,
+    private readonly stageNotification: StagePaidAccessNotificationService,
+    private readonly stageReminders: StageSubscriptionRemindersService,
+    private readonly schedulerTransport: PaymentNotificationSchedulerTransport,
   ) {}
 
   public async processSuccess(event: CheckoutPaymentSucceededProviderEvent): Promise<void> {
@@ -67,9 +73,12 @@ export class AdditionalPaymentWebhookProcessor {
         providerIdempotencyKey: `align-${prepared.facts.checkout.id}`,
       });
     this.assertProviderState(prepared, providerState);
-    await this.unitOfWork.execute((context) =>
+    const staged = await this.unitOfWork.execute((context) =>
       this.applySuccess(context, event, prepared, providerState),
     );
+    if (staged.outcome === 'CREATED' || staged.outcome === 'MERGED') {
+      await this.schedulerTransport.wake(staged.schedule.id).catch(() => undefined);
+    }
   }
 
   public async processFailure(event: CheckoutPaymentFailedProviderEvent): Promise<void> {
@@ -137,7 +146,7 @@ export class AdditionalPaymentWebhookProcessor {
     event: CheckoutPaymentSucceededProviderEvent,
     prepared: PreparedAdditionalPayment,
     providerState: ProviderSubscriptionState,
-  ): Promise<void> {
+  ): Promise<Awaited<ReturnType<StagePaidAccessNotificationService['stage']>>> {
     const facts = await this.loadFacts(context, event);
     this.assertCommonFacts(event, facts);
     this.assertMutableIntent(facts);
@@ -166,7 +175,9 @@ export class AdditionalPaymentWebhookProcessor {
       sequence: prepared.tailSequence + 1,
       period: prepared.period,
     });
-    tail.disableAutoRenew({ providerStatus: providerState.providerStatus });
+    if (tail.getAutoRenew()) {
+      tail.disableAutoRenew({ providerStatus: providerState.providerStatus });
+    }
     const paidAt = this.parseOccurredAt(event.occurredAt);
     facts.transaction.succeed({
       subscriptionId: queued.id,
@@ -183,6 +194,33 @@ export class AdditionalPaymentWebhookProcessor {
     await context.providerWebhookEvents.save(facts.journal);
     await context.outbox.write(this.paymentSucceededEvent(event, facts, queued));
     await context.outbox.write(this.queuedPurchasedEvent(event, facts, queued));
+    const reminderNow = await context.databaseNow();
+    await this.stageReminders.stageBatch(
+      {
+        periods: [
+          { subscription: tail, immediateSuccessor: queued },
+          {
+            subscription: queued,
+            billingInterval: facts.product.getBillingInterval(),
+            immediateSuccessor: null,
+          },
+        ],
+        now: reminderNow,
+      },
+      context.subscriptionReminders,
+    );
+    return this.stageNotification.stage(
+      {
+        userId: queued.getUserId(),
+        trigger: 'ADDITIONAL_PURCHASE',
+        sourceTransactionId: facts.transaction.id,
+        sourceSubscriptionId: queued.id,
+        effectiveAt: queued.getStartsAt(),
+        contiguousPaidEndsAt: queued.getEndsAt(),
+        now: paidAt,
+      },
+      context.notificationSchedules,
+    );
   }
 
   private async loadFacts(

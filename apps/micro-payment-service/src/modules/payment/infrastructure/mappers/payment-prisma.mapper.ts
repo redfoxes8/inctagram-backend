@@ -286,7 +286,7 @@ export class PaymentPrismaMapper {
     );
   }
 
-  private static billingIntervalToDomain(value: PrismaBillingInterval): BillingInterval {
+  public static billingIntervalToDomain(value: PrismaBillingInterval): BillingInterval {
     switch (value) {
       case PrismaBillingInterval.WEEK:
         return BillingInterval.WEEK;

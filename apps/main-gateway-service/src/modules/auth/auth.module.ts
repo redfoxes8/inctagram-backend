@@ -9,8 +9,6 @@ import { ConfirmEmailUseCase } from './application/use-cases/confirm-email.use-c
 import { AuthEmailResendConfirmationUseCase } from './application/use-cases/auth-email-resend-confirmation.usecase';
 import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-case';
 import { AuthController } from './api/auth.controller';
-import { IJwtService } from './application/interfaces/jwt.service.interface';
-import { JwtServiceImplementation } from './infrastructure/jwt.service';
 import { IEmailConfirmationRepository } from './domain/interfaces/email-confirmation.repository.interface';
 import { IPasswordRecoveryRepository } from './domain/interfaces/password-recovery.repository.interface';
 import { EmailConfirmationRepositoryImplementation } from './infrastructure/email-confirmation.repository';
@@ -20,8 +18,6 @@ import { LocalStrategy } from '../../common/strategies/local.strategy';
 import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { LogoutUseCase } from './application/use-cases/logout.use-case';
-import { JwtModule } from '@nestjs/jwt';
-import { GatewayConfig } from '../../core/gateway.config';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { GoogleLoginUseCase } from './application/use-cases/google-login.use-case';
 import { IGoogleAuthAdapter } from './application/interfaces/google-auth.adapter.interface';
@@ -30,6 +26,7 @@ import { IOAuthAccountsRepository } from './domain/interfaces/oauth-accounts.rep
 import { PrismaOAuthAccountsRepository } from './infrastructure/oauth-accounts.repository';
 import { PrismaTransactionManager } from '../../core/prisma/transactions/prisma.transaction.manager';
 import { ITransactionManager } from '../../common/interfaces/transaction-manager.interface';
+import { AuthTokenModule } from './auth-token.module';
 
 const useCases = [
   RegisterUserUseCase,
@@ -58,21 +55,13 @@ const managers = [{ provide: ITransactionManager, useClass: PrismaTransactionMan
     SessionsModule,
     NotificationsModule,
     PassportModule,
-    JwtModule.registerAsync({
-      inject: [GatewayConfig],
-      useFactory: (config: GatewayConfig) => {
-        return {
-          secret: config.jwtSecret,
-        };
-      },
-    }),
+    AuthTokenModule,
   ],
   controllers: [AuthController],
   providers: [
     LocalStrategy,
     JwtStrategy,
     ...useCases,
-    { provide: IJwtService, useClass: JwtServiceImplementation },
     { provide: IGoogleAuthAdapter, useClass: GoogleAuthAdapter },
     ...repositories,
     ...managers,

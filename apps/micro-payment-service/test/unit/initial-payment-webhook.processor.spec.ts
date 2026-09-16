@@ -15,6 +15,8 @@ import { Currency } from '../../src/modules/payment/domain/value-objects/currenc
 import { IdempotencyKey } from '../../src/modules/payment/domain/value-objects/idempotency-key.value-object';
 import { Money } from '../../src/modules/payment/domain/value-objects/money.value-object';
 import { ProviderCode } from '../../src/modules/payment/domain/value-objects/provider-code.value-object';
+import { StagePaidAccessNotificationService } from '../../src/modules/payment/application/services/stage-paid-access-notification.service';
+import { StageSubscriptionRemindersService } from '../../src/modules/payment/application/services/stage-subscription-reminders.service';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
@@ -62,7 +64,18 @@ describe('Initial payment webhook lifecycle', () => {
     journal.startProcessing(10);
     const insertedSubscriptions: unknown[] = [];
     const outboxEvents: unknown[] = [];
+    const insertSubscription = jest.fn().mockImplementation((value: unknown) => {
+      insertedSubscriptions.push(value);
+      return Promise.resolve();
+    });
+    const stageReminders = jest.fn().mockResolvedValue({
+      created: 1,
+      updated: 0,
+      suppressed: 0,
+      pastDueSkipped: 0,
+    });
     const context = {
+      databaseNow: jest.fn().mockResolvedValue(PAID_AT),
       lockUser: jest.fn().mockResolvedValue(undefined),
       checkoutSessions: {
         findByProviderCheckoutId: jest.fn().mockResolvedValue(checkout),
@@ -83,10 +96,7 @@ describe('Initial payment webhook lifecycle', () => {
       },
       subscriptions: {
         findOrderedUnfinishedByUserId: jest.fn().mockResolvedValue([]),
-        insert: jest.fn().mockImplementation((value: unknown) => {
-          insertedSubscriptions.push(value);
-          return Promise.resolve();
-        }),
+        insert: insertSubscription,
       },
       outbox: {
         write: jest.fn().mockImplementation((value: unknown) => {
@@ -94,6 +104,8 @@ describe('Initial payment webhook lifecycle', () => {
           return Promise.resolve();
         }),
       },
+      notificationSchedules: {},
+      subscriptionReminders: {},
     };
     const unitOfWork = {
       execute: jest.fn().mockImplementation((work) => work(context)),
@@ -102,6 +114,16 @@ describe('Initial payment webhook lifecycle', () => {
       unitOfWork,
       {} as AdditionalPaymentWebhookProcessor,
       {} as RecurringPaymentWebhookProcessor,
+      {
+        stage: jest.fn().mockResolvedValue({
+          outcome: 'CREATED',
+          schedule: { id: '77777777-7777-4777-8777-777777777777' },
+        }),
+      } as unknown as StagePaidAccessNotificationService,
+      {
+        stage: stageReminders,
+      } as unknown as StageSubscriptionRemindersService,
+      { wake: jest.fn().mockResolvedValue(undefined) } as never,
     );
     const event: CheckoutPaymentSucceededProviderEvent = {
       kind: 'CHECKOUT_PAYMENT_SUCCEEDED',
@@ -133,6 +155,13 @@ describe('Initial payment webhook lifecycle', () => {
         expect.objectContaining({ eventType: 'payment.succeeded.v1' }),
         expect.objectContaining({ eventType: 'subscription.activated.v1' }),
       ]),
+    );
+    expect(stageReminders).toHaveBeenCalledWith(
+      expect.objectContaining({ subscription: insertedSubscriptions[0], immediateSuccessor: null }),
+      context.subscriptionReminders,
+    );
+    expect(insertSubscription.mock.invocationCallOrder[0]).toBeLessThan(
+      stageReminders.mock.invocationCallOrder[0],
     );
   });
 });

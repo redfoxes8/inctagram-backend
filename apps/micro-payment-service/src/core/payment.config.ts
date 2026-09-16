@@ -125,6 +125,28 @@ export class PaymentConfig {
   @Max(100, { message: 'SUBSCRIPTION_LIFECYCLE_BATCH_SIZE must not exceed 100' })
   subscriptionLifecycleBatchSize: number;
 
+  @IsBoolean({ message: 'PAYMENT_REMINDER_SCHEDULER_ENABLED must be true or false' })
+  paymentReminderSchedulerEnabled: boolean;
+
+  @IsString({ message: 'PAYMENT_REMINDER_SCHEDULER_CRON must be a string' })
+  @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/, {
+    message: 'PAYMENT_REMINDER_SCHEDULER_CRON must be a valid six-field cron expression',
+  })
+  paymentReminderSchedulerCron: string;
+
+  @IsInt({ message: 'PAYMENT_REMINDER_BATCH_SIZE must be an integer' })
+  @Min(1, { message: 'PAYMENT_REMINDER_BATCH_SIZE must be at least 1' })
+  @Max(100, { message: 'PAYMENT_REMINDER_BATCH_SIZE must not exceed 100' })
+  paymentReminderBatchSize: number;
+
+  @IsInt({ message: 'PAYMENT_REMINDER_MAX_BATCHES_PER_TICK must be an integer' })
+  @Min(1, { message: 'PAYMENT_REMINDER_MAX_BATCHES_PER_TICK must be at least 1' })
+  @Max(20, { message: 'PAYMENT_REMINDER_MAX_BATCHES_PER_TICK must not exceed 20' })
+  paymentReminderMaxBatchesPerTick: number;
+
+  paymentNotificationRecoveryEnabled: boolean;
+  paymentNotificationRecoveryBatchSize: number;
+
   constructor(private readonly configService: ConfigService<Record<string, string>, true>) {
     this.port = Number(this.configService.get('PORT'));
 
@@ -188,9 +210,29 @@ export class PaymentConfig {
       this.configService.get('SUBSCRIPTION_LIFECYCLE_BATCH_SIZE'),
     );
 
+    this.paymentReminderSchedulerEnabled = PaymentConfig.requiredBoolean(
+      this.configService.get('PAYMENT_REMINDER_SCHEDULER_ENABLED') ?? 'false',
+      'PAYMENT_REMINDER_SCHEDULER_ENABLED',
+    );
+    this.paymentReminderSchedulerCron =
+      this.configService.get('PAYMENT_REMINDER_SCHEDULER_CRON') ?? '0 0 * * * *';
+    this.paymentReminderBatchSize = Number(
+      this.configService.get('PAYMENT_REMINDER_BATCH_SIZE') ?? '20',
+    );
+    this.paymentReminderMaxBatchesPerTick = Number(
+      this.configService.get('PAYMENT_REMINDER_MAX_BATCHES_PER_TICK') ?? '5',
+    );
+
+    this.paymentNotificationRecoveryEnabled =
+      this.configService.get('PAYMENT_NOTIFICATION_RECOVERY_ENABLED') === 'true';
+    this.paymentNotificationRecoveryBatchSize = Number(
+      this.configService.get('PAYMENT_NOTIFICATION_RECOVERY_BATCH_SIZE') ?? '20',
+    );
+
     configValidationUtility.validateConfig(this);
     PaymentConfig.assertCron(this.outboxRelayCron, 'PAYMENT_OUTBOX_RELAY_CRON');
     PaymentConfig.assertCron(this.subscriptionCheckCron, 'SUBSCRIPTION_CHECK_CRON');
+    PaymentConfig.assertCron(this.paymentReminderSchedulerCron, 'PAYMENT_REMINDER_SCHEDULER_CRON');
   }
 
   private static requiredBoolean(value: string | undefined, variableName: string): boolean {

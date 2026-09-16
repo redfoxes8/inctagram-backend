@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package inctagram.notification.v1;
+
+import "google/protobuf/timestamp.proto";
+
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_SUBSCRIPTION_ACTIVATED = 1;
+  NOTIFICATION_TYPE_SUBSCRIPTION_EXTENDED = 2;
+  NOTIFICATION_TYPE_UPCOMING_PAYMENT = 3;
+  NOTIFICATION_TYPE_SUBSCRIPTION_EXPIRING = 4;
+  NOTIFICATION_TYPE_PAYMENT_FAILED = 5;
+  NOTIFICATION_TYPE_PAYMENT_RECOVERED = 6;
+  NOTIFICATION_TYPE_SUBSCRIPTION_CANCELLED = 7;
+}
+
+// A persisted user notification. Notification MS owns id, created_at and seen_at.
+// Payment MS owns the payment and subscription identifiers and effective dates it supplies.
+message NotificationItem {
+  string id = 1;
+  NotificationType type = 2;
+  optional string subscription_id = 3;
+  optional string provider_invoice_id = 4;
+  google.protobuf.Timestamp effective_at = 5;
+  optional google.protobuf.Timestamp subscription_ends_at = 6;
+  optional string reason_code = 7;
+  google.protobuf.Timestamp created_at = 8;
+  optional google.protobuf.Timestamp seen_at = 9;
+}
+
+// The cursor is opaque to Gateway and clients. Notification MS defines its
+// stable created_at DESC, id DESC ordering.
+message GetNotificationsRequest {
+  string user_id = 1;
+  optional string cursor = 2;
+  int32 page_size = 3;
+}
+
+message GetNotificationsResponse {
+  repeated NotificationItem items = 1;
+  optional string next_cursor = 2;
+}
+
+message GetUnseenNotificationCountRequest {
+  string user_id = 1;
+}
+
+message GetUnseenNotificationCountResponse {
+  int32 unseen_count = 1;
+}
+
+// Notification MS establishes seen_through from its own UTC clock. Clients
+// must not provide a timestamp because it is the boundary for seen_at updates.
+message MarkNotificationsSeenRequest {
+  string user_id = 1;
+}
+
+message MarkNotificationsSeenResponse {
+  google.protobuf.Timestamp seen_through = 1;
+  int32 unseen_count = 2;
+}
+
+service NotificationService {
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+  rpc GetUnseenNotificationCount(GetUnseenNotificationCountRequest)
+      returns (GetUnseenNotificationCountResponse);
+  rpc MarkNotificationsSeen(MarkNotificationsSeenRequest)
+      returns (MarkNotificationsSeenResponse);
+}

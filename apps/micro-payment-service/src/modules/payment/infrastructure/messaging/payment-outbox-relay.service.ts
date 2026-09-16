@@ -48,6 +48,17 @@ export class PaymentOutboxRelayService implements OnApplicationBootstrap, OnAppl
       });
   }
 
+  public async publishById(outboxEventId: string): Promise<boolean> {
+    const event = await this.repository.claimById({
+      id: outboxEventId,
+      workerId: this.workerId,
+      now: new Date(),
+    });
+    if (!event) return false;
+    await this.publishOne(event);
+    return true;
+  }
+
   public async onApplicationShutdown(): Promise<void> {
     this.stopping = true;
     if (this.timer) clearInterval(this.timer);

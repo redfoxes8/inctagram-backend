@@ -86,6 +86,39 @@ export class PaymentOutboxRelayRepository implements IPaymentOutboxRelayReposito
     });
   }
 
+  public async claimById(options: {
+    id: string;
+    workerId: string;
+    now: Date;
+  }): Promise<ClaimedPaymentOutboxEvent | null> {
+    return this.prisma.$transaction(async (transaction) => {
+      const claimed = await transaction.outboxEvent.updateMany({
+        where: { id: options.id, status: OutboxStatus.PENDING, availableAt: { lte: options.now } },
+        data: {
+          status: OutboxStatus.PROCESSING,
+          attempts: { increment: 1 },
+          lockedAt: options.now,
+          lockedBy: options.workerId,
+          lastError: null,
+        },
+      });
+      if (claimed.count !== 1) return null;
+      const row = await transaction.outboxEvent.findUnique({ where: { id: options.id } });
+      if (!row) return null;
+      return {
+        id: row.id,
+        aggregateType: row.aggregateType,
+        aggregateId: row.aggregateId,
+        eventType: row.eventType,
+        eventVersion: row.eventVersion,
+        routingKey: row.routingKey,
+        payload: normalizeProviderWebhookPayload(row.payload),
+        attempts: row.attempts,
+        occurredAt: row.occurredAt,
+      };
+    });
+  }
+
   public async markPublished(id: string, workerId: string, publishedAt: Date): Promise<boolean> {
     const result = await this.prisma.outboxEvent.updateMany({
       where: { id, status: OutboxStatus.PROCESSING, lockedBy: workerId },
