@@ -13,6 +13,7 @@ import {
   ICheckoutStatusQueryPort,
   IPaymentHistoryQueryPort,
   ISubscriptionQueryPort,
+  OwnedCheckoutStatusByProviderIdQuery,
   OwnedCheckoutStatusQuery,
   PageResult,
   PaymentHistoryItem,
@@ -132,6 +133,37 @@ export class PaymentQueryRepository
       },
     });
     if (!record) return null;
+    return PaymentQueryRepository.checkoutStatusProjection(record);
+  }
+
+  public async findOwnedCheckoutStatusByProviderId(
+    query: OwnedCheckoutStatusByProviderIdQuery,
+  ): Promise<CheckoutStatusProjection | null> {
+    const record = await this.prisma.checkoutSession.findFirst({
+      where: {
+        userId: query.userId,
+        provider: query.provider,
+        providerCheckoutId: query.providerCheckoutId,
+      },
+      include: {
+        paymentTransactions: {
+          where: { subscriptionId: { not: null } },
+          select: { subscriptionId: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+    if (!record) return null;
+    return PaymentQueryRepository.checkoutStatusProjection(record);
+  }
+
+  private static checkoutStatusProjection(record: {
+    id: string;
+    status: PrismaCheckoutStatus;
+    completedAt: Date | null;
+    paymentTransactions: { subscriptionId: string | null }[];
+  }): CheckoutStatusProjection {
     return {
       checkoutSessionId: record.id,
       status: PaymentQueryRepository.checkoutStatus(record.status),

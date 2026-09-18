@@ -1,5 +1,6 @@
 import {
   CreateCheckoutSessionRequest,
+  GetCheckoutSessionStatusByProviderIdRequest,
   GetCheckoutSessionStatusRequest,
   GetPaymentHistoryRequest,
   GetSubscriptionsRequest,
@@ -14,6 +15,7 @@ import { CreateCheckoutSessionCommand } from '../../../application/commands/crea
 import { ProcessWebhookEventCommand } from '../../../application/commands/process-webhook-event.command';
 import { ToggleAutoRenewCommand } from '../../../application/commands/toggle-auto-renew.command';
 import { GetCheckoutSessionStatusQuery } from '../../../application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdQuery } from '../../../application/queries/get-checkout-session-status-by-provider-id.query';
 import { GetPaymentHistoryQuery } from '../../../application/queries/get-payment-history.query';
 import { GetSubscriptionsQuery } from '../../../application/queries/get-subscriptions.query';
 import { SignatureHeader } from '../../../application/types/payment-grpc.types';
@@ -80,6 +82,20 @@ export class PaymentGrpcRequestMapper {
     return new GetCheckoutSessionStatusQuery({
       userId: request.userId,
       checkoutSessionId: request.checkoutSessionId,
+    });
+  }
+
+  public static toGetCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
+  ): GetCheckoutSessionStatusByProviderIdQuery {
+    if (request.paymentProvider !== PaymentProvider.STRIPE) {
+      throw this.badRequest('Payment provider is not supported');
+    }
+
+    return new GetCheckoutSessionStatusByProviderIdQuery({
+      userId: request.userId,
+      provider: 'STRIPE',
+      providerCheckoutId: request.providerCheckoutId,
     });
   }
 

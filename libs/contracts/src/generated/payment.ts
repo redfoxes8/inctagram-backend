@@ -5,12 +5,12 @@
 // source: payment.proto
 
 /* eslint-disable */
-import type { Metadata } from '@grpc/grpc-js';
-import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
-import { Timestamp } from './google/protobuf/timestamp';
+import type { Metadata } from "@grpc/grpc-js";
+import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
+import { Observable } from "rxjs";
+import { Timestamp } from "./google/protobuf/timestamp";
 
-export const protobufPackage = 'inctagram.payment.v1';
+export const protobufPackage = "inctagram.payment.v1";
 
 export enum PaymentProvider {
   PAYMENT_PROVIDER_UNSPECIFIED = 0,
@@ -125,7 +125,8 @@ export interface AvailablePaymentProduct {
   billingIntervalCount: number;
 }
 
-export interface GetAvailableProductsRequest {}
+export interface GetAvailableProductsRequest {
+}
 
 export interface GetAvailableProductsResponse {
   items: AvailablePaymentProduct[];
@@ -211,7 +212,13 @@ export interface GetCheckoutSessionStatusResponse {
   subscriptionId?: string | undefined;
 }
 
-export const INCTAGRAM_PAYMENT_V1_PACKAGE_NAME = 'inctagram.payment.v1';
+export interface GetCheckoutSessionStatusByProviderIdRequest {
+  userId: string;
+  paymentProvider: PaymentProvider;
+  providerCheckoutId: string;
+}
+
+export const INCTAGRAM_PAYMENT_V1_PACKAGE_NAME = "inctagram.payment.v1";
 
 export interface PaymentServiceClient {
   getAvailableProducts(
@@ -229,23 +236,19 @@ export interface PaymentServiceClient {
     metadata?: Metadata,
   ): Observable<ProcessWebhookEventResponse>;
 
-  getSubscriptions(
-    request: GetSubscriptionsRequest,
-    metadata?: Metadata,
-  ): Observable<GetSubscriptionsResponse>;
+  getSubscriptions(request: GetSubscriptionsRequest, metadata?: Metadata): Observable<GetSubscriptionsResponse>;
 
-  getPaymentHistory(
-    request: GetPaymentHistoryRequest,
-    metadata?: Metadata,
-  ): Observable<GetPaymentHistoryResponse>;
+  getPaymentHistory(request: GetPaymentHistoryRequest, metadata?: Metadata): Observable<GetPaymentHistoryResponse>;
 
-  toggleAutoRenew(
-    request: ToggleAutoRenewRequest,
-    metadata?: Metadata,
-  ): Observable<ToggleAutoRenewResponse>;
+  toggleAutoRenew(request: ToggleAutoRenewRequest, metadata?: Metadata): Observable<ToggleAutoRenewResponse>;
 
   getCheckoutSessionStatus(
     request: GetCheckoutSessionStatusRequest,
+    metadata?: Metadata,
+  ): Observable<GetCheckoutSessionStatusResponse>;
+
+  getCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
     metadata?: Metadata,
   ): Observable<GetCheckoutSessionStatusResponse>;
 }
@@ -254,53 +257,43 @@ export interface PaymentServiceController {
   getAvailableProducts(
     request: GetAvailableProductsRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetAvailableProductsResponse>
-    | Observable<GetAvailableProductsResponse>
-    | GetAvailableProductsResponse;
+  ): Promise<GetAvailableProductsResponse> | Observable<GetAvailableProductsResponse> | GetAvailableProductsResponse;
 
   createCheckoutSession(
     request: CreateCheckoutSessionRequest,
     metadata?: Metadata,
-  ):
-    | Promise<CreateCheckoutSessionResponse>
-    | Observable<CreateCheckoutSessionResponse>
-    | CreateCheckoutSessionResponse;
+  ): Promise<CreateCheckoutSessionResponse> | Observable<CreateCheckoutSessionResponse> | CreateCheckoutSessionResponse;
 
   processWebhookEvent(
     request: ProcessWebhookEventRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ProcessWebhookEventResponse>
-    | Observable<ProcessWebhookEventResponse>
-    | ProcessWebhookEventResponse;
+  ): Promise<ProcessWebhookEventResponse> | Observable<ProcessWebhookEventResponse> | ProcessWebhookEventResponse;
 
   getSubscriptions(
     request: GetSubscriptionsRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetSubscriptionsResponse>
-    | Observable<GetSubscriptionsResponse>
-    | GetSubscriptionsResponse;
+  ): Promise<GetSubscriptionsResponse> | Observable<GetSubscriptionsResponse> | GetSubscriptionsResponse;
 
   getPaymentHistory(
     request: GetPaymentHistoryRequest,
     metadata?: Metadata,
-  ):
-    | Promise<GetPaymentHistoryResponse>
-    | Observable<GetPaymentHistoryResponse>
-    | GetPaymentHistoryResponse;
+  ): Promise<GetPaymentHistoryResponse> | Observable<GetPaymentHistoryResponse> | GetPaymentHistoryResponse;
 
   toggleAutoRenew(
     request: ToggleAutoRenewRequest,
     metadata?: Metadata,
-  ):
-    | Promise<ToggleAutoRenewResponse>
-    | Observable<ToggleAutoRenewResponse>
-    | ToggleAutoRenewResponse;
+  ): Promise<ToggleAutoRenewResponse> | Observable<ToggleAutoRenewResponse> | ToggleAutoRenewResponse;
 
   getCheckoutSessionStatus(
     request: GetCheckoutSessionStatusRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetCheckoutSessionStatusResponse>
+    | Observable<GetCheckoutSessionStatusResponse>
+    | GetCheckoutSessionStatusResponse;
+
+  getCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
     metadata?: Metadata,
   ):
     | Promise<GetCheckoutSessionStatusResponse>
@@ -311,24 +304,25 @@ export interface PaymentServiceController {
 export function PaymentServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      'getAvailableProducts',
-      'createCheckoutSession',
-      'processWebhookEvent',
-      'getSubscriptions',
-      'getPaymentHistory',
-      'toggleAutoRenew',
-      'getCheckoutSessionStatus',
+      "getAvailableProducts",
+      "createCheckoutSession",
+      "processWebhookEvent",
+      "getSubscriptions",
+      "getPaymentHistory",
+      "toggleAutoRenew",
+      "getCheckoutSessionStatus",
+      "getCheckoutSessionStatusByProviderId",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod('PaymentService', method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod("PaymentService", method)(constructor.prototype[method], method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod('PaymentService', method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod("PaymentService", method)(constructor.prototype[method], method, descriptor);
     }
   };
 }
 
-export const PAYMENT_SERVICE_NAME = 'PaymentService';
+export const PAYMENT_SERVICE_NAME = "PaymentService";

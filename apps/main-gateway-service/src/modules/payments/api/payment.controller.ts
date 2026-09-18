@@ -35,6 +35,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GetPaymentHistoryResponseDto } from './dto/get-payment-history.response';
 import { GetSubscriptionsQuery } from '../application/queries/get-subscriptions.query';
 import { GetCheckoutSessionStatusQuery } from '../application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdQuery } from '../application/queries/get-checkout-session-status-by-provider-id.query';
 import { CreateCheckoutSessionCommand } from '../application/commands/create-checkout-session.command';
 import { CreateCheckoutSessionResponseDto } from './dto/create-checkout-session.response';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
@@ -420,6 +421,52 @@ export class PaymentController {
         userId,
         checkoutSessionId,
       }),
+    );
+  }
+
+  @Get('checkout/stripe/:providerCheckoutId/status')
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get Stripe checkout session status',
+    description:
+      'Returns the local state of verified webhook processing for a Stripe checkout session. ' +
+      'This endpoint does not contact the provider API.',
+  })
+  @ApiOkResponse({
+    type: GetCheckoutSessionStatusResponseDto,
+    description: 'Checkout session status',
+  })
+  @ApiParam({
+    name: 'providerCheckoutId',
+    type: String,
+    required: true,
+    description: 'Stripe Checkout Session identifier.',
+  })
+  @ApiUnauthorizedResponse({ type: PaymentApiErrorResponseDto, description: 'Unauthorized.' })
+  @ApiNotFoundResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Stripe checkout session was not found or does not belong to the user.',
+  })
+  @ApiServiceUnavailableResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service is unavailable.',
+  })
+  @ApiGatewayTimeoutResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service request timed out.',
+  })
+  @ApiInternalServerErrorResponse({
+    type: PaymentApiErrorResponseDto,
+    description: 'Payment service returned an invalid or internal response.',
+  })
+  public getStripeCheckoutSessionStatus(
+    @Param('providerCheckoutId') providerCheckoutId: string,
+    @CurrentUserId() userId: string,
+  ): Promise<GetCheckoutSessionStatusResponseDto> {
+    return this.queryBus.execute(
+      new GetCheckoutSessionStatusByProviderIdQuery({ userId, providerCheckoutId }),
     );
   }
 

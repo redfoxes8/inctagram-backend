@@ -18,6 +18,7 @@ import { GetSubscriptionsResponseDto } from '../api/dto/get-subscriptions.respon
 import { ToggleAutoRenewResponseDto } from '../api/dto/toggle-auto-renew.response';
 import { GetCheckoutSessionStatusResponseDto } from '../api/dto/get-checkout-session-status.response';
 import { GetCheckoutSessionStatusQueryDto } from '../application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdQueryDto } from '../application/queries/get-checkout-session-status-by-provider-id.query';
 import { GetAvailableProductsResponseDto } from '../api/dto/get-available-products.response';
 
 @Injectable()
@@ -82,6 +83,14 @@ export class PaymentGrpcAdapter implements IPaymentGrpcAdapter {
   ): Promise<GetCheckoutSessionStatusResponseDto> {
     const request = PaymentRequestMapper.toGetCheckoutSessionStatus(dto);
     const response = await this.paymentGrpcClient.getCheckoutSessionStatus(request);
+    return PaymentResponseMapper.toGetCheckoutSessionStatus(response);
+  }
+
+  async getCheckoutSessionStatusByProviderId(
+    dto: GetCheckoutSessionStatusByProviderIdQueryDto,
+  ): Promise<GetCheckoutSessionStatusResponseDto> {
+    const request = PaymentRequestMapper.toGetCheckoutSessionStatusByProviderId(dto);
+    const response = await this.paymentGrpcClient.getCheckoutSessionStatusByProviderId(request);
     return PaymentResponseMapper.toGetCheckoutSessionStatus(response);
   }
 }
