@@ -10,6 +10,7 @@ import { CreateCheckoutSessionHandler } from './application/commands/create-chec
 import { ToggleAutoRenewHandler } from './application/commands/toggle-auto-renew.command';
 import { GetSubscriptionsHandler } from './application/queries/get-subscriptions.query';
 import { GetCheckoutSessionStatusHandler } from './application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdHandler } from './application/queries/get-checkout-session-status-by-provider-id.query';
 import { GetAvailableProductsHandler } from './application/queries/get-available-products.query';
 
 const paymentHandlers = [
@@ -20,6 +21,7 @@ const paymentHandlers = [
   GetSubscriptionsHandler,
   GetPaymentHistoryHandler,
   GetCheckoutSessionStatusHandler,
+  GetCheckoutSessionStatusByProviderIdHandler,
 ];
 
 @Module({

@@ -65,6 +65,7 @@ export {
   type ToggleAutoRenewRequest,
   type ToggleAutoRenewResponse,
   type GetCheckoutSessionStatusRequest,
+  type GetCheckoutSessionStatusByProviderIdRequest,
   type GetCheckoutSessionStatusResponse,
   type PaymentServiceClient,
   type PaymentServiceController,
