@@ -115,7 +115,7 @@ export class AdditionalPaymentWebhookProcessor {
       (subscription) => subscription.getStatus() === SubscriptionStatus.ACTIVE,
     );
     const activeProviderSubscriptionId = active?.getProviderSubscriptionId() ?? null;
-    if (!tail || !activeProviderSubscriptionId) {
+    if (!tail) {
       throw this.conflict('Paid subscription queue provider correlation is incomplete');
     }
     const productProvider = await context.productProviders.findActiveByProduct({
@@ -437,7 +437,7 @@ type PreparedAdditionalPayment = {
   tail: SubscriptionEntity;
   tailSequence: number;
   tailEndsAt: Date;
-  activeProviderSubscriptionId: string;
+  activeProviderSubscriptionId: string | null;
   productProvider: ProductProviderMapping;
   period: BillingPeriod;
   queuedSubscriptionId: string;
