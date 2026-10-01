@@ -46,7 +46,7 @@ export type CreateInitialSubscriptionCheckoutCommand = CheckoutCommand &
 
 export type CreateAdditionalSubscriptionCheckoutCommand = CheckoutCommand &
   Readonly<{
-    currentProviderSubscriptionId: string;
+    currentProviderSubscriptionId: string | null;
     currentProviderRenewalId: string | null;
     currentPaidEndsAt: string;
     finalLocalEndsAt: string;
