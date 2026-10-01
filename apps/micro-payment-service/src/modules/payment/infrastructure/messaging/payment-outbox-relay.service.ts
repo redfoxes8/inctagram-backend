@@ -9,6 +9,15 @@ import {
   IPaymentOutboxRelayRepository,
 } from '../../application/ports/payment-outbox-relay.port';
 
+const KNOWN_OUTBOX_ERROR_CODES = new Set([
+  'PAYMENT_OUTBOX_RELAY_DISABLED',
+  'OUTBOX_BROKER_CONNECTION_FAILED',
+  'OUTBOX_BROKER_CHANNEL_FAILED',
+  'OUTBOX_BROKER_NACK',
+  'OUTBOX_MESSAGE_UNROUTABLE',
+  'OUTBOX_EVENT_CONTRACT_INVALID',
+]);
+
 /**
  * Delivery is at-least-once. A crash after broker confirm and before the
  * PUBLISHED update can cause redelivery; consumers must deduplicate eventId.
@@ -93,7 +102,13 @@ export class PaymentOutboxRelayService implements OnApplicationBootstrap, OnAppl
       await this.publisher.publish(event);
       const completed = await this.repository.markPublished(event.id, this.workerId, new Date());
       if (!completed) this.logger.warn('Outbox claim ownership changed before completion');
-    } catch {
+    } catch (error: unknown) {
+      this.logger.warn({
+        event: 'payment.outbox.publish.failed',
+        eventType: event.eventType,
+        routingKey: event.routingKey,
+        errorCode: this.errorCode(error),
+      });
       const completed = await this.repository.markFailedOrRetry({
         id: event.id,
         workerId: this.workerId,
@@ -104,6 +119,22 @@ export class PaymentOutboxRelayService implements OnApplicationBootstrap, OnAppl
       });
       if (!completed) this.logger.warn('Outbox claim ownership changed before retry scheduling');
     }
+  }
+
+  private errorCode(error: unknown): string {
+    if (this.isRecord(error)) {
+      const code = error.code;
+      if (typeof code === 'string' && /^[A-Z0-9_]{1,64}$/u.test(code)) return code;
+      if (typeof code === 'number' && Number.isInteger(code) && code >= 0) return `AMQP_${code}`;
+    }
+    if (error instanceof Error && KNOWN_OUTBOX_ERROR_CODES.has(error.message)) {
+      return error.message;
+    }
+    return error instanceof Error ? error.name : 'UNKNOWN_ERROR';
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 
   private matchesCron(now: Date, expression: string): boolean {
