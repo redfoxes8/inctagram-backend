@@ -16,6 +16,7 @@ import {
   ProcessWebhookEventRequest,
   ProcessWebhookEventResponse,
   GetCheckoutSessionStatusRequest,
+  GetCheckoutSessionStatusByProviderIdRequest,
   GetCheckoutSessionStatusResponse,
   GetAvailableProductsRequest,
   GetAvailableProductsResponse,
@@ -114,6 +115,18 @@ export class PaymentGrpcClient implements OnModuleInit {
   ): Promise<GetCheckoutSessionStatusResponse> {
     try {
       return await firstValueFrom(this.paymentService.getCheckoutSessionStatus(request));
+    } catch (error: unknown) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
+  ): Promise<GetCheckoutSessionStatusResponse> {
+    try {
+      return await firstValueFrom(
+        this.paymentService.getCheckoutSessionStatusByProviderId(request),
+      );
     } catch (error: unknown) {
       throw GrpcErrorMapper.toDomainException(error);
     }

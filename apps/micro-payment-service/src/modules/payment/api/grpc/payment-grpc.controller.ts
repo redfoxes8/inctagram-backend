@@ -6,6 +6,7 @@ import {
   CreateCheckoutSessionResponse,
   GetAvailableProductsRequest,
   GetAvailableProductsResponse,
+  GetCheckoutSessionStatusByProviderIdRequest,
   GetCheckoutSessionStatusRequest,
   GetCheckoutSessionStatusResponse,
   GetPaymentHistoryRequest,
@@ -98,6 +99,15 @@ export class PaymentGrpcController implements PaymentServiceController {
   ): Promise<GetCheckoutSessionStatusResponse> {
     const result = await this.queryBus.execute<GetCheckoutSessionStatusResult>(
       PaymentGrpcRequestMapper.toGetCheckoutSessionStatus(request),
+    );
+    return PaymentGrpcResponseMapper.getCheckoutSessionStatus(result);
+  }
+
+  public async getCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
+  ): Promise<GetCheckoutSessionStatusResponse> {
+    const result = await this.queryBus.execute<GetCheckoutSessionStatusResult>(
+      PaymentGrpcRequestMapper.toGetCheckoutSessionStatusByProviderId(request),
     );
     return PaymentGrpcResponseMapper.getCheckoutSessionStatus(result);
   }

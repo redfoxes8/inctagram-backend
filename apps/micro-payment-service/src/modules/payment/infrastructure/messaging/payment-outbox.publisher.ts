@@ -93,11 +93,26 @@ export class PaymentOutboxPublisher implements IPaymentOutboxPublisher {
       });
       this.connection = connection;
       this.channel = channel;
+      this.bindChannelLifecycle(channel, connection);
       return channel;
     } catch {
       await connection.close().catch(() => undefined);
       throw new Error('OUTBOX_BROKER_CONNECTION_FAILED');
     }
+  }
+
+  private bindChannelLifecycle(
+    channel: PaymentConfirmChannel,
+    connection: PaymentRabbitConnection,
+  ): void {
+    const invalidate = (): void => {
+      if (this.channel !== channel || this.connection !== connection) return;
+      this.channel = null;
+      this.connection = null;
+      void connection.close().catch(() => undefined);
+    };
+    channel.on('error', invalidate);
+    channel.on('close', invalidate);
   }
 
   private confirmPublish(
@@ -120,8 +135,6 @@ export class PaymentOutboxPublisher implements IPaymentOutboxPublisher {
         if (settled) return;
         settled = true;
         cleanup();
-        this.channel = null;
-        this.connection = null;
         reject(new Error('OUTBOX_BROKER_CHANNEL_FAILED'));
       };
       channel.on('return', onReturn);

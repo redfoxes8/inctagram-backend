@@ -6,6 +6,7 @@ import { CreateCheckoutSessionHandler } from './application/commands/create-chec
 import { ProcessWebhookEventHandler } from './application/commands/process-webhook-event.command';
 import { ToggleAutoRenewHandler } from './application/commands/toggle-auto-renew.command';
 import { GetCheckoutSessionStatusHandler } from './application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdHandler } from './application/queries/get-checkout-session-status-by-provider-id.query';
 import { GetPaymentHistoryHandler } from './application/queries/get-payment-history.query';
 import { GetSubscriptionsHandler } from './application/queries/get-subscriptions.query';
 import { GetAvailableProductsHandler } from './application/queries/get-available-products.query';
@@ -110,6 +111,7 @@ const grpcHandlers = [
   GetSubscriptionsHandler,
   GetPaymentHistoryHandler,
   GetCheckoutSessionStatusHandler,
+  GetCheckoutSessionStatusByProviderIdHandler,
 ];
 
 const webhookProcessor = [

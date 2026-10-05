@@ -75,6 +75,12 @@ export type OwnedCheckoutStatusQuery = Readonly<{
   checkoutSessionId: string;
 }>;
 
+export type OwnedCheckoutStatusByProviderIdQuery = Readonly<{
+  userId: string;
+  provider: 'STRIPE';
+  providerCheckoutId: string;
+}>;
+
 export abstract class ISubscriptionQueryPort {
   abstract getSubscriptions(userId: string): Promise<SubscriptionsResult>;
 }
@@ -86,5 +92,9 @@ export abstract class IPaymentHistoryQueryPort {
 export abstract class ICheckoutStatusQueryPort {
   abstract findOwnedCheckoutStatus(
     query: OwnedCheckoutStatusQuery,
+  ): Promise<CheckoutStatusProjection | null>;
+
+  abstract findOwnedCheckoutStatusByProviderId(
+    query: OwnedCheckoutStatusByProviderIdQuery,
   ): Promise<CheckoutStatusProjection | null>;
 }

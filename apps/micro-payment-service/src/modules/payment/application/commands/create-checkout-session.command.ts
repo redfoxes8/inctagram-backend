@@ -9,6 +9,7 @@ import { CheckoutPurpose } from '../../domain/enums/checkout-purpose.enum';
 import { CheckoutStatus } from '../../domain/enums/checkout-status.enum';
 import { BillingInterval } from '../../domain/enums/billing-interval.enum';
 import { PaymentTransactionStatus } from '../../domain/enums/payment-transaction-status.enum';
+import { SubscriptionStatus } from '../../domain/enums/subscription-status.enum';
 import { ProductProviderMapping } from '../../domain/interfaces/product-provider.repository.interface';
 import { ProviderCustomer } from '../../domain/interfaces/provider-customer.repository.interface';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key.value-object';
@@ -123,6 +124,10 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       input.input.userId,
     );
     const tail = unfinished.at(-1) ?? null;
+    const activeSubscription =
+      unfinished.find((subscription) => subscription.getStatus() === SubscriptionStatus.ACTIVE) ??
+      null;
+    const activeProviderSubscriptionId = activeSubscription?.getProviderSubscriptionId() ?? null;
     const product = await input.context.products.findById(input.input.productId);
     if (!product?.isActive()) {
       throw new DomainException({
@@ -167,7 +172,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       userId: input.input.userId,
       provider: input.provider,
     });
-    if (tail && (!providerCustomer || !tail.getProviderSubscriptionId())) {
+    if (tail && (!providerCustomer || !activeSubscription || !tail.getEndsAt())) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
     return {
@@ -178,7 +183,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       currency: product.getPrice().getCurrency().getValue(),
       billingInterval: product.getBillingInterval(),
       billingIntervalCount: product.getBillingIntervalCount(),
-      currentProviderSubscriptionId: tail?.getProviderSubscriptionId() ?? null,
+      currentProviderSubscriptionId: activeProviderSubscriptionId,
       currentProviderRenewalId: tail?.getProviderScheduleId() ?? null,
       finalLocalEndsAt: tail?.getEndsAt() ?? null,
     };
@@ -207,6 +212,10 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       checkout.getUserId(),
     );
     const tail = unfinished.at(-1) ?? null;
+    const activeSubscription =
+      unfinished.find((subscription) => subscription.getStatus() === SubscriptionStatus.ACTIVE) ??
+      null;
+    const activeProviderSubscriptionId = activeSubscription?.getProviderSubscriptionId() ?? null;
     const expectedPurpose = tail
       ? CheckoutPurpose.ADDITIONAL_SUBSCRIPTION
       : CheckoutPurpose.INITIAL_SUBSCRIPTION;
@@ -219,7 +228,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     });
     if (
       checkout.getPurpose() === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION &&
-      (!tail || !providerCustomer || !tail.getProviderSubscriptionId())
+      (!tail || !providerCustomer || !activeSubscription || !tail.getEndsAt())
     ) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
@@ -231,7 +240,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       currency: product.getPrice().getCurrency().getValue(),
       billingInterval: product.getBillingInterval(),
       billingIntervalCount: product.getBillingIntervalCount(),
-      currentProviderSubscriptionId: tail?.getProviderSubscriptionId() ?? null,
+      currentProviderSubscriptionId: activeProviderSubscriptionId,
       currentProviderRenewalId: tail?.getProviderScheduleId() ?? null,
       finalLocalEndsAt: tail?.getEndsAt() ?? null,
     };
@@ -305,11 +314,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
         autoRenewConsent: true,
       });
     }
-    if (
-      !input.prepared.providerCustomer ||
-      !input.prepared.currentProviderSubscriptionId ||
-      !input.prepared.finalLocalEndsAt
-    ) {
+    if (!input.prepared.providerCustomer || !input.prepared.finalLocalEndsAt) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
     return input.strategy.createAdditionalSubscriptionCheckout({

@@ -12,6 +12,7 @@ import {
   ToggleAutoRenewRequest,
   ToggleAutoRenewResponse,
   GetCheckoutSessionStatusRequest,
+  GetCheckoutSessionStatusByProviderIdRequest,
   GetCheckoutSessionStatusResponse,
   GetAvailableProductsRequest,
   GetAvailableProductsResponse,
@@ -39,5 +40,9 @@ export abstract class IPaymentServiceClient {
 
   abstract getCheckoutSessionStatus(
     request: GetCheckoutSessionStatusRequest,
+  ): Observable<GetCheckoutSessionStatusResponse>;
+
+  abstract getCheckoutSessionStatusByProviderId(
+    request: GetCheckoutSessionStatusByProviderIdRequest,
   ): Observable<GetCheckoutSessionStatusResponse>;
 }

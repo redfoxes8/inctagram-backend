@@ -1,9 +1,10 @@
 import {
   CreateCheckoutSessionRequest,
+  GetCheckoutSessionStatusByProviderIdRequest,
   GetCheckoutSessionStatusRequest,
+  PaymentProvider,
   GetPaymentHistoryRequest,
   GetSubscriptionsRequest,
-  PaymentProvider,
   ProcessWebhookEventRequest,
   Timestamp,
   ToggleAutoRenewRequest,
@@ -12,6 +13,7 @@ import { CreateCheckoutSessionCommandDto } from '../../application/commands/crea
 import { ProcessWebhookEventCommandDto } from '../../application/commands/process-webhook-event.command';
 import { ToggleAutoRenewCommandDto } from '../../application/commands/toggle-auto-renew.command';
 import { GetCheckoutSessionStatusQueryDto } from '../../application/queries/get-checkout-session-status.query';
+import { GetCheckoutSessionStatusByProviderIdQueryDto } from '../../application/queries/get-checkout-session-status-by-provider-id.query';
 import { GetPaymentHistoryQueryDto } from '../../application/queries/get-payment-history.query';
 import { GetSubscriptionsQueryDto } from '../../application/queries/get-subscriptions.query';
 import { PaymentProviderCode } from '../../application/types/payment-provider-code.type';
@@ -58,6 +60,16 @@ export class PaymentRequestMapper {
     dto: GetCheckoutSessionStatusQueryDto,
   ): GetCheckoutSessionStatusRequest {
     return { userId: dto.userId, checkoutSessionId: dto.checkoutSessionId };
+  }
+
+  public static toGetCheckoutSessionStatusByProviderId(
+    dto: GetCheckoutSessionStatusByProviderIdQueryDto,
+  ): GetCheckoutSessionStatusByProviderIdRequest {
+    return {
+      userId: dto.userId,
+      paymentProvider: PaymentProvider.STRIPE,
+      providerCheckoutId: dto.providerCheckoutId,
+    };
   }
 
   private static toPaymentProvider(provider: PaymentProviderCode): PaymentProvider {

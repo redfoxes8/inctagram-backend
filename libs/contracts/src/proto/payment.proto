@@ -203,6 +203,12 @@ message GetCheckoutSessionStatusResponse {
   optional string subscription_id = 2;
 }
 
+message GetCheckoutSessionStatusByProviderIdRequest {
+  string user_id = 1;
+  PaymentProvider payment_provider = 2;
+  string provider_checkout_id = 3;
+}
+
 service PaymentService {
   rpc GetAvailableProducts(GetAvailableProductsRequest)
       returns (GetAvailableProductsResponse);
@@ -217,5 +223,7 @@ service PaymentService {
   rpc ToggleAutoRenew(ToggleAutoRenewRequest)
       returns (ToggleAutoRenewResponse);
   rpc GetCheckoutSessionStatus(GetCheckoutSessionStatusRequest)
+      returns (GetCheckoutSessionStatusResponse);
+  rpc GetCheckoutSessionStatusByProviderId(GetCheckoutSessionStatusByProviderIdRequest)
       returns (GetCheckoutSessionStatusResponse);
 }

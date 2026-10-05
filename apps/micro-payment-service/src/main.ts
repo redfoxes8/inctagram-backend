@@ -41,7 +41,6 @@ async function bootstrap(): Promise<void> {
   });
 
   await app.startAllMicroservices();
-
   await app.listen(paymentConfig.port);
 
   console.log(`Micro-payment-service is running on: ${await app.getUrl()} (HTTP)`);
