@@ -39,13 +39,16 @@ function product(): ProductEntity {
   });
 }
 
-function activeSubscription(endsAt: Date): SubscriptionEntity {
+function activeSubscription(
+  endsAt: Date,
+  providerSubscriptionId: string | null = 'sub_active',
+): SubscriptionEntity {
   return SubscriptionEntity.createPaidActive({
     id: ACTIVE_ID,
     userId: USER_ID,
     productId: PRODUCT_ID,
     provider: PROVIDER,
-    providerSubscriptionId: 'sub_active',
+    providerSubscriptionId,
     providerScheduleId: null,
     providerStatus: 'active',
     sequence: 1,
@@ -56,15 +59,19 @@ function activeSubscription(endsAt: Date): SubscriptionEntity {
   });
 }
 
-function queuedSubscription(endsAt: Date): SubscriptionEntity {
+function queuedSubscription(
+  endsAt: Date,
+  providerScheduleId: string | null = 'sched_queued',
+  providerStatus = 'not_started',
+): SubscriptionEntity {
   return SubscriptionEntity.createPaidQueued({
     id: QUEUED_ID,
     userId: USER_ID,
     productId: PRODUCT_ID,
     provider: PROVIDER,
     providerSubscriptionId: null,
-    providerScheduleId: 'sched_queued',
-    providerStatus: 'not_started',
+    providerScheduleId,
+    providerStatus,
     sequence: 2,
     period: BillingPeriod.fromBoundaries({
       startsAt: new Date('2026-10-01T00:00:00.000Z'),
@@ -221,8 +228,8 @@ describe('CreateCheckoutSessionHandler', () => {
     it('uses same split correlation for idempotent additional checkout', async () => {
       const activeEndsAt = new Date('2026-10-01T00:00:00.000Z');
       const queuedEndsAt = new Date('2026-11-01T00:00:00.000Z');
-      const active = activeSubscription(activeEndsAt);
-      const queued = queuedSubscription(queuedEndsAt);
+      const active = activeSubscription(activeEndsAt, null);
+      const queued = queuedSubscription(queuedEndsAt, 'sched_canceled', 'canceled');
       const subscriptions = [active, queued];
 
       const existingCheckout = CheckoutSessionEntity.create({
@@ -288,6 +295,55 @@ describe('CreateCheckoutSessionHandler', () => {
       expect(strategy.retrieveCheckout).toHaveBeenCalledWith(
         expect.objectContaining({
           localCheckoutSessionId: CHECKOUT_ID,
+        }),
+      );
+    });
+
+    it('creates an additional checkout for a prepaid ACTIVE period without a Stripe subscription', async () => {
+      const activeEndsAt = new Date('2026-10-01T00:00:00.000Z');
+      const queuedEndsAt = new Date('2026-11-01T00:00:00.000Z');
+      const active = activeSubscription(activeEndsAt, null);
+      const queued = queuedSubscription(queuedEndsAt, 'sched_canceled', 'canceled');
+      const insertedCheckout = CheckoutSessionEntity.create({
+        id: CHECKOUT_ID,
+        userId: USER_ID,
+        productId: PRODUCT_ID,
+        provider: PROVIDER,
+        purpose: CheckoutPurpose.ADDITIONAL_SUBSCRIPTION,
+        idempotencyKey: new IdempotencyKey('test-idempotency-key'),
+      });
+      const strategy = mockStrategy();
+      const context = mockContext([active, queued]);
+
+      context.checkoutSessions.findById = jest.fn().mockResolvedValue(insertedCheckout);
+
+      const handler = new CreateCheckoutSessionHandler(
+        mockUnitOfWork(context),
+        mockResolver(strategy),
+      );
+
+      await expect(
+        handler.execute(
+          new CreateCheckoutSessionCommand({
+            userId: USER_ID,
+            productId: PRODUCT_ID,
+            provider: 'STRIPE',
+            autoRenewConsent: true,
+            successUrl: 'https://success.test',
+            cancelUrl: 'https://cancel.test',
+            idempotencyKey: 'test-idempotency-key',
+          }),
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({ checkoutUrl: 'https://checkout.stripe.com/test-additional' }),
+      );
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(strategy.createAdditionalSubscriptionCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentProviderSubscriptionId: null,
+          currentProviderRenewalId: 'sched_canceled',
+          finalLocalEndsAt: queuedEndsAt.toISOString(),
         }),
       );
     });

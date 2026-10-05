@@ -5,6 +5,7 @@ import { StageSubscriptionRemindersService } from '../../src/modules/payment/app
 import { PaymentProviderResolver } from '../../src/modules/payment/application/ports/payment-provider-resolver.port';
 import { PaymentProviderStrategy } from '../../src/modules/payment/application/ports/payment-provider.strategy';
 import { PaymentWebhookProcessor } from '../../src/modules/payment/application/ports/payment-webhook-processor.port';
+import { StripePaymentProviderStrategy } from '../../src/modules/payment/infrastructure/providers/stripe-payment-provider.strategy';
 import { CheckoutPaymentSucceededProviderEvent } from '../../src/modules/payment/application/ports/payment-provider.types';
 import { IPaymentUnitOfWork } from '../../src/modules/payment/application/ports/payment-unit-of-work.port';
 import { CheckoutSessionEntity } from '../../src/modules/payment/domain/entities/checkout-session.entity';
@@ -55,7 +56,106 @@ function successEvent(): CheckoutPaymentSucceededProviderEvent {
 }
 
 describe('Additional payment webhook lifecycle', () => {
-  it('keeps disabled ACTIVE ownership and creates one auto-renewing QUEUED period with a stable schedule key', async () => {
+  function stripeStrategyClient(input: { currentScheduleStatus: string }) {
+    const subscriptionsUpdate = jest.fn().mockResolvedValue(undefined);
+    const schedulesCancel = jest.fn().mockResolvedValue(undefined);
+    const schedulesCreate = jest.fn().mockResolvedValue({
+      id: 'sub_sched_new',
+      livemode: false,
+      status: 'not_started',
+    });
+    return {
+      client: {
+        paymentIntents: {
+          retrieve: jest.fn().mockResolvedValue({
+            livemode: false,
+            status: 'succeeded',
+            setup_future_usage: 'off_session',
+            customer: 'cus_test',
+            payment_method: 'pm_test',
+          }),
+        },
+        customers: { update: jest.fn().mockResolvedValue(undefined) },
+        subscriptions: { update: subscriptionsUpdate },
+        subscriptionSchedules: {
+          retrieve: jest.fn().mockResolvedValue({ status: input.currentScheduleStatus }),
+          cancel: schedulesCancel,
+          create: schedulesCreate,
+        },
+      },
+      subscriptionsUpdate,
+      schedulesCancel,
+      schedulesCreate,
+    };
+  }
+
+  function synchronizeCommand(input: { currentProviderSubscriptionId: string | null }) {
+    return {
+      userId: USER_ID,
+      subscriptionId: ACTIVE_ID,
+      provider: PROVIDER,
+      providerCustomerId: 'cus_test',
+      currentProviderSubscriptionId: input.currentProviderSubscriptionId,
+      currentProviderRenewalId: 'sub_sched_canceled',
+      providerBillingId: 'price_month',
+      confirmedProviderTransactionId: 'pi_test_additional',
+      billingInterval: BillingInterval.MONTH,
+      billingIntervalCount: 1,
+      finalLocalEndsAt: '2026-10-08T00:00:00.000Z',
+      providerIdempotencyKey: 'align-test',
+    };
+  }
+
+  it('skips subscription update and does not recancel a canceled schedule for prepaid ACTIVE', async () => {
+    const { client, schedulesCancel, schedulesCreate, subscriptionsUpdate } = stripeStrategyClient({
+      currentScheduleStatus: 'canceled',
+    });
+    const strategy = new StripePaymentProviderStrategy(client as never, {
+      environment: 'test',
+      webhookSecret: 'test',
+    });
+
+    const result = await strategy.synchronizeNextBilling(
+      synchronizeCommand({ currentProviderSubscriptionId: null }),
+    );
+
+    expect(subscriptionsUpdate).not.toHaveBeenCalled();
+    expect(schedulesCancel).not.toHaveBeenCalled();
+    expect(schedulesCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ start_date: 1_791_417_600 }),
+      expect.anything(),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        providerSubscriptionId: null,
+        providerRenewalId: 'sub_sched_new',
+      }),
+    );
+  });
+
+  it('preserves subscription update and replacement of a not-started schedule when the ID exists', async () => {
+    const { client, schedulesCancel, schedulesCreate, subscriptionsUpdate } = stripeStrategyClient({
+      currentScheduleStatus: 'not_started',
+    });
+    const strategy = new StripePaymentProviderStrategy(client as never, {
+      environment: 'test',
+      webhookSecret: 'test',
+    });
+
+    await strategy.synchronizeNextBilling(
+      synchronizeCommand({ currentProviderSubscriptionId: 'sub_current' }),
+    );
+
+    expect(subscriptionsUpdate).toHaveBeenCalledWith(
+      'sub_current',
+      { cancel_at_period_end: true },
+      { idempotencyKey: 'align-test-subscription' },
+    );
+    expect(schedulesCancel).toHaveBeenCalledWith('sub_sched_canceled');
+    expect(schedulesCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates a new queued period after prepaid ACTIVE and a canceled queued tail', async () => {
     const product = new ProductEntity({
       id: PRODUCT_ID,
       code: 'MONTH',
@@ -69,16 +169,31 @@ describe('Additional payment webhook lifecycle', () => {
       userId: USER_ID,
       productId: PRODUCT_ID,
       provider: PROVIDER,
-      providerSubscriptionId: 'sub_current',
+      providerSubscriptionId: null,
       providerScheduleId: null,
-      providerStatus: 'active',
+      providerStatus: null,
       sequence: 1,
       period: BillingPeriod.fromBoundaries({
         startsAt: new Date('2026-09-01T00:00:00.000Z'),
         endsAt: new Date('2026-09-08T00:00:00.000Z'),
       }),
     });
-    active.disableAutoRenew({ providerStatus: 'active' });
+    active.disableAutoRenew({ providerStatus: null });
+    const tail = SubscriptionEntity.createPaidQueued({
+      id: '77777777-7777-4777-8777-777777777777',
+      userId: USER_ID,
+      productId: PRODUCT_ID,
+      provider: PROVIDER,
+      providerSubscriptionId: null,
+      providerScheduleId: 'sub_sched_canceled',
+      providerStatus: 'canceled',
+      sequence: 2,
+      period: BillingPeriod.fromBoundaries({
+        startsAt: active.getEndsAt(),
+        endsAt: new Date('2026-10-08T00:00:00.000Z'),
+      }),
+    });
+    tail.disableAutoRenew({ providerStatus: 'canceled' });
     const checkout = CheckoutSessionEntity.create({
       id: CHECKOUT_ID,
       userId: USER_ID,
@@ -106,15 +221,15 @@ describe('Additional payment webhook lifecycle', () => {
       receivedAt: PAID_AT,
     });
     journal.startProcessing(10);
-    const queue: SubscriptionEntity[] = [active];
+    const queue: SubscriptionEntity[] = [active, tail];
     const synchronizeNextBilling = jest.fn().mockResolvedValue({
       provider: PROVIDER,
       providerCustomerId: 'cus_test',
-      providerSubscriptionId: 'sub_current',
+      providerSubscriptionId: null,
       providerRenewalId: 'sched_additional',
       providerStatus: 'not_started',
       autoRenewEnabled: true,
-      nextBillingAt: '2026-10-08T00:00:00.000Z',
+      nextBillingAt: '2026-11-08T00:00:00.000Z',
     });
     const context = {
       databaseNow: jest.fn().mockResolvedValue(PAID_AT),
@@ -183,22 +298,26 @@ describe('Additional payment webhook lifecycle', () => {
 
     await processor.processSuccess(successEvent());
 
-    const queued = queue[1];
+    const queued = queue[2];
     expect(transaction.getStatus()).toBe(PaymentTransactionStatus.SUCCEEDED);
     expect(checkout.getStatus()).toBe(CheckoutStatus.COMPLETED);
-    expect(active.getAutoRenew()).toBe(false);
+    expect(tail.getAutoRenew()).toBe(false);
     expect(queued.getStatus()).toBe(SubscriptionStatus.QUEUED);
     expect(queued.getAutoRenew()).toBe(true);
     expect(queued.getProviderScheduleId()).toBe('sched_additional');
-    expect(queued.getStartsAt()).toEqual(active.getEndsAt());
+    expect(queued.getStartsAt()).toEqual(tail.getEndsAt());
     expect(synchronizeNextBilling).toHaveBeenCalledTimes(1);
     expect(synchronizeNextBilling).toHaveBeenCalledWith(
-      expect.objectContaining({ providerIdempotencyKey: `align-${CHECKOUT_ID}` }),
+      expect.objectContaining({
+        currentProviderSubscriptionId: null,
+        currentProviderRenewalId: 'sub_sched_canceled',
+        providerIdempotencyKey: `align-${CHECKOUT_ID}`,
+      }),
     );
     expect(stageBatch).toHaveBeenCalledWith(
       expect.objectContaining({
         periods: [
-          expect.objectContaining({ subscription: active, immediateSuccessor: queued }),
+          expect.objectContaining({ subscription: tail, immediateSuccessor: queued }),
           expect.objectContaining({ subscription: queued, immediateSuccessor: null }),
         ],
       }),

@@ -172,13 +172,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
       userId: input.input.userId,
       provider: input.provider,
     });
-    if (
-      tail &&
-      (!providerCustomer ||
-        !activeSubscription ||
-        !activeProviderSubscriptionId ||
-        !tail.getEndsAt())
-    ) {
+    if (tail && (!providerCustomer || !activeSubscription || !tail.getEndsAt())) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
     return {
@@ -234,11 +228,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
     });
     if (
       checkout.getPurpose() === CheckoutPurpose.ADDITIONAL_SUBSCRIPTION &&
-      (!tail ||
-        !providerCustomer ||
-        !activeSubscription ||
-        !activeProviderSubscriptionId ||
-        !tail.getEndsAt())
+      (!tail || !providerCustomer || !activeSubscription || !tail.getEndsAt())
     ) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
@@ -324,11 +314,7 @@ export class CreateCheckoutSessionHandler implements ICommandHandler<
         autoRenewConsent: true,
       });
     }
-    if (
-      !input.prepared.providerCustomer ||
-      !input.prepared.currentProviderSubscriptionId ||
-      !input.prepared.finalLocalEndsAt
-    ) {
+    if (!input.prepared.providerCustomer || !input.prepared.finalLocalEndsAt) {
       throw this.conflict('Paid subscription provider correlation is incomplete');
     }
     return input.strategy.createAdditionalSubscriptionCheckout({
