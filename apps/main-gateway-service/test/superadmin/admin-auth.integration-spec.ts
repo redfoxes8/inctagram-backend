@@ -18,6 +18,7 @@ import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { SuperadminModule } from '../../src/modules/superadmin/superadmin.module';
 import { SuperadminAuthModule } from '../../src/modules/superadmin/superadmin-auth.module';
 import { UserStateAuditModule } from '../../src/modules/users/user-state-audit.module';
+import { UserAccessModule } from '../../src/modules/sessions/user-access.module';
 import { AdminPrincipalVerifier } from '../../src/modules/superadmin/domain/admin-principal';
 import { SessionAdminPrincipalVerifier } from '../../src/modules/superadmin/infrastructure/session-admin-principal.verifier';
 import { AdminAuthConfig } from '../../src/modules/superadmin/infrastructure/admin-auth.config';
@@ -71,6 +72,7 @@ type Browser = { cookie: string; token: string; nonce: string };
 @Module({
   imports: [
     UserStateAuditModule,
+    UserAccessModule,
     CqrsModule,
     PassportModule,
     JwtModule.register({ secret: 'isolated-user-jwt-fixture-only' }),

@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { UserAccessCheck } from '../../src/modules/sessions/application/user-access-check';
 
 import { JwtStrategy } from '../../src/common/strategies/jwt.strategy';
 import { GatewayConfig } from '../../src/core/gateway.config';
@@ -34,8 +34,8 @@ function createSession(): SessionEntity {
     deviceId: DEVICE_ID,
     deviceName: 'test-device',
     ip: '127.0.0.1',
-    iat: 1,
-    exp: 2,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 120,
     createdAt: new Date('2026-09-06T00:00:00.000Z'),
     updatedAt: new Date('2026-09-06T00:00:00.000Z'),
     deletedAt: null,
@@ -43,28 +43,39 @@ function createSession(): SessionEntity {
 }
 
 describe('JWT token type hardening', () => {
-  it('issues signed access and refresh types and accepts only access through the HTTP strategy', () => {
+  it('issues signed access and refresh types and accepts only access through the HTTP strategy', async () => {
     const jwtService = createJwtService();
     const tokens = jwtService.createTokens(USER_ID, DEVICE_ID);
-    const strategy = new JwtStrategy({ jwtSecret: JWT_SECRET } as GatewayConfig);
+    const strategy = new JwtStrategy(
+      { jwtSecret: JWT_SECRET } as GatewayConfig,
+      {
+        verify: jest.fn().mockResolvedValue({ sessionId: 'fixture-session' }),
+      } as unknown as UserAccessCheck,
+    );
 
     const accessPayload = jwtService.verifyAccessToken(tokens.accessToken);
     const refreshPayload = jwtService.verifyRefreshToken(tokens.refreshToken);
 
     expect(accessPayload.tokenType).toBe(AuthTokenType.ACCESS);
     expect(refreshPayload.tokenType).toBe(AuthTokenType.REFRESH);
-    expect(strategy.validate(accessPayload)).toEqual({ userId: USER_ID, deviceId: DEVICE_ID });
+    await expect(strategy.validate(accessPayload)).resolves.toEqual({
+      userId: USER_ID,
+      deviceId: DEVICE_ID,
+    });
   });
 
-  it('rejects refresh tokens through the access verification boundary used by HTTP and WebSocket', () => {
+  it('rejects refresh tokens through the access verification boundary used by HTTP and WebSocket', async () => {
     const jwtService = createJwtService();
     const tokens = jwtService.createTokens(USER_ID, DEVICE_ID);
-    const strategy = new JwtStrategy({ jwtSecret: JWT_SECRET } as GatewayConfig);
+    const strategy = new JwtStrategy(
+      { jwtSecret: JWT_SECRET } as GatewayConfig,
+      { verify: jest.fn() } as unknown as UserAccessCheck,
+    );
 
     expect(() => jwtService.verifyAccessToken(tokens.refreshToken)).toThrow('Unauthorized');
-    expect(() => strategy.validate(jwtService.verifyRefreshToken(tokens.refreshToken))).toThrow(
-      'Unauthorized',
-    );
+    await expect(
+      strategy.validate(jwtService.verifyRefreshToken(tokens.refreshToken)),
+    ).rejects.toMatchObject({ code: 401 });
   });
 
   it('rejects legacy tokens without a signed token type claim', () => {
@@ -82,7 +93,7 @@ describe('JWT token type hardening', () => {
     const jwtService = createJwtService();
     const tokens = jwtService.createTokens(USER_ID, DEVICE_ID);
     const sessionsRepository = {
-      findByDeviceId: jest.fn().mockResolvedValue(createSession()),
+      findByUserIdAndDeviceId: jest.fn().mockResolvedValue(createSession()),
       updateSessionAtomic: jest.fn().mockResolvedValue(true),
     } as unknown as ISessionsRepository;
     const useCase = new RefreshTokenUseCase(jwtService as IJwtService, sessionsRepository);
@@ -95,6 +106,6 @@ describe('JWT token type hardening', () => {
     });
     await expect(
       useCase.execute(new RefreshTokenCommand(tokens.accessToken)),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toMatchObject({ code: 401 });
   });
 });

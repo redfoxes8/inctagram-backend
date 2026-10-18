@@ -12,11 +12,13 @@ import { NotificationGrpcClient } from './infrastructure/notification-grpc.clien
 import { AuthTokenModule } from '../auth/auth-token.module';
 import { NotificationsGateway } from './api/ws/notifications.gateway';
 import { NotificationRealtimePublisher } from './realtime/notification-realtime.publisher';
+import { UserAccessModule } from '../sessions/user-access.module';
 
 @Module({
   imports: [
     GatewayConfigModule,
     AuthTokenModule,
+    UserAccessModule,
     ClientsModule.registerAsync([
       {
         name: NOTIFICATION_CLIENT,

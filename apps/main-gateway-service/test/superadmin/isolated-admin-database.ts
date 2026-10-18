@@ -16,6 +16,7 @@ export class IsolatedAdminDatabase {
   async start(
     input: {
       beforeMigration?: (input: { name: string; database: IsolatedAdminDatabase }) => void;
+      deployLastWithPrisma?: boolean;
     } = {},
   ): Promise<void> {
     execFileSync(
@@ -56,17 +57,42 @@ export class IsolatedAdminDatabase {
       .at(-1);
     this.connectionString = `postgresql://postgres:isolated-test-only@127.0.0.1:${port}/postgres`;
     const migrations = join(process.cwd(), 'apps/main-gateway-service/src/core/prisma/migrations');
-    for (const name of readdirSync(migrations)
+    const names = readdirSync(migrations)
       .filter((name) => /^\d/.test(name))
-      .sort()) {
+      .sort();
+    for (const name of names) {
       if (name === '20261018120000_add_admin_sessions') {
         this.sql(
           `INSERT INTO "User" ("id", "email") VALUES ('migration-preserved-user', 'preserved@example.test');`,
         );
       }
       input.beforeMigration?.({ name, database: this });
-      this.sql(readFileSync(join(migrations, name, 'migration.sql'), 'utf8'));
+      if (input.deployLastWithPrisma && name === names.at(-1)) {
+        this.prismaMigration(['deploy']);
+      } else {
+        this.sql(readFileSync(join(migrations, name, 'migration.sql'), 'utf8'));
+        // Baseline the existing fixture schema through the official CLI, then deploy ONLY
+        // the new migration through migrate deploy. Never consume application DB URLs.
+        if (input.deployLastWithPrisma) this.prismaMigration(['resolve', '--applied', name]);
+      }
     }
+  }
+
+  private prismaMigration(args: string[]): void {
+    execFileSync(
+      process.execPath,
+      [
+        join(process.cwd(), 'node_modules/prisma/build/index.js'),
+        'migrate',
+        ...args,
+        '--config',
+        'apps/main-gateway-service/src/core/prisma/prisma.config.ts',
+      ],
+      {
+        env: { ...process.env, NODE_ENV: 'test', PRISMA_DB_URL_DIRECT: this.connectionString },
+        stdio: 'pipe',
+      },
+    );
   }
 
   client(): PrismaService {

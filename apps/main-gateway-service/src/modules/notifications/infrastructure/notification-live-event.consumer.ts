@@ -59,7 +59,7 @@ export class NotificationLiveEventConsumer implements OnApplicationBootstrap {
     );
   }
 
-  private consume(input: unknown): void {
+  private async consume(input: unknown): Promise<void> {
     const event = this.parse(input);
     if (!event) {
       this.logger.warn({
@@ -70,17 +70,17 @@ export class NotificationLiveEventConsumer implements OnApplicationBootstrap {
     }
 
     if (event.eventType === NOTIFICATION_CREATED_EVENT_TYPE) {
-      this.realtimePublisher.publishNotificationCreated(event.payload.userId, {
+      await this.realtimePublisher.publishNotificationCreated(event.payload.userId, {
         notification: this.publicNotification(event.payload.notification),
         unseenCount: event.payload.unseenCount,
       });
-      this.realtimePublisher.publishUnseenCount(event.payload.userId, {
+      await this.realtimePublisher.publishUnseenCount(event.payload.userId, {
         unseenCount: event.payload.unseenCount,
       });
       return;
     }
 
-    this.realtimePublisher.publishUnseenCount(event.payload.userId, {
+    await this.realtimePublisher.publishUnseenCount(event.payload.userId, {
       unseenCount: event.payload.unseenCount,
       seenThrough: event.payload.seenThrough,
     });

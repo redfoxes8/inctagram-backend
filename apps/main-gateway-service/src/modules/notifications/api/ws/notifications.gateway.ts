@@ -5,6 +5,7 @@ import type { Namespace, Socket } from 'socket.io';
 import { IJwtService } from '../../../auth/application/interfaces/jwt.service.interface';
 import { NotificationRealtimePublisher } from '../../realtime/notification-realtime.publisher';
 import { NotificationUserRoomFactory } from '../../realtime/notification-user-room.factory';
+import { UserAccessCheck } from '../../../sessions/application/user-access-check';
 
 export const NOTIFICATIONS_SOCKET_NAMESPACE = '/notifications';
 
@@ -17,25 +18,43 @@ export class NotificationsGateway implements OnGatewayInit, OnGatewayConnection 
   constructor(
     @Inject(IJwtService) private readonly jwtService: IJwtService,
     private readonly publisher: NotificationRealtimePublisher,
+    private readonly access: UserAccessCheck,
   ) {}
 
   public afterInit(server: Namespace): void {
     this.publisher.bind(server);
     server.use((socket, next) => {
-      const accessToken = this.accessToken(socket);
-      if (!accessToken) {
-        next(this.unauthorizedError());
-        return;
-      }
-
-      try {
-        const payload = this.jwtService.verifyAccessToken(accessToken);
-        socket.data.notificationUserId = payload.userId;
-        next();
-      } catch {
-        next(this.unauthorizedError());
-      }
+      void this.authenticate({ socket, next });
     });
+  }
+
+  private async authenticate({
+    socket,
+    next,
+  }: {
+    socket: Socket;
+    next: (error?: Error) => void;
+  }): Promise<void> {
+    const accessToken = this.accessToken(socket);
+    if (!accessToken) {
+      next(this.unauthorizedError());
+      return;
+    }
+
+    try {
+      const payload = this.jwtService.verifyAccessToken(accessToken);
+      const session = await this.access.verify(payload);
+      socket.data.notificationUserId = payload.userId;
+      socket.data.notificationAccess = {
+        userId: payload.userId,
+        deviceId: payload.deviceId,
+        exp: payload.exp,
+        sessionId: session.sessionId,
+      };
+      next();
+    } catch {
+      next(this.unauthorizedError());
+    }
   }
 
   public handleConnection(socket: Socket): void {

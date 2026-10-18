@@ -24,6 +24,7 @@ import {
 } from '../../../../libs/contracts/src';
 import { Logger } from '@nestjs/common';
 import { io, type Socket as ClientSocket } from 'socket.io-client';
+import { UserAccessCheck } from '../../src/modules/sessions/application/user-access-check';
 import { Server, type Namespace } from 'socket.io';
 
 const FIRST_USER_ID = '10000000-0000-4000-8000-000000000001';
@@ -84,8 +85,14 @@ describe('NotificationsGateway', () => {
       cors: { origin: ['http://localhost:3000'], credentials: true },
     });
     namespace = socketServer.of('/notifications');
-    publisher = new NotificationRealtimePublisher();
-    gateway = new NotificationsGateway(new TestJwtService(), publisher);
+    const access = {
+      verify: (payload: TokenPayload): Promise<{ sessionId: string }> =>
+        Promise.resolve({
+          sessionId: payload.userId,
+        }),
+    } as unknown as UserAccessCheck;
+    publisher = new NotificationRealtimePublisher(access);
+    gateway = new NotificationsGateway(new TestJwtService(), publisher, access);
     gateway.afterInit(namespace);
     namespace.on('connection', (socket) => gateway.handleConnection(socket));
 
@@ -239,7 +246,7 @@ describe('NotificationsGateway', () => {
     const firstEvent = event(firstTab, NOTIFICATION_WEBSOCKET_EVENT.CREATED);
     const secondEvent = event(secondTab, NOTIFICATION_WEBSOCKET_EVENT.CREATED);
 
-    publisher.publishNotificationCreated(FIRST_USER_ID, payload);
+    await publisher.publishNotificationCreated(FIRST_USER_ID, payload);
 
     await expect(Promise.all([firstEvent, secondEvent])).resolves.toEqual([payload, payload]);
     await nextTick();
@@ -257,7 +264,7 @@ describe('NotificationsGateway', () => {
     const secondTab = await connectedSocket({ accessToken: 'access-first-user' });
     await nextTick();
 
-    publisher.publishNotificationCreated(FIRST_USER_ID, {
+    await publisher.publishNotificationCreated(FIRST_USER_ID, {
       notification: {
         id: LIVE_EVENT_ID,
         type: 'UPCOMING_PAYMENT',
@@ -280,7 +287,7 @@ describe('NotificationsGateway', () => {
     firstTab.disconnect();
     secondTab.disconnect();
     await nextTick();
-    publisher.publishNotificationCreated(FIRST_USER_ID, {
+    await publisher.publishNotificationCreated(FIRST_USER_ID, {
       notification: {
         id: LIVE_EVENT_ID,
         type: 'UPCOMING_PAYMENT',
@@ -327,8 +334,15 @@ describe('NotificationsGateway', () => {
       });
       clients.push(socket);
       socket.once('connect_error', (error) => {
+        const data: unknown = 'data' in error ? error.data : null;
         resolve({
-          code: typeof error.data?.code === 'string' ? error.data.code : '',
+          code:
+            typeof data === 'object' &&
+            data !== null &&
+            'code' in data &&
+            typeof data.code === 'string'
+              ? data.code
+              : '',
           message: error.message,
         });
       });

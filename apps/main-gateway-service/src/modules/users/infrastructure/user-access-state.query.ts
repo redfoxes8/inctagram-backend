@@ -10,6 +10,16 @@ export class PrismaUserAccessStateQuery extends UserAccessStateQuery {
     super();
   }
 
+  async findByEmail(input: { email: string }): Promise<UserAccessState | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: input.email },
+      select: { isBanned: true, deletedAt: true },
+    });
+    if (!user) return null;
+    if (user.deletedAt !== null) return UserAccessState.Deleted;
+    return user.isBanned ? UserAccessState.Blocked : UserAccessState.Active;
+  }
+
   async findByUserId(input: {
     userId: string;
     transaction?: unknown;

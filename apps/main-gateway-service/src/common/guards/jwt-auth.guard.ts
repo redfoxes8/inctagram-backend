@@ -6,6 +6,8 @@ import { DomainExceptionCode } from '../../../../../libs/common/src/exceptions/d
 @Injectable()
 export class JwtGuard extends AuthGuard('jwt') {
   handleRequest(err, user) {
+    if (err instanceof DomainException && err.code === DomainExceptionCode.ServiceUnavailable)
+      throw err;
     if (err || !user) {
       throw new DomainException({
         code: DomainExceptionCode.Unauthorized,

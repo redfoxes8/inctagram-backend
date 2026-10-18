@@ -8,10 +8,11 @@ import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { DeactivateOneUseCase } from './application/use-cases/deactivate-one.use-case';
 import { DeactivateAllUseCase } from './application/use-cases/deactivate-all.use-case';
 import { SessionsController } from './api/security-devices.controller';
+import { UserAccessModule } from './user-access.module';
 
 const useCases = [DeactivateOneUseCase, DeactivateAllUseCase];
 @Module({
-  imports: [PassportModule],
+  imports: [PassportModule, UserAccessModule],
   controllers: [SessionsController],
   providers: [
     ...useCases,

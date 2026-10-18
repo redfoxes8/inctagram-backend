@@ -27,6 +27,7 @@ import { PrismaOAuthAccountsRepository } from './infrastructure/oauth-accounts.r
 import { PrismaTransactionManager } from '../../core/prisma/transactions/prisma.transaction.manager';
 import { ITransactionManager } from '../../common/interfaces/transaction-manager.interface';
 import { AuthTokenModule } from './auth-token.module';
+import { UserAccessModule } from '../sessions/user-access.module';
 
 const useCases = [
   RegisterUserUseCase,
@@ -56,6 +57,7 @@ const managers = [{ provide: ITransactionManager, useClass: PrismaTransactionMan
     NotificationsModule,
     PassportModule,
     AuthTokenModule,
+    UserAccessModule,
   ],
   controllers: [AuthController],
   providers: [
