@@ -53,6 +53,8 @@ export function setupSuperadminHttp(input: {
     if (!origin || !input.policy.allowedOrigins.includes(origin)) return reject(403, 'FORBIDDEN');
     response.setHeader('Access-Control-Allow-Origin', origin);
     response.setHeader('Access-Control-Allow-Credentials', 'true');
+    response.setHeader('Access-Control-Expose-Headers', 'X-Superadmin-CSRF');
+    response.setHeader('Cache-Control', 'no-store');
     response.vary('Origin');
     if (request.method === 'OPTIONS') {
       response.setHeader('Access-Control-Allow-Methods', 'POST');

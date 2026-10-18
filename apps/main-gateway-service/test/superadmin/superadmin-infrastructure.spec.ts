@@ -325,7 +325,7 @@ describe('Superadmin infrastructure (isolated schema, no external services)', ()
     // Only test-schema operations use the future session exceptions.
     expect((await post('mutation { superadminLogin }')).body.data.superadminLogin).toBe(true);
     expect((await post('mutation { superadminLogout }')).body.data.superadminLogout).toBe(true);
-    verifier.verify.mockRejectedValue(new Error('expired'));
+    verifier.verify.mockResolvedValue(null);
     expect((await authenticated('mutation { superadminLogout }')).body.data.superadminLogout).toBe(
       true,
     );

@@ -29,13 +29,10 @@ export class SuperadminGuard implements CanActivate {
     const requestContext = graphql.getContext<SuperadminContext>();
     if (
       info.parentType.name === 'Mutation' &&
-      ((exception === 'login' && info.fieldName === 'superadminLogin') ||
-        (exception === 'logout' && info.fieldName === 'superadminLogout'))
-    ) {
-      if (exception === 'logout' && requestContext.req.cookies?.superadminSession)
-        this.checkCsrf(requestContext);
+      exception === 'login' &&
+      info.fieldName === 'superadminLogin'
+    )
       return true;
-    }
     const token: unknown = requestContext.req.cookies?.superadminSession;
     requestContext.principal = null;
     let principal: AdminPrincipal | null = null;
@@ -46,6 +43,9 @@ export class SuperadminGuard implements CanActivate {
         })) ?? null;
     } catch {
       requestContext.principal = null;
+      throw new GraphQLError('Service unavailable', {
+        extensions: { code: 'UPSTREAM_UNAVAILABLE' },
+      });
     }
     if (
       typeof token === 'string' &&
@@ -58,6 +58,12 @@ export class SuperadminGuard implements CanActivate {
       requestContext.principal = principal;
       return true;
     }
+    if (
+      exception === 'logout' &&
+      info.parentType.name === 'Mutation' &&
+      info.fieldName === 'superadminLogout'
+    )
+      return true;
     throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED' } });
   }
 

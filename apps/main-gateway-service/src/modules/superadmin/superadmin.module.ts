@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Module, type ModuleMetadata, type Provider } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
@@ -21,12 +21,17 @@ import { SuperadminExceptionFilter } from './api/superadmin-exception.filter';
   exports: [AdminPrincipalVerifier],
 })
 export class SuperadminModule {
-  // SA-GQL-02 supplies implemented SDL fragments, resolvers and verifier binding.
-  // Import SuperadminModule (without this method) while no business Query root exists.
-  static withRuntime(input: { typeDefs: string; production: boolean }): DynamicModule {
+  static withRuntime(input: {
+    typeDefs: string;
+    production: boolean;
+    imports?: ModuleMetadata['imports'];
+    principalVerifier?: Provider<AdminPrincipalVerifier>;
+  }): DynamicModule {
     return {
       module: SuperadminModule,
+      providers: input.principalVerifier ? [input.principalVerifier] : [],
       imports: [
+        ...(input.imports ?? []),
         GraphQLModule.forRoot<ApolloDriverConfig>({
           driver: ApolloDriver,
           typeDefs: input.typeDefs,

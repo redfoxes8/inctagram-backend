@@ -48,7 +48,7 @@ const corsAllowedHeaders = [
   'recaptcha',
 ];
 
-const corsExposedHeaders = ['Set-Cookie', 'X-Request-ID', 'X-Trace-ID'];
+const corsExposedHeaders = ['Set-Cookie', 'X-Request-ID', 'X-Trace-ID', 'X-Superadmin-CSRF'];
 
 async function bootstrap() {
   const dynamicAppModule = await initAppModule();
