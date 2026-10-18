@@ -23,11 +23,23 @@ import { NotificationsController } from './modules/notifications/api/notificatio
 import { NotificationLiveEventConsumer } from './modules/notifications/infrastructure/notification-live-event.consumer';
 import { NotificationLiveEventPublisher } from './modules/notifications/infrastructure/notification-live-event.publisher';
 import { SuperadminModule } from './modules/superadmin/superadmin.module';
+import { SuperadminAuthModule } from './modules/superadmin/superadmin-auth.module';
+import { SessionAdminPrincipalVerifier } from './modules/superadmin/infrastructure/session-admin-principal.verifier';
+import { AdminPrincipalVerifier } from './modules/superadmin/domain/admin-principal';
+import { SUPERADMIN_AUTH_TYPE_DEFS } from '../../../libs/contracts/src/graphql/superadmin/v1/auth-type-defs';
 
 @Module({
   imports: [
     CommonModule,
-    SuperadminModule,
+    SuperadminModule.withRuntime({
+      typeDefs: SUPERADMIN_AUTH_TYPE_DEFS,
+      production: process.env.NODE_ENV === 'production',
+      imports: [SuperadminAuthModule],
+      principalVerifier: {
+        provide: AdminPrincipalVerifier,
+        useExisting: SessionAdminPrincipalVerifier,
+      },
+    }),
     CoreModule,
     GatewayConfigModule,
     ScheduleModule.forRoot(),

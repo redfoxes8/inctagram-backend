@@ -1,34 +1,34 @@
 # Superadmin GraphQL API — контракт 1.1.0
 
-Статус: целевой контракт подготовлен в SA-GQL-01; техническая сверка с планом и `payment.proto` выполнена. Это не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope. Проверенные инфраструктурные тесты не подтверждают будущую авторизацию SA-GQL-02.
+Статус: целевой контракт 1.1.0; в SA-GQL-02 реализован только auth subset (login/logout/session). Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
 
 ## URL и текущая доступность
 
-Целевой URL: `/api/v1/graphql` на Gateway. **Runtime endpoint отключён**, пока нет реализованного Query root. Нет опубликованных Users, Payments, Followers/Following или login/logout. В приложении подключён `SuperadminModule` без `withRuntime`; тестовая schema находится только в `test/superadmin` и не подключается production-приложением. Нельзя подключать целевой SDL целиком ради запуска сервера.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы только `superadminSession`, `superadminLogin`, `superadminLogout`. Runtime fragment — `libs/contracts/src/graphql/superadmin/v1/auth-type-defs.ts`; target SDL целиком не загружается. Users, Payments, Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
 
-**Согласованное дополнение:** пользователь утвердил защищённую query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` в целевом контракте 1.1.0. В SA-GQL-02 endpoint включается после реализации этой query, login/logout и session verifier; каталог карточки 3 для этого не требуется. Это настоящее чтение подтверждённого состояния текущей admin session: действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением, не возвращает token/cookie/hash/credentials. Сейчас она добавлена только в целевой SDL; resolver, session storage и verifier остаются работой карточки 2. Фактический Nest Apollo startup с mutation-only SDL по-прежнему недопустим, но согласованная query устраняет этот вопрос перехода после её реализации.
+**Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
 Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия `1.1.0`. Общий schema-first fragment: `common-type-defs.ts` рядом; DateTime и pagination DTO — `libs/common/src/graphql`. Target SDL валидируется тестом, runtime schema собирается отдельно из реализованных feature fragments.
 
-## Планируемые operations
+## Operations и статусы
 
-Все операции таблицы имеют статус **Запланировано**.
+**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. Все остальные операции таблицы — **Запланировано**.
 
-| Operation                 | Input                                      | Output                                                        | Карточка                      |
-| ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | ----------------------------- |
-| `superadminLogin`         | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, future cookie                  | 2                             |
-| `superadminLogout`        | нет                                        | `{ loggedOut: Boolean! }`                                     | 2                             |
-| `superadminSession`       | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`       | **Запланировано — SA-GQL-02** |
-| `superadminUsers`         | `SuperadminUsersInput`                     | items, totalCount, pageInfo                                   | 3                             |
-| `superadminUser`          | `userId: ID!`                              | nullable SuperadminUser                                       | 3                             |
-| `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | 4B                            |
-| `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | 4B                            |
-| `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | 5                             |
-| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | 6                             |
+| Operation                 | Input                                      | Output                                                        | Карточка                    |
+| ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | --------------------------- |
+| `superadminLogin`         | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                | **Реализовано — SA-GQL-02** |
+| `superadminLogout`        | нет                                        | `{ loggedOut: Boolean! }`                                     | **Реализовано — SA-GQL-02** |
+| `superadminSession`       | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`       | **Реализовано — SA-GQL-02** |
+| `superadminUsers`         | `SuperadminUsersInput`                     | items, totalCount, pageInfo                                   | 3                           |
+| `superadminUser`          | `userId: ID!`                              | nullable SuperadminUser                                       | 3                           |
+| `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | 4B                          |
+| `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | 4B                          |
+| `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | 5                           |
+| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | 6                           |
 
 Followers/Following не определены в SDL: источник, колонки и технический контракт ждут исследования **карточки 7 SA-FOLLOW-DISCOVERY**, реализация — **карточка 8 SA-GQL-08**. Отсутствие источника не есть пустой реальный список. Итоговая сверка документа и исполняемых примеров — **карточка 9 SA-GQL-09**.
 
-Пример целевой операции (**Запланировано — SA-GQL-02**, сейчас не исполняется):
+Реализованная операция (**SA-GQL-02**):
 
 ```graphql
 query CurrentSuperadminSession {
@@ -38,7 +38,7 @@ query CurrentSuperadminSession {
 }
 ```
 
-При действующей session будущий ответ: `{"data":{"superadminSession":{"authenticated":true}}}`. Без действующей session — `{"data":null,"errors":[{"message":"Authentication required","path":["superadminSession"],"extensions":{"code":"UNAUTHENTICATED"}}]}`. Frontend использует query для проверки текущей admin session: `UNAUTHENTICATED` означает необходимость входа. Сетевой сбой, timeout и другие технические ошибки не следует автоматически трактовать как отсутствие session. Эти примеры описывают согласованный будущий контракт, не проверенный session flow.
+При действующей session: `{"data":{"superadminSession":{"authenticated":true}}}`. Без действующей session: `{"data":null,"errors":[{"message":"Authentication required","path":["superadminSession"],"extensions":{"code":"UNAUTHENTICATED"}}]}`. Frontend использует query для проверки текущей admin session: `UNAUTHENTICATED` означает необходимость входа. Сетевой сбой, timeout, `UPSTREAM_UNAVAILABLE` и другие технические ошибки не следует автоматически трактовать как отсутствие session. Auth flow проверяется автоматизированно с изолированной PostgreSQL; неизвестное реальное browser deployment этими проверками не подтверждается.
 
 ## Типы и nullable-поля
 
@@ -56,19 +56,74 @@ Payments: existing `GetPaymentHistory(user_id,page,page_size)` предоста�
 
 ## Auth, HTTP и CSRF
 
-**Обычный user JWT не даёт admin-доступ.** Сейчас default verifier всегда отказывает. Будущий verifier SA-GQL-02 получает только `superadminSession` token из cookie; Authorization bearer и `req.user` не используются как admin principal. Все административные root/nested resolvers защищаются global guard и `fieldResolverEnhancers: ['guards', 'filters']`.
+**Обычный user JWT не даёт admin-доступ.** Рабочий `SessionAdminPrincipalVerifier` получает только `superadminSession` из cookie; Authorization bearer и `req.user` не используются как admin principal. Binding задан внутри `SuperadminModule.withRuntime` через `useExisting` с явным импортом `SuperadminAuthModule`. Без этого binding default verifier отказывает. Все административные root/nested resolvers защищены global guard и `fieldResolverEnhancers: ['guards', 'filters']`.
 
-Запланирована отдельная opaque admin session: сервер хранит hash, cookie HttpOnly, Secure production, Path `/api/v1/graphql`. SameSite=Lax в одном site или None; Secure для cross-site после браузерной проверки. Idle expiry 30 минут, absolute expiry 8 часов, activity update не чаще раза в минуту, absolute срок не продлевается. Повторный login текущего браузера заменяет/отзывает его session; другие браузеры независимы.
+Отдельная opaque admin session: 32 случайных байта (256 бит), в PostgreSQL только SHA-256 digest. Cookie `superadminSession`: HttpOnly, Secure в production, Path `/api/v1/graphql`, без Domain, Max-Age не превышает оставшийся absolute срок. Не конфликтует с обычным `refreshToken`. Idle expiry 30 минут, absolute expiry 8 часов от создания; activity update не чаще раза в минуту, idle не выходит за absolute. На точной границе expiry доступ уже запрещён. Просроченная/отозванная запись не восстанавливается; условный touch не снимает revoke. Guard может проверять nested поля повторно, но cadence проверяется в repository и не создаёт touch на каждом поле.
 
-Login и безопасная идемпотентная очистка logout — будущие scoped session exceptions (`SuperadminSessionException`). Guard разрешает exception только на root Mutation с точным именем login/logout; он не разрешает вложенные данные. Logout без действующей/с expired/revoked session допускает `{ loggedOut: true }` с очисткой cookie; действующий logout отзывает только текущую session. Эти mutations и cookie issuance **не реализованы**.
+Повторный login транзакционно отзывает **предъявленную** прежнюю session и создаёт новую. Сессии других браузеров независимы и не отзываются login/logout текущего. Одновременные login без общего предъявленного token могут создать несколько sessions; сериализация всех конкурентных browser login не обещается. Уже начатый запрос может завершиться при конкурентном revoke; следующий запрос со старой cookie закрыт.
+
+Login и безопасная идемпотентная очистка logout — реализованные scoped exceptions (`SuperadminSessionException`), только root Mutation с точным именем. Они не дают доступа к вложенным административным данным или другим mutations. Logout без действующей/с expired/revoked session возвращает `{ loggedOut: true }` и очищает обе admin cookies. Действующий logout требует CSRF и отзывает только текущую session. Ошибка БД при проверке/отзыве не выдаётся за успешный revoke; cookies не очищаются под ложным успешным ответом.
 
 HTTP primitives: POST + application/json; OPTIONS только для CORS preflight, не исполнения GraphQL. `SUPERADMIN_ALLOWED_ORIGINS` — comma-separated exact HTTP(S) origins без path/wildcard. Точные origins frontend суперadminки не подтверждены; их настройка необходима до браузерной проверки рабочего входа в SA-GQL-02. Пустой allow-list отказывает всем; неизвестный или отсутствующий Origin запрещён. Credentials=true, preflight допускает Content-Type и X-Superadmin-CSRF. Разные origins не означают разные sites.
 
-First login: Origin allow-list + JSON-only. После выдачи будущих session/CSRF cookies SA-GQL-02 заголовок `X-Superadmin-CSRF` должен совпадать с `superadminCsrf` cookie (timing-safe compare). При cookie-authenticated mutation guard проверяет nonce. Logout с session cookie тоже проверяет nonce; logout без session допускает только безопасную очистку при Origin/JSON checks. Отсутствие валидного principal не препятствует этой очистке. Сейчас infrastructure не выдаёт cookies и не доказывает защиту полного session flow.
+First login: Origin allow-list + JSON-only, без предварительной session/nonce. Успешные login и защищённый `superadminSession` устанавливают отдельный случайный nonce в HttpOnly cookie `superadminCsrf` (тот же Path/SameSite/Secure; CSRF cookie непостоянная, без Max-Age) и возвращают его в **response header `X-Superadmin-CSRF`**, открытом через `Access-Control-Expose-Headers`. Nonce не содержит session token; FE не читает cookie другого hostname и не ослабляет HttpOnly. Хранить nonce в памяти; после reload выполнить `superadminSession` с credentials и прочитать новый header. Это работает для разных origins при разрешённых cookies; при ротации nonce другой вкладкой повторить bootstrap query перед mutation. Запросы не кешируются (`Cache-Control: no-store`).
+
+Для mutation с действующей session FE отправляет **request header `X-Superadmin-CSRF`**, совпадающий с `superadminCsrf` cookie (timing-safe compare), вместе с browser cookies. В том числе для logout. При отсутствии действующей session logout не требует nonce, но требует разрешённый Origin и JSON. CORS сам по себе не заменяет эти проверки. Preflight допускает Content-Type и X-Superadmin-CSRF. Новую nonce из ответа session query надо сохранить до следующей mutation; игнорировать обновлённую cookie/header пару нельзя.
+
+### Конфигурация и rate limit
+
+Имена в `apps/main-gateway-service/.env.example` и optional secret refs в существующем `deployment.yaml`: `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD_HASH` (bcrypt cost 10..15, как существующее bcrypt средство проекта; plaintext пароль не хранится), `SUPERADMIN_ALLOWED_ORIGINS`, `SUPERADMIN_COOKIE_SAME_SITE`. Email — trim/lowercase; пароль сравнивается без trim, не более 72 UTF-8 bytes (лимит bcrypt). Неверные email/password дают одинаковую ошибку `UNAUTHENTICATED`. Некорректные/отсутствующие admin credentials закрывают login с `UPSTREAM_UNAVAILABLE`, не останавливая обычный REST startup. Обычный user login/refresh не менялся.
+
+`SUPERADMIN_COOKIE_SAME_SITE=lax` — для same-site размещения, включая допустимые разные origins; `none` — cross-site, автоматически Secure даже вне production и требует HTTPS. Другие значения отключают admin login. Выбор определяется фактическим размещением; точные admin origins и cross-site browser compatibility пока **не подтверждены**. Пустой allow-list — deny, не wildcard fallback.
+
+Login ограничен **5 попытками за скользящие 15 минут на комбинацию прямого peer IP и нормализованного email**, включая неверные credentials и успешные входы. Backend — существующий Gateway PostgreSQL, `AdminLoginRateLimit`; transaction advisory lock сериализует попытки одного ключа на всех Gateway, timestamps ограничены пятью. `X-Forwarded-For` не доверяем, unconditional trust proxy не включён; за ingress peer IP может быть общим, это консервативный лимит, не подтверждение end-user IP. Ответ при лимите — `TOO_MANY_REQUESTS`, без раскрытия ключей/счётчиков. Недоступность storage — `UPSTREAM_UNAVAILABLE`, вход закрыт. Часы Gateway должны быть синхронизированы. Истёкшие окна очищаются при следующей попытке того же ключа; индекс updatedAt позволяет операторскую очистку старых rate rows. Retention/очистка revoked sessions должна учитывать будущую audit policy, автоматическое удаление здесь не выполняется.
+
+### Пример клиента (без credentials в исходниках)
+
+Apollo `HttpLink` должен использовать `credentials: 'include'`. JSON отправляется только с разрешённого Origin. Следующий browser-код показывает bootstrap/headers; `endpoint`, `email` и `password` передаются вызывающим кодом, значения не логируются и не сохраняются в bundle:
+
+```javascript
+let csrfNonce;
+async function adminGraphql({ endpoint, query, variables }) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(csrfNonce ? { 'X-Superadmin-CSRF': csrfNonce } : {}),
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  const nonce = response.headers.get('X-Superadmin-CSRF');
+  if (nonce) csrfNonce = nonce;
+  const result = await response.json();
+  if (result.data?.superadminLogout?.loggedOut) csrfNonce = undefined;
+  return result; // Inspect errors[].extensions.code; technical errors are not logout.
+}
+// Login: variables = { input: { email, password } }, supplied at runtime.
+// After reload: execute CurrentSuperadminSession first to bootstrap csrfNonce.
+```
+
+```graphql
+mutation SuperadminLogin($input: SuperadminLoginInput!) {
+  superadminLogin(input: $input) {
+    authenticated
+  }
+}
+mutation SuperadminLogout {
+  superadminLogout {
+    loggedOut
+  }
+}
+```
+
+Отправляйте каждую operation отдельным документом; пример login использует runtime variables `{ input: { email, password } }`, не значения из документации.
+
+Login success JSON: `{"data":{"superadminLogin":{"authenticated":true}}}`. Logout success: `{"data":{"superadminLogout":{"loggedOut":true}}}`. Cookies и response CSRF header не являются полями GraphQL payload. Не отправлять пароль/token в GET URL, логи, telemetry или persisted operation variables.
 
 ## Errors и бюджеты
 
-GraphQL envelope `errors[]`: безопасное message, optional path, только `extensions.code`. Коды: UNAUTHENTICATED, FORBIDDEN, BAD_USER_INPUT, INTERNAL_SERVER_ERROR, NOT_FOUND, CONFLICT, UPSTREAM_UNAVAILABLE; GraphQL validation/parse отличаются кодами GRAPHQL_VALIDATION_FAILED/GRAPHQL_PARSE_FAILED. Stack, secrets, raw upstream details, cookies/tokens не публикуются. Бизнес-outcomes mutations относятся к data payload.
+GraphQL envelope `errors[]`: безопасное message, optional path, только `extensions.code`. Коды: UNAUTHENTICATED, FORBIDDEN, BAD_USER_INPUT, TOO_MANY_REQUESTS, INTERNAL_SERVER_ERROR, NOT_FOUND, CONFLICT, UPSTREAM_UNAVAILABLE; GraphQL validation/parse отличаются кодами GRAPHQL_VALIDATION_FAILED/GRAPHQL_PARSE_FAILED. Stack, secrets, raw upstream details, cookies/tokens не публикуются. Бизнес-outcomes mutations относятся к data payload. Ошибки auth/storage возвращаются в GraphQL envelope (не полагаться только на HTTP status); transport/Origin/body violations могут иметь HTTP 4xx.
 
 ```json
 {
@@ -76,12 +131,12 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 }
 ```
 
-Максимум body 256 KiB; depth 8, complexity 200. Каждый field и alias стоит единицу; fragment расширяется при каждом использовании, циклы отвергаются. Connection `items` умножает стоимость вложенных полей на pageSize (default 8). Бюджет проверяется при validation и заново с variables перед исполнением, суммарно для operations документа. HTTP batching запрещён; subscriptions не поддерживаются. В production introspection запрещена, IDE/landing page отключены во всех средах. REST настройки не расширяются этим endpoint.
+Максимум body 256 KiB; depth 8, complexity 200. Каждый field и alias стоит единицу; fragment расширяется при каждом использовании, циклы отвергаются. Connection `items` умножает стоимость вложенных полей на pageSize (default 8). Бюджет проверяется при validation и заново с variables перед исполнением, суммарно для operations документа. HTTP batching запрещён; subscriptions не поддерживаются. В production introspection запрещена, IDE/landing page отключены во всех средах. REST маршруты и error format сохранены; общий список exposed headers дополнен только именем `X-Superadmin-CSRF`, чтобы общий CORS middleware не скрыл bootstrap header.
 
 ## Подключение SA-GQL-02 и владение
 
 1. Owner 01 интегрирует root/common SDL и проверяет feature fragment; target SDL не импортировать в runtime. Все root/nested fields публикуются только с реализованными resolvers и tests.
-2. После реализации согласованной `superadminSession`, login/logout и session verifier SA-GQL-02 меняет plain import на `SuperadminModule.withRuntime({ typeDefs: implementedSdl, production: coreConfig.env === 'production' })`, добавляет реализованные resolver providers и заменяет binding `AdminPrincipalVerifier` в этом module на свой session verifier (либо factory/useExisting с явным импортом owner модуля). Одних login/logout mutations недостаточно; `superadminSession` обеспечивает реальный Query root и остаётся под общей защитой. Нельзя регистрировать второй одноимённый binding в соседнем module и ожидать, что он заменит default.
+2. SA-GQL-02 подключила runtime auth fragment и `imports: [SuperadminAuthModule]`, `principalVerifier: { provide: AdminPrincipalVerifier, useExisting: SessionAdminPrincipalVerifier }` в `withRuntime`. Проверен именно этот DI-binding, не override default verifier в auth integration tests. `superadminSession` обеспечивает реальный Query root и остаётся под общей защитой. Защита обычных пользователей не заменяется административной.
 3. `setupSuperadminHttp` уже установлен в bootstrap до общего parser/CORS; сохранять этот порядок и exact path. GraphQL config использует `/graphql` + `useGlobalPrefix: true`, итог — `/api/v1/graphql`, без двойного prefix.
 4. Feature owners передают изменения planned/implemented sections document integrator SA-GQL-01. Владение User — карточка 3, block — 4, delete — 5, Payments — 6, social research — 7, social implementation — 8; окончательный verifier — карточка 9.
 
@@ -99,4 +154,14 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 
 Точечный review добавил два теста: отказ реального Nest Apollo startup с mutation-only schema и HTTP 403 при пустом origin allow-list. Обновлённый инфраструктурный набор: 16/16; исходная REST-проверка ошибок уже проверяла status 400 и точный envelope `code/message/extensions`. Остальные ранее прошедшие наборы в этом проходе повторно не запускались.
 
-Для дополнения 1.1.0 отдельно проверены полный SDL через `buildSchema`/`assertValidSchema`, тип `SuperadminSessionPayload` и пример query через `validate`. Повторно запущены только две релевантные существующие проверки target contract и disabled runtime: 2 passed, 14 skipped. Полная сборка и session flow не запускались; runtime остаётся отключённым.
+Историческая проверка дополнения 1.1.0 в SA-GQL-01: полный SDL через `buildSchema`/`assertValidSchema`, тип `SuperadminSessionPayload` и пример query через `validate`; две проверки target contract и disabled runtime. На том этапе endpoint был отключён; это не текущий статус SA-GQL-02.
+
+## Приёмочные проверки SA-GQL-02 и ограничения окружения
+
+`apps/main-gateway-service/test/superadmin/admin-auth.integration-spec.ts` поднимает **новый disposable PostgreSQL 16 Docker container** с отдельным случайным именем/локальным портом и не читает application DB URLs. Применяет весь прежний migration SQL, создаёт fixture User до новой migration `20261018120000_add_admin_sessions`, затем проверяет сохранность User и новые модели. SQL каждой migration выполняется PostgreSQL `psql --single-transaction -v ON_ERROR_STOP=1`; это проверка migration SQL на существующей схеме, не deployment в общую БД. После тестов container удаляется. Требуются Docker daemon и образ `postgres:16-alpine` (при отсутствии скачивается).
+
+Два изолированных Nest HTTP-приложения используют **разные Prisma clients и общий настоящий PostgreSQL**, production resolver/use cases/verifier/repositories, а не mock verifier или in-memory limiter. Контролируемые часы заменяют только источник времени. Проверяются credentials, hash-only persistence, cookies, replacement/independent browser sessions, точные expiry, touch/revoke races/transaction rollback, distributed limit/forged XFF, Origin/CSRF/reload bootstrap и auth-only schema. Storage failure проверяется временной недоступностью реальных SQL tables; дополнительные fault-injection spies проверяют revoke failure и маскирование неожиданных ошибок. REST-регрессия использует реальные AuthController, LocalStrategy, login/refresh use cases, JWT и Prisma repositories; внешние MS, email и production-аккаунты не используются.
+
+Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/admin-auth.integration-spec.ts apps/main-gateway-service/test/superadmin/superadmin-infrastructure.spec.ts apps/main-gateway-service/test/unit/jwt-token-type.spec.ts apps/main-gateway-service/test/unit/payment-history-extension.spec.ts`. Дополнительно Gateway build, production typecheck и scoped ESLint/Prettier. Точные результаты текущего прохода — в отчёте задачи; эти проверки не доказывают реальную ingress/browser topology.
+
+До окружения/production-приёмки нужны: применение migration обычным согласованным deployment-процессом, provision admin credentials через secret store, **подтверждённые exact origins**, выбор SameSite и проверка HTTPS/cookies в фактическом браузерном размещении. Product/Security должны определить назначение fixed credentials вне учебной проверки, владельца и процедуру смены с отзывом существующих admin sessions. Автоматическая смена credentials сама по себе не отзывает существующие records; процедура массового отзыва не выдумана и не объявлена выполненной. Подтверждение ingress peer IP/доверенных proxy и operational retention также требует review; никаких новых origins или trust proxy defaults не включено. Human contract/security review и production deployment в рамках этой реализации не выполнены.

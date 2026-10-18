@@ -69,6 +69,25 @@ model Session {
   @@index([userId])
 }
 
+model AdminSession {
+  id                String    @id @default(uuid())
+  tokenHash         String    @unique @db.Char(64)
+  createdAt         DateTime
+  lastSeenAt        DateTime
+  idleExpiresAt     DateTime
+  absoluteExpiresAt DateTime
+  revokedAt         DateTime?
+}
+
+// Bounded sliding-window timestamps, shared by all Gateway instances.
+model AdminLoginRateLimit {
+  keyHash   String     @id @db.Char(64)
+  attempts  DateTime[]
+  updatedAt DateTime   @updatedAt
+
+  @@index([updatedAt])
+}
+
 model EmailConfirmation {
   id               String    @id @default(uuid())
   userId           String    @unique

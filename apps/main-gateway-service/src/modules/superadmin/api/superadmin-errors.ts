@@ -7,6 +7,7 @@ const DOMAIN_CODES: Readonly<Record<number, string>> = {
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
   409: 'CONFLICT',
+  429: 'TOO_MANY_REQUESTS',
   503: 'UPSTREAM_UNAVAILABLE',
   504: 'UPSTREAM_UNAVAILABLE',
 };
@@ -16,6 +17,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   BAD_USER_INPUT: 'Invalid input',
   NOT_FOUND: 'Not found',
   CONFLICT: 'Conflict',
+  TOO_MANY_REQUESTS: 'Too many requests',
   UPSTREAM_UNAVAILABLE: 'Service unavailable',
   INTERNAL_SERVER_ERROR: 'Internal server error',
   GRAPHQL_VALIDATION_FAILED: 'Invalid GraphQL operation',
