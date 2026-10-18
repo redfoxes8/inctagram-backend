@@ -393,6 +393,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     ]);
     expect(Object.keys(schema.getMutationType()!.getFields()).sort()).toEqual([
       'superadminBlockUser',
+      'superadminDeleteUser',
       'superadminLogin',
       'superadminLogout',
       'superadminUnblockUser',

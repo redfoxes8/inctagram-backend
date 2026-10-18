@@ -8,6 +8,18 @@ import {
 
 @Injectable()
 export class PrismaUserModerationRepository extends UserModerationRepository {
+  async setDeleted(input: {
+    userId: string;
+    occurredAt: Date;
+    transaction: unknown;
+  }): Promise<void> {
+    // Caller owns the shared User row lock and has established deletedAt === null.
+    // Do not touch confirmation, ban, profile data or payment state.
+    await requireGatewayTransaction(input.transaction).user.update({
+      where: { id: input.userId },
+      data: { deletedAt: input.occurredAt, updatedAt: input.occurredAt },
+    });
+  }
   async lockUser(input: { userId: string; transaction: unknown }): Promise<ModeratedUser | null> {
     return lockGatewayUser({
       userId: input.userId,

@@ -34,6 +34,9 @@ import {
   UserAccessClock,
 } from '../../src/modules/sessions/application/user-access-check';
 import { ModerateUserUseCase } from '../../src/modules/users/application/commands/moderate-user.usecase';
+import { AdminUserActionAuditWriter } from '../../src/modules/users/domain/interfaces/admin-user-action-audit.writer';
+import { UserAccessStateQuery } from '../../src/modules/users/domain/interfaces/user-access-state.query';
+import { PrismaUsersQueryRepository } from '../../src/modules/users/infrastructure/users.query-repository';
 import { UserAccessRevokeRelay } from '../../src/modules/users/infrastructure/outbox/user-access-revoke-relay';
 import { UserAccessRevokedConsumer } from '../../src/modules/notifications/infrastructure/user-access-revoked.consumer';
 import { NotificationLiveEventConsumer } from '../../src/modules/notifications/infrastructure/notification-live-event.consumer';
@@ -193,13 +196,18 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
   }
 
   function gql(input: {
-    action?: 'BLOCK' | 'UNBLOCK';
+    action?: 'BLOCK' | 'UNBLOCK' | 'DELETE';
     id?: string;
     query?: string;
     cookie?: string;
     csrf?: boolean;
   }): request.Test {
-    const field = input.action === 'UNBLOCK' ? 'superadminUnblockUser' : 'superadminBlockUser';
+    const field =
+      input.action === 'DELETE'
+        ? 'superadminDeleteUser'
+        : input.action === 'UNBLOCK'
+          ? 'superadminUnblockUser'
+          : 'superadminBlockUser';
     let test = request(apps[0].getHttpServer())
       .post('/api/v1/graphql')
       .set('Origin', ORIGIN)
@@ -215,15 +223,17 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
   }
 
   function command(
-    action: 'BLOCK' | 'UNBLOCK',
+    action: 'BLOCK' | 'UNBLOCK' | 'DELETE',
   ): Promise<{ userId: string; action: string; outcome: string }> {
     return apps[0].get(ModerateUserUseCase).execute({ action, userId, adminSessionId });
   }
 
-  async function login(): Promise<{ access: string; refreshCookie: string }> {
+  async function login(
+    input: { email?: string } = {},
+  ): Promise<{ access: string; refreshCookie: string }> {
     const response = await request(apps[0].getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ usernameOrEmail: EMAIL, password: PASSWORD });
+      .send({ usernameOrEmail: input.email ?? EMAIL, password: PASSWORD });
     expect(response.status).toBe(200);
     return {
       access: response.body.accessToken as string,
@@ -341,7 +351,338 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
     await database.stop();
   });
 
-  it('publishes exact 4B schema and all outcomes with one audit each, including missing/deleted', async () => {
+  it.each([false, true])(
+    'SA05 deletes active/blocked=%s, retains data and distinguishes repeat/missing with one audit each',
+    async (isBanned) => {
+      await login();
+      await login();
+      await prisma.user.update({ where: { id: userId }, data: { isBanned } });
+      const profile = await prisma.profile.create({
+        data: {
+          userId,
+          username: 'retained-profile',
+          avatarUrl: 'https://files.example.test/retained.jpg',
+        },
+      });
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      const admins = await prisma.adminSession.findMany();
+      const response = await gql({ action: 'DELETE' });
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data.superadminDeleteUser).toEqual({ userId, outcome: 'DELETED' });
+      const deleted = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      expect(deleted).toEqual({ ...before, deletedAt: new Date(now), updatedAt: new Date(now) });
+      expect(await prisma.profile.findUnique({ where: { userId } })).toEqual(profile);
+      expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(0);
+      expect(await prisma.session.count({ where: { userId } })).toBe(2);
+      expect(await prisma.adminSession.findMany()).toEqual(admins);
+      now += 1000;
+      expect((await gql({ action: 'DELETE' })).body.data.superadminDeleteUser.outcome).toBe(
+        'ALREADY_DELETED',
+      );
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt).toEqual(
+        deleted.deletedAt,
+      );
+      const missing = randomUUID();
+      expect((await gql({ action: 'DELETE', id: missing })).body.data.superadminDeleteUser).toEqual(
+        { userId: missing, outcome: 'NOT_FOUND' },
+      );
+      const audit = await prisma.adminUserActionAudit.findMany();
+      expect(audit).toHaveLength(3);
+      expect(
+        audit.every((row) => row.action === 'DELETE' && row.adminSessionId === adminSessionId),
+      ).toBe(true);
+      expect(audit.map((row) => row.outcome).sort()).toEqual([
+        'ALREADY_DELETED',
+        'DELETED',
+        'NOT_FOUND',
+      ]);
+      expect(await prisma.userAccessRevokeOutbox.count()).toBe(1);
+      expect((await command('BLOCK')).outcome).toBe('USER_DELETED');
+      expect((await command('UNBLOCK')).outcome).toBe('USER_DELETED');
+    },
+  );
+
+  it('SA05 validates admin-only delete, UUID, CSRF and rejects caller-supplied actor ID', async () => {
+    const browser = await login();
+    expect((await gql({ action: 'DELETE', id: 'invalid' })).body.errors[0].extensions.code).toBe(
+      'BAD_USER_INPUT',
+    );
+    expect(
+      (await gql({ action: 'DELETE', cookie: '' }).set('Authorization', `Bearer ${browser.access}`))
+        .body.errors[0].extensions.code,
+    ).toBe('UNAUTHENTICATED');
+    expect((await gql({ action: 'DELETE', csrf: false })).body.errors[0].extensions.code).toBe(
+      'FORBIDDEN',
+    );
+    expect(
+      (await gql({ action: 'DELETE' }).set('Origin', 'https://untrusted.example.test')).status,
+    ).toBe(403);
+    expect(
+      (
+        await gql({ action: 'DELETE' }).send({
+          variables: { input: { userId, adminSessionId: randomUUID() } },
+        })
+      ).body.errors[0].extensions.code,
+    ).toBe('BAD_USER_INPUT');
+    await prisma.adminSession.updateMany({ data: { revokedAt: new Date(now) } });
+    expect((await gql({ action: 'DELETE' })).body.errors[0].extensions.code).toBe(
+      'UNAUTHENTICATED',
+    );
+    expect(await prisma.adminUserActionAudit.count()).toBe(0);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt).toBeNull();
+  });
+
+  it.each(['AdminUserActionAudit', 'UserAccessRevokeOutbox'])(
+    'SA05 rolls the entire delete back when %s INSERT fails',
+    async (table) => {
+      await login();
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      database.sql(
+        `ALTER TABLE "${table}" ADD CONSTRAINT "fixture_delete_failure" CHECK (false) NOT VALID`,
+      );
+      try {
+        expect((await gql({ action: 'DELETE' })).body.errors[0].extensions.code).toBe(
+          'INTERNAL_SERVER_ERROR',
+        );
+      } finally {
+        database.sql(`ALTER TABLE "${table}" DROP CONSTRAINT "fixture_delete_failure"`);
+      }
+      expect(await prisma.user.findUniqueOrThrow({ where: { id: userId } })).toEqual(before);
+      expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(1);
+      expect(await prisma.adminUserActionAudit.count()).toBe(0);
+      expect(await prisma.userAccessRevokeOutbox.count()).toBe(0);
+    },
+  );
+
+  it('SA05 exposes neither state/audit/outbox nor revoke publication before commit', async () => {
+    await login();
+    const ready = barrier();
+    const release = barrier();
+    const writer = apps[0].get(AdminUserActionAuditWriter);
+    const append = writer.append.bind(writer);
+    jest.spyOn(writer, 'append').mockImplementationOnce(async (input) => {
+      const result = await append(input);
+      ready.release();
+      await release.promise;
+      return result;
+    });
+    const published = jest.spyOn(apps[0].get(AmqpConnection), 'publish');
+    const pending = command('DELETE');
+    try {
+      await ready.promise;
+      expect((await peer.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt).toBeNull();
+      expect(await peer.session.count({ where: { userId, deletedAt: null } })).toBe(1);
+      expect(await peer.adminUserActionAudit.count()).toBe(0);
+      expect(await peer.userAccessRevokeOutbox.count()).toBe(0);
+      await apps[0].get(UserAccessRevokeRelay).relay();
+      expect(published).not.toHaveBeenCalled();
+    } finally {
+      release.release();
+    }
+    expect((await pending).outcome).toBe('DELETED');
+    await apps[0].get(UserAccessRevokeRelay).relay();
+    expect(published).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['DELETE', 'BLOCK', 'UNBLOCK'] as const)(
+    'SA05 serializes delete/%s without restoration or lost audit',
+    async (other) => {
+      if (other === 'UNBLOCK')
+        await prisma.user.update({ where: { id: userId }, data: { isBanned: true } });
+      const ready = barrier();
+      const release = barrier();
+      const holder = peer.$transaction(async (transaction) => {
+        await transaction.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+        ready.release();
+        await release.promise;
+      });
+      await ready.promise;
+      const pending = Promise.all([command('DELETE'), command(other)]);
+      try {
+        await blockedQueries(2);
+      } finally {
+        release.release();
+      }
+      await holder;
+      const outcomes = (await pending).map((row) => row.outcome);
+      if (other === 'DELETE') expect(outcomes.sort()).toEqual(['ALREADY_DELETED', 'DELETED']);
+      else {
+        expect(outcomes[0]).toBe('DELETED');
+        expect([other === 'BLOCK' ? 'BLOCKED' : 'UNBLOCKED', 'USER_DELETED']).toContain(
+          outcomes[1],
+        );
+      }
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt,
+      ).not.toBeNull();
+      expect(await prisma.adminUserActionAudit.count()).toBe(2);
+      expect((await command('UNBLOCK')).outcome).toBe('USER_DELETED');
+    },
+  );
+
+  it('SA05 excludes the user from catalogue/detail and ordinary User reads, retaining internal DELETED state', async () => {
+    const query =
+      '{ superadminUsers(input: { pageSize: 1 }) { items { userId } totalCount pageInfo { pagesCount hasNextPage } } }';
+    expect((await gql({ query, csrf: false })).body.data.superadminUsers.totalCount).toBe(1);
+    await command('DELETE');
+    expect((await gql({ query, csrf: false })).body.data.superadminUsers).toEqual({
+      items: [],
+      totalCount: 0,
+      pageInfo: { pagesCount: 0, hasNextPage: false },
+    });
+    expect(
+      (
+        await gql({
+          query: `query { superadminUser(userId: "${userId}") { userId } }`,
+          csrf: false,
+        })
+      ).body.data.superadminUser,
+    ).toBeNull();
+    expect(await apps[0].get(IUsersRepository).findById(userId)).toBeNull();
+    expect(await apps[0].get(IUsersRepository).findByEmail(EMAIL)).toBeNull();
+    expect(await new PrismaUsersQueryRepository(prisma).getUserById(userId)).toBeNull();
+    expect(await apps[0].get(UserAccessStateQuery).findByUserId({ userId })).toBe('DELETED');
+    expect(
+      await apps[0].get(UserAccessStateQuery).findByUserId({ userId: randomUUID() }),
+    ).toBeNull();
+    expect(await prisma.profile.count()).toBe(0); // Reading a profileless user never creates Profile.
+  });
+
+  it('SA05 prevents a stale User entity update from restoring deletedAt, including an actual SQL wait', async () => {
+    const repository = apps[0].get(IUsersRepository);
+    const stale = await repository.findById(userId);
+    if (!stale) throw new Error('Missing fixture');
+    const ready = barrier();
+    const release = barrier();
+    const writer = apps[0].get(AdminUserActionAuditWriter);
+    const append = writer.append.bind(writer);
+    jest.spyOn(writer, 'append').mockImplementationOnce(async (input) => {
+      const result = await append(input);
+      ready.release();
+      await release.promise;
+      return result;
+    });
+    const deleting = command('DELETE');
+    await ready.promise;
+    const saving = repository.update(stale).then(
+      () => 'UPDATED',
+      (error: unknown) => error,
+    );
+    try {
+      const deadline = Date.now() + 4000;
+      let waiting = false;
+      while (!waiting && Date.now() < deadline) {
+        const rows = await peer.$queryRaw<
+          { waiting: boolean }[]
+        >`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%UPDATE%User%') AS waiting`;
+        waiting = rows[0].waiting;
+      }
+      expect(waiting).toBe(true);
+    } finally {
+      release.release();
+    }
+    await deleting;
+    expect(await saving).toMatchObject({ code: 404 });
+    const deletedAt = (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt;
+    await expect(repository.update(stale)).rejects.toMatchObject({ code: 404 });
+    await expect(repository.save(stale)).rejects.toMatchObject({ code: 'P2002' });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt).toEqual(
+      deletedAt,
+    );
+  });
+
+  it('SA05 denies old REST/refresh, new password/Google login, WS and later delivery; fan-out closes both Gateways', async () => {
+    const browser = await login();
+    const first = await connect({ access: browser.access });
+    const second = await connect({ app: 1, access: browser.access });
+    await command('DELETE');
+    expect(
+      (
+        await request(apps[0].getHttpServer())
+          .get('/api/v1/sessions/my-devices')
+          .set('Authorization', `Bearer ${browser.access}`)
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(apps[0].getHttpServer())
+          .post('/api/v1/auth/refresh-token')
+          .set('Cookie', browser.refreshCookie)
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(apps[0].getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ usernameOrEmail: EMAIL, password: PASSWORD })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(apps[0].getHttpServer())
+          .post('/api/v1/auth/google/login')
+          .send({ code: 'fixture-code' })
+      ).status,
+    ).toBe(401);
+    await expect(connect({ access: browser.access })).rejects.toMatchObject({
+      message: 'Unauthorized',
+    });
+    const leaked = jest.fn();
+    first.on('notifications.unseen-count', leaked);
+    const firstClosed = socketEvent({ socket: first, name: 'disconnect' });
+    await apps[0].get(NotificationRealtimePublisher).publishUnseenCount(userId, { unseenCount: 4 });
+    await firstClosed;
+    expect(leaked).not.toHaveBeenCalled();
+    // Consumer must work even if another existing lifecycle operation removed the Session rows.
+    await prisma.session.deleteMany({ where: { userId } });
+    const secondClosed = socketEvent({ socket: second, name: 'disconnect' });
+    await apps[0].get(UserAccessRevokeRelay).relay();
+    await secondClosed;
+    expect((await prisma.userAccessRevokeOutbox.findFirstOrThrow()).publishedAt).not.toBeNull();
+    expect(
+      (await gql({ query: '{ superadminSession { authenticated } }', csrf: false })).body.data
+        .superadminSession.authenticated,
+    ).toBe(true);
+  });
+
+  it('SA05 preserves Gateway entitlement records and publishes only access revoke, not payment commands (Payment MS not connected)', async () => {
+    const subscriptionId = randomUUID();
+    await prisma.paymentEntitlementCursor.create({
+      data: { userId, lastSubscriptionSequence: 2, activeSubscriptionId: subscriptionId },
+    });
+    await prisma.paymentEntitlementInbox.create({
+      data: {
+        eventId: randomUUID(),
+        userId,
+        subscriptionId,
+        eventType: 'subscription.activated',
+        subscriptionSequence: 2,
+        outcome: 'APPLIED',
+      },
+    });
+    const before = {
+      cursor: await prisma.paymentEntitlementCursor.findUnique({ where: { userId } }),
+      inbox: await prisma.paymentEntitlementInbox.findMany({ where: { userId } }),
+      avatar: await prisma.outboxEvent.findMany(),
+    };
+    const publish = jest.spyOn(apps[0].get(AmqpConnection), 'publish');
+    await command('DELETE');
+    await apps[0].get(UserAccessRevokeRelay).relay();
+    expect(await prisma.paymentEntitlementCursor.findUnique({ where: { userId } })).toEqual(
+      before.cursor,
+    );
+    expect(await prisma.paymentEntitlementInbox.findMany({ where: { userId } })).toEqual(
+      before.inbox,
+    );
+    expect(await prisma.outboxEvent.findMany()).toEqual(before.avatar);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0][1]).toBe(USER_ACCESS_REVOKED_ROUTING_KEY);
+    expect(await prisma.user.count({ where: { id: userId } })).toBe(1);
+    await prisma.paymentEntitlementCursor.deleteMany({ where: { userId } });
+    await prisma.paymentEntitlementInbox.deleteMany({ where: { userId } });
+  });
+
+  it('publishes exact 4B/05 schema and all block outcomes with one audit each, including missing/deleted', async () => {
     const initial = await login();
     await login(); // Both independent browser sessions must be revoked, not just the presented one.
     const other = await prisma.user.create({
@@ -399,6 +740,7 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
     const schema = apps[0].get(GraphQLSchemaHost).schema;
     expect(Object.keys(schema.getMutationType()!.getFields()).sort()).toEqual([
       'superadminBlockUser',
+      'superadminDeleteUser',
       'superadminLogin',
       'superadminLogout',
       'superadminUnblockUser',
@@ -662,49 +1004,51 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
     expect((await prisma.userAccessRevokeOutbox.findFirstOrThrow()).attempts).toBe(2);
   });
 
-  it.each(['login', 'refresh', 'google'] as const)(
-    'serializes a pending %s behind block without issuing a usable session',
-    async (kind) => {
-      const old = await login();
-      if (kind === 'google')
-        await prisma.oAuthAccount.create({
-          data: { userId, provider: 'google', providerId: 'fixture-google-subject' },
+  describe.each(['BLOCK', 'DELETE'] as const)('session races with %s', (action) => {
+    it.each(['login', 'refresh', 'google'] as const)(
+      'serializes a pending %s behind moderation without issuing a usable session',
+      async (kind) => {
+        const old = await login();
+        if (kind === 'google')
+          await prisma.oAuthAccount.create({
+            data: { userId, provider: 'google', providerId: 'fixture-google-subject' },
+          });
+        const locked = barrier();
+        const release = barrier();
+        const holder = peer.$transaction(async (transaction) => {
+          await transaction.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+          locked.release();
+          await release.promise;
         });
-      const locked = barrier();
-      const release = barrier();
-      const holder = peer.$transaction(async (transaction) => {
-        await transaction.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
-        locked.release();
-        await release.promise;
-      });
-      await locked.promise;
-      const block = command('BLOCK');
-      let pending: Promise<request.Response> | undefined;
-      try {
-        await blockedQueries(1);
-        const test =
-          kind === 'login'
-            ? request(apps[0].getHttpServer())
-                .post('/api/v1/auth/login')
-                .send({ usernameOrEmail: EMAIL, password: PASSWORD })
-            : kind === 'google'
+        await locked.promise;
+        const block = command(action);
+        let pending: Promise<request.Response> | undefined;
+        try {
+          await blockedQueries(1);
+          const test =
+            kind === 'login'
               ? request(apps[0].getHttpServer())
-                  .post('/api/v1/auth/google/login')
-                  .send({ code: 'fixture-code' })
-              : request(apps[0].getHttpServer())
-                  .post('/api/v1/auth/refresh-token')
-                  .set('Cookie', old.refreshCookie);
-        pending = test.then((response) => response);
-        await blockedQueries(2);
-      } finally {
-        release.release();
-      }
-      await holder;
-      expect((await block).outcome).toBe('BLOCKED');
-      expect((await pending).status).toBe(401);
-      expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(0);
-    },
-  );
+                  .post('/api/v1/auth/login')
+                  .send({ usernameOrEmail: EMAIL, password: PASSWORD })
+              : kind === 'google'
+                ? request(apps[0].getHttpServer())
+                    .post('/api/v1/auth/google/login')
+                    .send({ code: 'fixture-code' })
+                : request(apps[0].getHttpServer())
+                    .post('/api/v1/auth/refresh-token')
+                    .set('Cookie', old.refreshCookie);
+          pending = test.then((response) => response);
+          await blockedQueries(2);
+        } finally {
+          release.release();
+        }
+        await holder;
+        expect((await block).outcome).toBe(action === 'DELETE' ? 'DELETED' : 'BLOCKED');
+        expect((await pending).status).toBe(401);
+        expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(0);
+      },
+    );
+  });
 
   it('disconnects sockets on both Gateways via real revoke fan-out; handshake and delivery deny blocked users', async () => {
     const browser = await login();
@@ -784,65 +1128,77 @@ describe('4B real PostgreSQL/RabbitMQ, two local Gateway HTTP/WS instances', () 
     await Promise.all(closed);
   });
 
-  it('persists retry through broker outage and publisher restart; duplicate/delayed revoke leaves new sessions connected', async () => {
-    const old = await login();
-    const oldSocket = await connect({ access: old.access });
-    await command('BLOCK');
-    await command('UNBLOCK');
-    const fresh = await login();
-    const freshSocket = await connect({ app: 1, access: fresh.access });
-    const oldClosed = socketEvent({ socket: oldSocket, name: 'disconnect' });
-    rabbit.pause(); // Actual broker outage: publish cannot obtain a broker confirmation.
-    try {
-      await apps[0].get(UserAccessRevokeRelay).relay();
-    } finally {
-      rabbit.resume();
-    }
-    let row = await prisma.userAccessRevokeOutbox.findFirstOrThrow();
-    expect(row.publishedAt).toBeNull();
-    expect(row.lastErrorCode).toBe('PUBLISH_FAILED');
-    expect(row.attempts).toBe(1);
-    const recoveredConnection = await rabbit.connection();
-    const restarted = new UserAccessRevokeRelay(peer, recoveredConnection, {
-      now: (): Date => new Date(now),
-    });
-    now = row.availableAt.getTime();
-    // A fresh publisher reads the persisted obligation; both real Gateway queues remain independent.
-    await Promise.all([restarted.relay(), apps[1].get(UserAccessRevokeRelay).relay()]);
-    row = await prisma.userAccessRevokeOutbox.findFirstOrThrow();
-    expect(row.publishedAt).not.toBeNull();
-    expect(row.attempts).toBe(2);
-    const publisher = apps[1].get(NotificationRealtimePublisher);
-    const repeated = barrier();
-    let calls = 0;
-    const disconnect = publisher.disconnectSessions.bind(publisher);
-    jest.spyOn(publisher, 'disconnectSessions').mockImplementation(async (input) => {
-      await disconnect(input);
-      if (++calls >= 2) repeated.release();
-    });
-    const duplicate = {
-      eventId: row.id,
-      version: 1,
-      eventType: USER_ACCESS_REVOKED_EVENT_TYPE,
-      userId,
-      sessionIds: row.sessionIds,
-      occurredAt: row.createdAt.toISOString(),
-    };
-    await recoveredConnection.publish(
-      COMMON_RABBITMQ_EXCHANGE,
-      USER_ACCESS_REVOKED_ROUTING_KEY,
-      duplicate,
-    );
-    await recoveredConnection.publish(
-      COMMON_RABBITMQ_EXCHANGE,
-      USER_ACCESS_REVOKED_ROUTING_KEY,
-      duplicate,
-    );
-    await repeated.promise;
-    const delivered = socketEvent({ socket: freshSocket, name: 'notifications.unseen-count' });
-    await publisher.publishUnseenCount(userId, { unseenCount: 2 });
-    expect(await delivered).toEqual({ unseenCount: 2 });
-    expect(freshSocket.connected).toBe(true);
-    await oldClosed;
-  });
+  it.each(['BLOCK', 'DELETE'] as const)(
+    'persists %s retry through broker outage and publisher restart; duplicate revoke is safe',
+    async (action) => {
+      const old = await login();
+      const oldSocket = await connect({ access: old.access });
+      await command(action);
+      await command('UNBLOCK');
+      // DELETE never restores: for its delayed-event scenario use an independent permitted user.
+      if (action === 'DELETE') {
+        await prisma.user.create({
+          data: { email: 'independent@fixture.test', passwordHash, isConfirmed: true },
+        });
+      }
+      const fresh = await login({
+        email: action === 'DELETE' ? 'independent@fixture.test' : EMAIL,
+      });
+      const freshSocket = await connect({ app: 1, access: fresh.access });
+      const oldClosed = socketEvent({ socket: oldSocket, name: 'disconnect' });
+      rabbit.pause(); // Actual broker outage: publish cannot obtain a broker confirmation.
+      try {
+        await apps[0].get(UserAccessRevokeRelay).relay();
+      } finally {
+        rabbit.resume();
+      }
+      let row = await prisma.userAccessRevokeOutbox.findFirstOrThrow();
+      expect(row.publishedAt).toBeNull();
+      expect(row.lastErrorCode).toBe('PUBLISH_FAILED');
+      expect(row.attempts).toBe(1);
+      const recoveredConnection = await rabbit.connection();
+      const restarted = new UserAccessRevokeRelay(peer, recoveredConnection, {
+        now: (): Date => new Date(now),
+      });
+      now = row.availableAt.getTime();
+      // A fresh publisher reads the persisted obligation; both real Gateway queues remain independent.
+      await Promise.all([restarted.relay(), apps[1].get(UserAccessRevokeRelay).relay()]);
+      row = await prisma.userAccessRevokeOutbox.findFirstOrThrow();
+      expect(row.publishedAt).not.toBeNull();
+      expect(row.attempts).toBe(2);
+      const publisher = apps[1].get(NotificationRealtimePublisher);
+      const repeated = barrier();
+      let calls = 0;
+      const disconnect = publisher.disconnectSessions.bind(publisher);
+      jest.spyOn(publisher, 'disconnectSessions').mockImplementation(async (input) => {
+        await disconnect(input);
+        if (++calls >= 2) repeated.release();
+      });
+      const duplicate = {
+        eventId: row.id,
+        version: 1,
+        eventType: USER_ACCESS_REVOKED_EVENT_TYPE,
+        userId,
+        sessionIds: row.sessionIds,
+        occurredAt: row.createdAt.toISOString(),
+      };
+      await recoveredConnection.publish(
+        COMMON_RABBITMQ_EXCHANGE,
+        USER_ACCESS_REVOKED_ROUTING_KEY,
+        duplicate,
+      );
+      await recoveredConnection.publish(
+        COMMON_RABBITMQ_EXCHANGE,
+        USER_ACCESS_REVOKED_ROUTING_KEY,
+        duplicate,
+      );
+      await repeated.promise;
+      const freshUserId = apps[0].get(IJwtService).verifyAccessToken(fresh.access).userId;
+      const delivered = socketEvent({ socket: freshSocket, name: 'notifications.unseen-count' });
+      await publisher.publishUnseenCount(freshUserId, { unseenCount: 2 });
+      expect(await delivered).toEqual({ unseenCount: 2 });
+      expect(freshSocket.connected).toBe(true);
+      await oldClosed;
+    },
+  );
 });

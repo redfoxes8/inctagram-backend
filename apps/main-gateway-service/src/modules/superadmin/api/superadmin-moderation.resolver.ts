@@ -42,4 +42,16 @@ export class SuperadminModerationResolver {
     if (context.principal) return context.principal.sessionId;
     throw new DomainException({ code: DomainExceptionCode.Unauthorized, message: 'Unauthorized' });
   }
+
+  @Mutation('superadminDeleteUser')
+  deleteUser(
+    @Args('input') input: SuperadminUserIdInput,
+    @Context() context: SuperadminContext,
+  ): Promise<{ userId: string } & UserModerationResult> {
+    return this.moderation.execute({
+      ...input,
+      action: 'DELETE',
+      adminSessionId: this.sessionId(context),
+    });
+  }
 }

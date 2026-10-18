@@ -25,7 +25,12 @@ export class ModerateUserUseCase {
     return this.transactions.execute(async (transaction) => {
       const user = await this.users.lockUser({ userId: input.userId, transaction });
       let result: UserModerationResult;
-      if (input.action === 'BLOCK') {
+      if (input.action === 'DELETE') {
+        result = {
+          action: 'DELETE',
+          outcome: !user ? 'NOT_FOUND' : user.deletedAt !== null ? 'ALREADY_DELETED' : 'DELETED',
+        };
+      } else if (input.action === 'BLOCK') {
         result = {
           action: 'BLOCK',
           outcome: !user
@@ -49,6 +54,14 @@ export class ModerateUserUseCase {
         };
       }
       const occurredAt = this.clock.now();
+      if (result.outcome === 'DELETED') {
+        await this.users.setDeleted({ userId: input.userId, occurredAt, transaction });
+        await this.users.revokeSessionsAndEnqueue({
+          userId: input.userId,
+          occurredAt,
+          transaction,
+        });
+      }
       if (result.outcome === 'BLOCKED' || result.outcome === 'UNBLOCKED') {
         await this.users.setBanned({
           userId: input.userId,
