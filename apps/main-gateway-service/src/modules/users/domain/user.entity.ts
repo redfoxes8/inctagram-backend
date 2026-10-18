@@ -16,6 +16,7 @@ export type UserEntityProps = BaseDomainEntityProps<string> & {
   email: string;
   passwordHash: string | null;
   isConfirmed?: boolean;
+  isBanned?: boolean;
   accountType?: AccountType;
 };
 
@@ -23,6 +24,7 @@ export class UserEntity extends BaseDomainEntity<string> {
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  readonly isBanned: boolean;
   accountType: AccountType;
 
   constructor(data: UserEntityProps) {
@@ -30,6 +32,7 @@ export class UserEntity extends BaseDomainEntity<string> {
     this.email = data.email;
     this.passwordHash = data.passwordHash;
     this.isConfirmed = data.isConfirmed ?? false;
+    this.isBanned = data.isBanned ?? false;
     this.accountType = data.accountType ?? AccountType.PERSONAL;
   }
 
@@ -42,6 +45,7 @@ export class UserEntity extends BaseDomainEntity<string> {
       updatedAt: new Date(),
       deletedAt: null,
       isConfirmed: false,
+      isBanned: false,
       accountType: AccountType.PERSONAL,
     });
   }

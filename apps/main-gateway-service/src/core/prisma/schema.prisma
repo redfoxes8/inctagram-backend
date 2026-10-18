@@ -17,6 +17,7 @@ model User {
   email             String             @unique
   passwordHash      String?  
   isConfirmed       Boolean            @default(false)
+  isBanned          Boolean            @default(false)
 
   accountType       AccountType        @default(PERSONAL)
   
@@ -77,6 +78,33 @@ model AdminSession {
   idleExpiresAt     DateTime
   absoluteExpiresAt DateTime
   revokedAt         DateTime?
+}
+
+enum AdminUserAction {
+  BLOCK
+  UNBLOCK
+  DELETE
+}
+
+enum AdminUserActionOutcome {
+  BLOCKED
+  ALREADY_BLOCKED
+  USER_DELETED
+  NOT_FOUND
+  UNBLOCKED
+  ALREADY_ACTIVE
+  DELETED
+  ALREADY_DELETED
+}
+
+// Historical identifiers intentionally have no FK: NOT_FOUND and session cleanup remain auditable.
+model AdminUserActionAudit {
+  id             String                 @id @default(uuid())
+  action         AdminUserAction
+  targetUserId   String
+  outcome        AdminUserActionOutcome
+  occurredAt     DateTime
+  adminSessionId String
 }
 
 // Bounded sliding-window timestamps, shared by all Gateway instances.

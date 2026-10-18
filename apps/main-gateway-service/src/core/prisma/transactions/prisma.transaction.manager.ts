@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma } from '@prisma/client/extension';
-import TransactionClient = Prisma.TransactionClient;
+import type { Prisma } from '../client';
 import { ITransactionManager } from '../../../common/interfaces/transaction-manager.interface';
+import { withGatewayTransaction } from './require-gateway-transaction';
+
+type TransactionClient = Prisma.TransactionClient;
 
 @Injectable()
 export class PrismaTransactionManager implements ITransactionManager {
@@ -10,7 +12,7 @@ export class PrismaTransactionManager implements ITransactionManager {
 
   async execute<T>(callback: (tx: TransactionClient) => Promise<T>): Promise<T> {
     return await this.prisma.$transaction((tx: TransactionClient) => {
-      return callback(tx);
+      return withGatewayTransaction({ transaction: tx, callback });
     });
   }
 }

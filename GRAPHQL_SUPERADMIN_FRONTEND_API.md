@@ -10,6 +10,8 @@
 
 Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия `1.1.0`. Общий schema-first fragment: `common-type-defs.ts` рядом; DateTime и pagination DTO — `libs/common/src/graphql`. Target SDL валидируется тестом, runtime schema собирается отдельно из реализованных feature fragments.
 
+**SA-GQL-04A — подготовлена только внутренняя модель:** `User.isBanned` с default false и persistent `AdminUserActionAudit` в Gateway DB. `UserAccessStateQuery` различает ACTIVE/BLOCKED/DELETED и отсутствие записи (`null`), но не выполняет авторизацию; ACTIVE не отменяет email confirmation и другие проверки. State-read/audit writer экспортирует `UserStateAuditModule`, owner — Users+Sessions/security. Writer принимает согласованные action/outcome и явный живой tx существующего transaction manager для общей транзакции User/Sessions/audit в будущих 4B/05; подробный API — в карточке 4 плана. Это **не** включение блокировки в действующие login/refresh/guards/WS. Каталог/детали остаются запланированы в карточке 3, mutations — 4B/5; runtime schema по-прежнему содержит только три auth operations SA-GQL-02. Карточка 4 целиком не завершена.
+
 ## Operations и статусы
 
 **Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. Все остальные операции таблицы — **Запланировано**.

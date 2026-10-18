@@ -22,6 +22,8 @@
 
 ## 3. Карта текущей реализации и доказательства
 
+Карта ниже — исторический срез первоначального исследования. Фактическое дополнение SA-GQL-04A описано в карточке 4 ниже; наличие модели состояния не означает реализацию enforcement.
+
 | Область | Факт | Доказательство |
 |---|---|---|
 | Вход/транспорт | Публичный HTTP — gateway с prefix `api/v1`, cookie+CORS; user gRPC server в gateway; gRPC clients для Payment/File/Post; RabbitMQ — events. | `apps/main-gateway-service/src/main.ts` — `bootstrap`; `libs/common/src/setup/global-prefix.setup.ts` — `GLOBAL_PREFIX`; `apps/main-gateway-service/src/modules/payments/infrastructure/payment-grpc-client.module.ts` — `PaymentGrpcClientModule` |
@@ -184,6 +186,23 @@ The full SDL above is the **target contract in this plan**, not an assertion tha
 ### 4. SA-GQL-04 — Блокировка, разблокировка и прекращение доступа
 
 **Результат:** two ordered sub-results: **A** introduces persisted blocked/audit model for consumers; **B** supplies block/unblock and immediate all-channel enforcement.
+
+**Фактический результат 4A, подготовлен к review:** миграция `20261018130000_add_user_state_audit` после AdminSession добавляет `User.isBanned NOT NULL DEFAULT false` и persistent `AdminUserActionAudit` в Gateway PostgreSQL. Entity/mapper читают фактическое значение; обычный User update намеренно не записывает `isBanned`, в том числе из устаревшей entity. Пользовательские DTO и действующая авторизация не расширены. **4B не реализован; карточка 4 остаётся открытой.** После review/merge 4A следующий этап маршрута — карточка 3.
+
+Внутренний контракт: `UserAccessStateQuery.findByUserId({ userId, transaction? }): Promise<UserAccessState | null>`, где `null` — отсутствующая запись, иначе `ACTIVE | BLOCKED | DELETED`; приоритет `deletedAt != null` → DELETED, затем `isBanned` → BLOCKED, иначе ACTIVE. ACTIVE не подтверждает email/password/session и не выдаёт право доступа. Query читает только `isBanned`/`deletedAt` через отдельный `findUnique`, включая deleted; обычные repositories по-прежнему скрывают deleted. Общие типы — `libs/common/types/user-access-state.ts`; DI — `UserStateAuditModule` (также re-export из `UsersModule`). Ни один auth channel к query в 4A не подключён.
+
+Audit owner — Users+Sessions/security. `AdminUserActionAuditWriter.append({ entry, transaction }): Promise<{ auditId: string }>` принимает типизированный `AdminUserActionAuditEntry` из `libs/common/types/admin-user-action-audit.ts`: action/outcome образуют discriminated union ровно согласованных пар; runtime validator и DB CHECK запрещают несовместимые пары. Сохраняются только id/action/targetUserId/outcome/occurredAt/adminSessionId. Target ID — строка, в том числе отсутствующий User; adminSessionId — UUID идентификатор из principal, не token/hash. FK на User/AdminSession нет: NOT_FOUND допустим, отзыв/замена/очистка admin session не удаляют историю. Только PK, без индексов для несуществующего audit-read API. Общая admin account не идентифицирует человека.
+
+Writer требует живой `transaction` из существующего `ITransactionManager.execute`; Prisma-типы остаются в infrastructure. Manager регистрирует handle на время awaited callback, writer отклоняет root client/отсутствующий/завершённый handle без autocommit fallback. В 4B/05 изменения User, отзыв Sessions и append должны выполняться внутри **одного** callback; NOT_FOUND — отдельный короткий callback только с append. Пример существующего API (не реализация команды):
+
+```typescript
+await transactionManager.execute(async (transaction) => {
+  // В 4B/05 здесь выполнятся User/Sessions repository writes с тем же transaction.
+  return auditWriter.append({ entry, transaction });
+});
+```
+
+Каждый append создаёт новую строку; дедупликации отдельных запросов и гарантии «одна строка на завершённую команду» на этапе 4A нет. Последнюю обеспечат use cases 4B/05. Проверки 4A — `test/superadmin/user-state-audit.integration-spec.ts`: предыдущая схема с fixtures User/Profile/Sessions/AdminSession, migration/default/mapping, приоритет state/deleted reads, все 11 пар и invalid pair, NOT_FOUND, общая commit/rollback transaction, session lifecycle/audit retention и отсутствие secret fields. БД — отдельный disposable PostgreSQL Docker container, не shared/production; миграционный SQL выполняется поверх всех предыдущих миграций. Runtime SDL не изменён: только три auth operations SA-GQL-02.
 
 **SOW A:** `isBanned` entity/schema/migration, admin state read contract and `AdminUserActionAudit` writer/model; no command exposure or access behavior change. **SOW B:** commands, transactional session revoke/audit, state checks in REST JWT/refresh/GraphQL user auth/notification WS, confirmed revoke event/disconnect and delivery-state check. **Out:** reason field, delete, payments/follow. **Owner/files:** Users+Sessions/security; schema/migration, User repository/entity, auth strategy/refresh, session, notification WS, resolver. **Contract:** exact Block/Unblock enums. **Start A:** SA-GQL-02 completed/merged and common contract reviewed for the agreed single-developer route; **Start/develop B:** merged A and two-pod RabbitMQ prerequisite; in the agreed route B follows completed SA-GQL-03. **Merge/accept B:** SA-GQL-02 verifier merged before runtime mutation/schema publication. **PR order:** merge A, leave card 4 open, complete 03, then B; 03 and B can technically develop in parallel after A. **AC A:** migration preserves existing users with factual `isBanned=false`, admin read returns persisted state, audit schema accepts required fields; no runtime block operation is published. **AC B:** blocked user cannot login/refresh/REST/GraphQL protected/WS old token; sessions gone; unblock new login; deleted not unblocked; repeat/concurrent outcomes and audit rows match section 4; two-pod revoke/disconnect test passes. **DoD:** A migration/repository tests; B transaction/concurrency/all-channel/delivery tests, security docs and FE status via 01 owner. **Risk/errors:** omitted channel breaks immediate revoke; `USER_DELETED`/`NOT_FOUND` semantics; intended compatibility change.
 
