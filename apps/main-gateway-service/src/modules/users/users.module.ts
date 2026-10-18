@@ -30,6 +30,7 @@ import { UpdateAccountTypeHandler } from './application/commands/update-account-
 import { GetUserByIdGrpcHandler } from './application/queries/get-user-by-id-grpc.query';
 import { GetNotificationRecipientContextHandler } from './application/queries/get-notification-recipient-context.query';
 import { UserGrpcController } from './api/grpc/user.grpc.controller';
+import { UserStateAuditModule } from './user-state-audit.module';
 
 const adapters = [
   {
@@ -59,7 +60,13 @@ const repositories = [
 ];
 
 @Module({
-  imports: [CqrsModule, PostGrpcClientModule, FileGrpcClientModule, ScheduleModule],
+  imports: [
+    CqrsModule,
+    PostGrpcClientModule,
+    FileGrpcClientModule,
+    ScheduleModule,
+    UserStateAuditModule,
+  ],
   controllers: [UsersController, ProfileController, UserGrpcController],
   providers: [
     UpdateProfileUseCase,
@@ -70,6 +77,7 @@ const repositories = [
     ...repositories,
   ],
   exports: [
+    UserStateAuditModule,
     IUsersRepository,
     IUsersQueryRepository,
     IProfileRepository,

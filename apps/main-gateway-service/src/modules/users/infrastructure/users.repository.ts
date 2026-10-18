@@ -14,6 +14,7 @@ type UserCreateData = {
   email: string;
   passwordHash: string | null;
   isConfirmed: boolean;
+  isBanned: boolean;
   accountType: AccountType;
   createdAt: Date;
   updatedAt: Date;
@@ -101,6 +102,7 @@ export class PrismaUsersRepository implements IUsersRepository {
       email: user.email,
       passwordHash: user.passwordHash,
       isConfirmed: user.isConfirmed,
+      isBanned: user.isBanned,
       accountType: user.accountType,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -109,6 +111,7 @@ export class PrismaUsersRepository implements IUsersRepository {
   }
 
   private toUpdateData(user: UserEntity): UserUpdateData {
+    // User edits must not overwrite state, including a ban applied after this entity was loaded.
     this.requireUserId(user);
     return {
       email: user.email,

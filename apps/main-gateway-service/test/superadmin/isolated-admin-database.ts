@@ -13,7 +13,11 @@ export class IsolatedAdminDatabase {
   private readonly clients: PrismaClient[] = [];
   private running = false;
 
-  async start(): Promise<void> {
+  async start(
+    input: {
+      beforeMigration?: (input: { name: string; database: IsolatedAdminDatabase }) => void;
+    } = {},
+  ): Promise<void> {
     execFileSync(
       'docker',
       [
@@ -60,6 +64,7 @@ export class IsolatedAdminDatabase {
           `INSERT INTO "User" ("id", "email") VALUES ('migration-preserved-user', 'preserved@example.test');`,
         );
       }
+      input.beforeMigration?.({ name, database: this });
       this.sql(readFileSync(join(migrations, name, 'migration.sql'), 'utf8'));
     }
   }

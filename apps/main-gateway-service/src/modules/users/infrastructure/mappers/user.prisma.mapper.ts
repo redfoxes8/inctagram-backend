@@ -8,6 +8,7 @@ export type UserRecord = {
   updatedAt: Date;
   deletedAt: Date | null;
   isConfirmed: boolean;
+  isBanned: boolean;
 };
 
 export class UserPrismaMapper {
@@ -20,6 +21,7 @@ export class UserPrismaMapper {
       updatedAt: model.updatedAt,
       deletedAt: model.deletedAt,
       isConfirmed: model.isConfirmed,
+      isBanned: model.isBanned,
     });
   }
 }
