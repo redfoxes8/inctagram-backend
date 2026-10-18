@@ -26,15 +26,16 @@ import { SuperadminModule } from './modules/superadmin/superadmin.module';
 import { SuperadminAuthModule } from './modules/superadmin/superadmin-auth.module';
 import { SessionAdminPrincipalVerifier } from './modules/superadmin/infrastructure/session-admin-principal.verifier';
 import { AdminPrincipalVerifier } from './modules/superadmin/domain/admin-principal';
-import { SUPERADMIN_AUTH_TYPE_DEFS } from '../../../libs/contracts/src/graphql/superadmin/v1/auth-type-defs';
+import { SUPERADMIN_RUNTIME_TYPE_DEFS } from '../../../libs/contracts/src/graphql/superadmin/v1/runtime-type-defs';
+import { SuperadminUsersModule } from './modules/superadmin/superadmin-users.module';
 
 @Module({
   imports: [
     CommonModule,
     SuperadminModule.withRuntime({
-      typeDefs: SUPERADMIN_AUTH_TYPE_DEFS,
+      typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
       production: process.env.NODE_ENV === 'production',
-      imports: [SuperadminAuthModule],
+      imports: [SuperadminAuthModule, SuperadminUsersModule],
       principalVerifier: {
         provide: AdminPrincipalVerifier,
         useExisting: SessionAdminPrincipalVerifier,
