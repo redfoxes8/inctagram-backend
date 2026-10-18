@@ -23,6 +23,8 @@ import { PaymentGrpcClient } from './payment-grpc.client';
             package: INCTAGRAM_PAYMENT_V1_PACKAGE_NAME,
             protoPath: join(process.cwd(), 'libs/contracts/src/proto/payment.proto'),
             url: config.paymentServiceGrpcUrl,
+            // All int64 fields in this proto are Timestamp seconds, safely representable as numbers.
+            loader: { longs: Number },
           },
         }),
       },

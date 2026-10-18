@@ -59,6 +59,29 @@ export class PaymentGrpcClient implements OnModuleInit {
     }
   }
 
+  async getPaymentHistoryWithTimeout(input: {
+    request: GetPaymentHistoryRequest;
+    timeoutMs: number;
+  }): Promise<GetPaymentHistoryResponse> {
+    try {
+      // RxJS unsubscribes on timeout; Nest unary Observable teardown cancels the gRPC call.
+      // This is a client-side bound, not a propagated transport deadline. No retries.
+      return await firstValueFrom(
+        this.paymentService
+          .getPaymentHistory(input.request)
+          .pipe(timeout({ first: input.timeoutMs })),
+      );
+    } catch (error: unknown) {
+      if (error instanceof TimeoutError) {
+        throw new DomainException({
+          code: DomainExceptionCode.GatewayTimeout,
+          message: 'Payment history timeout',
+        });
+      }
+      throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
   async getSubscriptions(request: GetSubscriptionsRequest): Promise<GetSubscriptionsResponse> {
     try {
       return await firstValueFrom(this.paymentService.getSubscriptions(request));

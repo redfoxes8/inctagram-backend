@@ -407,6 +407,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       'avatarUrl',
       'createdAt',
       'isEmailConfirmed',
+      'payments',
       'profileUrl',
       'state',
       'userId',

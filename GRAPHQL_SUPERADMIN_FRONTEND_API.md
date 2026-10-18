@@ -1,10 +1,10 @@
 # Superadmin GraphQL API — контракт 1.1.0
 
-Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, soft delete SA-GQL-05, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
+Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, soft delete SA-GQL-05 и Payments SA-GQL-06, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
 
 ## URL и текущая доступность
 
-Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`; target SDL целиком не загружается. Payments и Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`; target SDL целиком не загружается. Поле `SuperadminUser.payments` опубликовано; Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
@@ -14,7 +14,7 @@
 
 ## Operations и статусы
 
-**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. Остальные операции таблицы — **Запланировано**.
+**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. **Реализовано — SA-GQL-06:** `SuperadminUser.payments`. Followers/Following остаются запланированными.
 
 | Operation                 | Input                                      | Output                                                        | Карточка                     |
 | ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | ---------------------------- |
@@ -26,7 +26,7 @@
 | `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | **Реализовано — SA-GQL-04B** |
 | `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | **Реализовано — SA-GQL-04B** |
 | `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | **Реализовано — SA-GQL-05**  |
-| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | 6                            |
+| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | **Реализовано — SA-GQL-06**  |
 
 Followers/Following не определены в SDL: источник, колонки и технический контракт ждут исследования **карточки 7 SA-FOLLOW-DISCOVERY**, реализация — **карточка 8 SA-GQL-08**. Отсутствие источника не есть пустой реальный список. Итоговая сверка документа и исполняемых примеров — **карточка 9 SA-GQL-09**.
 
@@ -48,7 +48,7 @@ query CurrentSuperadminSession {
 
 List/detail: `userId`, `createdAt`, `state`, `isEmailConfirmed` non-null. `username`, `profileUrl`, `avatarUrl` nullable: Profile optional в текущей Prisma model. Detail без Profile возвращает null этих полей. Отсутствующий/deleted User — null detail. Public profile route не подтверждён, URL не выдумывать; дата создания берётся из User.
 
-Payments: existing `GetPaymentHistory(user_id,page,page_size)` предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. Будущая интеграция сохраняет current user detail при timeout/outage: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Точные отображаемые колонки требуют Product review; Stripe lifecycle не меняется.
+Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; опубликован согласованный API-контракт 1.1.0, Stripe lifecycle не меняется.
 
 ## Pagination, search, sort (реализовано — SA-GQL-03)
 
@@ -126,6 +126,88 @@ query User($userId: ID!) {
 ```
 
 Variables: `{"userId":"00000000-0000-4000-8000-000000000001"}`. Отсутствующий/soft-deleted пользователь: `{"data":{"superadminUser":null}}`. Без Profile возвращается объект с `username`, `avatarUrl`, `profileUrl` = null, без создания Profile. **Открытый AC:** Frontend/Product должны подтвердить публичный маршрут и его параметр; в доступных frontend-контрактах/документации он не найден. REST URL профиля не доказывает маршрут приложения; пока `profileUrl` всегда null, даже при Profile. Карточка 3 не объявляется полностью принятой.
+
+## Payments (реализовано — SA-GQL-06)
+
+`SuperadminUser.payments(input: PageInput!): PaymentConnection` — nullable field resolver. Источник — существующий внутренний `GetPaymentHistory`; user_id берётся **только из родительского SuperadminUser**, отдельного target ID в аргументах поля нет. Public REST history не используется, Gateway не читает Payment DB напрямую. Admin guard повторно применяется к вложенному resolver; обычный user JWT не подходит. Требуются действующая admin cookie (`credentials: include`) и разрешённый Origin; query не требует mutation-only CSRF header. Admin cookie/token в gRPC не передаются.
+
+```graphql
+query UserPayments($userId: ID!, $input: PageInput!) {
+  superadminUser(userId: $userId) {
+    userId
+    username
+    payments(input: $input) {
+      items {
+        transactionId
+        createdAt
+        paidAt
+        amountMinor
+        currency
+        productId
+        productName
+        billingInterval
+        billingIntervalCount
+        provider
+        kind
+        status
+        checkoutPurpose
+        subscriptionId
+        subscriptionEndsAt
+      }
+      totalCount
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
+    }
+  }
+}
+```
+
+Variables (синтетический ID): `{"userId":"00000000-0000-4000-8000-000000000001","input":{"page":1,"pageSize":8}}`. Defaults — `"input":{}`. Диапазоны: page 1..10000, pageSize 1..50; невалидные значения → `BAD_USER_INPUT` **до RPC**. Сохраняется общий complexity budget: широкая selection при pageSize=50 может быть отклонена, хотя сам pageSize допустим. Aliases с разными input выполняют независимые вызовы, страницы/пользователи не смешиваются. Если поле не выбрано или parent отсутствует/deleted, RPC не вызывается.
+
+Порядок сохраняется из Payment MS: `createdAt DESC, ID DESC`, без пересортировки Gateway. Метаданные берутся из RPC; `hasNextPage = page < pagesCount`. Пустая история: `items:[]`, `totalCount:0`, `pagesCount:0`, `hasNextPage:false`. Допустимая страница за пределами списка возвращает пустые items, но count/pagesCount всей истории. Gateway не обещает snapshot между отдельными запросами страниц и не меняет внутреннюю транзакционную семантику Payment repository.
+
+`amountMinor` — целое число минимальных единиц **фактической currency**, без деления/конвертации. Proto amount/count и PostgreSQL Int совместимы с GraphQL signed Int32; mapper проверяет границы, целочисленность и конечность чисел без округления/переполнения. Timestamps проверяются по protobuf диапазону и выводятся ISO UTC с миллисекундами (меньшая точность наносекунд отбрасывается). Общий gRPC client явно декодирует timestamp int64 seconds как Number: весь допустимый диапазон protobuf Timestamp безопасен для JS integer; остальные payment-поля proto — int32. Обычный REST history сохранён и проверен через настоящий HTTP endpoint.
+
+Enums: `PaymentProvider` STRIPE/PAYPAL; `PaymentBillingInterval` WEEK/MONTH; `PaymentKind` PURCHASE/RENEWAL; `PaymentStatus` PENDING/PROCESSING/SUCCEEDED/FAILED/REFUNDED/PARTIALLY_REFUNDED; `CheckoutPurpose` INITIAL_SUBSCRIPTION/ADDITIONAL_SUBSCRIPTION. Nullable: paidAt, checkoutPurpose, subscriptionId, subscriptionEndsAt. Отсутствие proto optional становится null; пустой subscriptionId — null, но пустая дата/неизвестный или UNSPECIFIED enum не выдаются за допустимые данные. Protobuf default для отсутствующих zero scalars/empty repeated fields не означает выдуманное бизнес-значение. Несовместимые обязательные данные/метаданные дают безопасный `INTERNAL_SERVER_ERROR` на nullable payments, а не фиктивные значения.
+
+### Timeout и partial response
+
+`SUPERADMIN_PAYMENTS_TIMEOUT_MS`: default **3000 ms**, допустимо 1..30000. Это технический default по существующему webhook timeout convention, не внешнее согласование SLA. Невалидная настройка закрывает только Payments read (`UPSTREAM_UNAVAILABLE`), не останавливает существующие REST routes. Вызов ограничен RxJS `timeout({first: ...})` без retries; unsubscribe вызывает `call.cancel()` через Nest unary Observable teardown. Это **не передаваемый gRPC deadline**; отмена освобождает клиентский вызов, но не обещает остановку уже выполняющегося SQL на Payment MS. Cancellation наблюдается на реальном gRPC server в тесте.
+
+При недоступном gRPC сервере/timeout поле null, path сохраняет конкретный alias. Пример для alias `history: payments(input: $input)` (не ответ с пустой историей):
+
+```json
+{
+  "data": {
+    "superadminUser": {
+      "userId": "00000000-0000-4000-8000-000000000001",
+      "username": null,
+      "history": null
+    }
+  },
+  "errors": [
+    {
+      "message": "Service unavailable",
+      "path": ["superadminUser", "history"],
+      "extensions": { "code": "UPSTREAM_UNAVAILABLE" }
+    }
+  ]
+}
+```
+
+Ошибки admin access остаются `UNAUTHENTICATED`/`FORBIDDEN`, validation — `BAD_USER_INPUT`; они не переводятся в upstream outage. Неожиданные ошибки/повреждённые обязательные данные — `INTERNAL_SERVER_ERROR`, без stack/адресов/сырых upstream payload. На UI технический сбой не трактовать как отсутствие истории или session.
+
+### Проверки и границы SA-GQL-06
+
+`superadmin-payments.integration-spec.ts` поднимает настоящий GraphQL HTTP, production admin verifier/queries/adapter, **Nest PaymentGrpcController → CQRS GetPaymentHistoryHandler → PaymentQueryRepository → отдельную Payment PostgreSQL DB** в disposable container. Используются все существующие Payment migration SQL, без shared URLs/provider secrets. Это интеграция реальных history-компонентов по настоящему gRPC, **не полный PaymentRootModule/Stripe lifecycle** и не fake gRPC server. Fault injection заменяет только результат handler/mapper для недоступности/повреждённых ответов и удерживает handler для timeout; отдельно проверяется реально остановленный gRPC server. Проверены также настоящий REST `/api/v1/payments/history`, его user scope/default 10/error format, и отсутствие admin-доступа с действующим user JWT.
+
+Рабочий Gateway soft-delete use case проверен с настоящими Payment transactions/subscriptions: записи не меняются, существующий RPC продолжает читать историю, но admin parent после удаления null и вложенный Payments RPC не вызывается. Revoke relay/broker/Stripe в этом новом history-тесте не запускаются; их прежние проверки не подменяются этой проверкой. Отмена подписки/refund/auto-renew не реализуются. Public data/delete policies, profileUrl, реальные admin origins и staging/two-pod остаются открытыми; human review/production-приёмка не заявляются.
+
+Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-payments.integration-spec.ts apps/main-gateway-service/test/unit/superadmin-payment-history.mapper.spec.ts`. Unit mapper/config tests — отдельные тесты без БД/транспорта, не интеграционные доказательства. Итог SA-GQL-06: 27 HTTP/gRPC/DB integration + 32 unit проверки; общий регрессионный прогон **178/178 в 14 suites**, дополнительно stripe-checkout-status **2/2**. Команда регрессии: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --testPathPatterns='superadmin|jwt-token-type|payment-history-extension|notifications-websocket.gateway|notification-live-event.consumer|notifications.controller|available-payment-products' --noStackTrace`. Gateway build, source/test typecheck, scoped ESLint/Prettier и git diff --check прошли. Версия target SDL остаётся **1.1.0**: реализовано ранее согласованное поле. Следующая карточка после технического merge — **7 SA-FOLLOW-DISCOVERY**.
 
 ## Soft delete (реализовано — SA-GQL-05)
 
