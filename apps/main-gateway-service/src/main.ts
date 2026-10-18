@@ -9,6 +9,10 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { INCTAGRAM_USER_V1_PACKAGE_NAME } from '../../../libs/contracts/src';
 import { join } from 'path';
 import { NotificationSocketIoAdapter } from './core/notification-socket-io.adapter';
+import {
+  parseSuperadminOrigins,
+  setupSuperadminHttp,
+} from './modules/superadmin/api/superadmin-http-security';
 
 const corsAllowedOrigins = [
   'http://localhost:3000',
@@ -54,6 +58,10 @@ async function bootstrap() {
   });
 
   const gatewayConfig = app.get<GatewayConfig>(GatewayConfig);
+  setupSuperadminHttp({
+    app,
+    policy: { allowedOrigins: parseSuperadminOrigins(process.env.SUPERADMIN_ALLOWED_ORIGINS) },
+  });
   app.useWebSocketAdapter(new NotificationSocketIoAdapter(app, gatewayConfig));
 
   const grpcOptions: MicroserviceOptions = {

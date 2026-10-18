@@ -22,10 +22,12 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { NotificationsController } from './modules/notifications/api/notifications.controller';
 import { NotificationLiveEventConsumer } from './modules/notifications/infrastructure/notification-live-event.consumer';
 import { NotificationLiveEventPublisher } from './modules/notifications/infrastructure/notification-live-event.publisher';
+import { SuperadminModule } from './modules/superadmin/superadmin.module';
 
 @Module({
   imports: [
     CommonModule,
+    SuperadminModule,
     CoreModule,
     GatewayConfigModule,
     ScheduleModule.forRoot(),
