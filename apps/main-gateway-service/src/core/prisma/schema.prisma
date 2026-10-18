@@ -80,6 +80,22 @@ model AdminSession {
   revokedAt         DateTime?
 }
 
+// Dedicated revoke obligation: the legacy avatar relay cannot consume these records.
+model UserAccessRevokeOutbox {
+  id            String    @id @default(uuid())
+  userId        String
+  sessionIds    String[]
+  createdAt     DateTime  @default(now())
+  availableAt   DateTime  @default(now())
+  leaseId       String?
+  leaseUntil    DateTime?
+  attempts      Int       @default(0)
+  publishedAt   DateTime?
+  lastErrorCode String?
+
+  @@index([publishedAt, availableAt])
+}
+
 enum AdminUserAction {
   BLOCK
   UNBLOCK

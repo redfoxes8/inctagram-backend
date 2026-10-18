@@ -28,14 +28,19 @@ import { SessionAdminPrincipalVerifier } from './modules/superadmin/infrastructu
 import { AdminPrincipalVerifier } from './modules/superadmin/domain/admin-principal';
 import { SUPERADMIN_RUNTIME_TYPE_DEFS } from '../../../libs/contracts/src/graphql/superadmin/v1/runtime-type-defs';
 import { SuperadminUsersModule } from './modules/superadmin/superadmin-users.module';
+import { SuperadminModerationModule } from './modules/superadmin/superadmin-moderation.module';
+import { UserAccessModule } from './modules/sessions/user-access.module';
+import { UserAccessRevokedConsumer } from './modules/notifications/infrastructure/user-access-revoked.consumer';
+import { UserAccessRevokeRelay } from './modules/users/infrastructure/outbox/user-access-revoke-relay';
 
 @Module({
   imports: [
     CommonModule,
+    UserAccessModule,
     SuperadminModule.withRuntime({
       typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
       production: process.env.NODE_ENV === 'production',
-      imports: [SuperadminAuthModule, SuperadminUsersModule],
+      imports: [SuperadminAuthModule, SuperadminUsersModule, SuperadminModerationModule],
       principalVerifier: {
         provide: AdminPrincipalVerifier,
         useExisting: SessionAdminPrincipalVerifier,
@@ -81,6 +86,8 @@ export class AppModule {
         PaymentRabbitConsumer,
         NotificationLiveEventPublisher,
         NotificationLiveEventConsumer,
+        UserAccessRevokedConsumer,
+        UserAccessRevokeRelay,
       ],
     };
   }

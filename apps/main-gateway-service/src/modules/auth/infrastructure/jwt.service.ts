@@ -68,6 +68,9 @@ export class JwtServiceImplementation implements IJwtService {
       payload.userId.length > 0 &&
       typeof payload.deviceId === 'string' &&
       payload.deviceId.length > 0 &&
+      Number.isSafeInteger(payload.iat) &&
+      Number.isSafeInteger(payload.exp) &&
+      payload.exp > payload.iat &&
       payload.tokenType === tokenType
     );
   }

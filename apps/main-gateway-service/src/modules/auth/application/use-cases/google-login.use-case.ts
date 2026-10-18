@@ -16,6 +16,8 @@ import { SessionEntity } from '../../../sessions/domain/session.entity';
 import { LoginMetadata } from './login.use-case';
 import { ProfileEntity } from '../../../users/domain/profile.entity';
 import { IProfileRepository } from '../../../users/domain/interfaces/user-profile.repository.interface';
+import { UserAccessStateQuery } from '../../../users/domain/interfaces/user-access-state.query';
+import { UserAccessState } from '../../../../../../../libs/common/types/user-access-state';
 
 export class GoogleLoginCommand {
   constructor(
@@ -36,6 +38,7 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
     private readonly jwtService: IJwtService,
     private readonly prisma: PrismaService,
     private readonly profileRepository: IProfileRepository,
+    private readonly accessState: UserAccessStateQuery,
   ) {}
 
   async execute(command: GoogleLoginCommand): Promise<AuthTokens> {
@@ -58,6 +61,19 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
     // Step C: Lookup in OAuthAccountRepository
     const oauthAccount: OAuthAccountData | null =
       await this.oauthAccountsRepository.findByProviderId('google', googleProfile.sub);
+    const state = oauthAccount
+      ? await this.accessState.findByUserId({ userId: oauthAccount.userId })
+      : await this.accessState.findByEmail({ email: googleProfile.email });
+    if (
+      state === UserAccessState.Blocked ||
+      state === UserAccessState.Deleted ||
+      (oauthAccount && state === null)
+    ) {
+      throw new DomainException({
+        code: DomainExceptionCode.Unauthorized,
+        message: 'Unauthorized',
+      });
+    }
     let userId: string;
 
     if (oauthAccount) {

@@ -1,4 +1,6 @@
 import { randomUUID } from 'crypto';
+import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import {
   Request,
   Body,
@@ -170,7 +172,15 @@ export class AuthController {
     const refreshToken: string = req.cookies?.refreshToken;
     if (!refreshToken) throw new UnauthorizedException();
 
-    const tokens: AuthTokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
+    let tokens: AuthTokens;
+    try {
+      tokens = await this.commandBus.execute(new RefreshTokenCommand(refreshToken));
+    } catch (error: unknown) {
+      if (error instanceof DomainException && error.code === DomainExceptionCode.Unauthorized) {
+        res.clearCookie('refreshToken', { httpOnly: true, secure: true, sameSite: 'none' });
+      }
+      throw error;
+    }
 
     this.setRefreshTokenCookie(res, tokens.refreshToken, {
       maxAge: this.gatewayConfig.refreshTokenExpTime * 1000,

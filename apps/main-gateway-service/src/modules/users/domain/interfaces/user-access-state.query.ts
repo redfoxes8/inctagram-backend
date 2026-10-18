@@ -6,6 +6,9 @@ import type { UserAccessState } from '../../../../../../../libs/common/types/use
  * transaction is the opaque handle from ITransactionManager.execute (optional for standalone reads).
  */
 export abstract class UserAccessStateQuery {
+  // OAuth preflight must see deleted email owners instead of attempting duplicate registration.
+  // Not an authorization grant: session issuance still locks/rechecks User atomically.
+  abstract findByEmail(input: { email: string }): Promise<UserAccessState | null>;
   abstract findByUserId(input: {
     userId: string;
     transaction?: unknown;

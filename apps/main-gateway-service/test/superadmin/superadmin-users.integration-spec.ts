@@ -11,6 +11,7 @@ import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { SuperadminModule } from '../../src/modules/superadmin/superadmin.module';
 import { SuperadminAuthModule } from '../../src/modules/superadmin/superadmin-auth.module';
 import { SuperadminUsersModule } from '../../src/modules/superadmin/superadmin-users.module';
+import { SuperadminModerationModule } from '../../src/modules/superadmin/superadmin-moderation.module';
 import { AdminPrincipalVerifier } from '../../src/modules/superadmin/domain/admin-principal';
 import { SessionAdminPrincipalVerifier } from '../../src/modules/superadmin/infrastructure/session-admin-principal.verifier';
 import {
@@ -42,7 +43,7 @@ const DETAIL = `query($userId: ID!) { superadminUser(userId: $userId) {
     SuperadminModule.withRuntime({
       typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
       production: true,
-      imports: [SuperadminAuthModule, SuperadminUsersModule],
+      imports: [SuperadminAuthModule, SuperadminUsersModule, SuperadminModerationModule],
       principalVerifier: {
         provide: AdminPrincipalVerifier,
         useExisting: SessionAdminPrincipalVerifier,
@@ -391,8 +392,10 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       'superadminUsers',
     ]);
     expect(Object.keys(schema.getMutationType()!.getFields()).sort()).toEqual([
+      'superadminBlockUser',
       'superadminLogin',
       'superadminLogout',
+      'superadminUnblockUser',
     ]);
     const response = await post({
       query: '{ __type(name: "SuperadminUser") { fields { name } } }',

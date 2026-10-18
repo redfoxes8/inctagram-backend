@@ -1,32 +1,32 @@
 # Superadmin GraphQL API — контракт 1.1.0
 
-Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
+Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
 
 ## URL и текущая доступность
 
-Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: только `auth-type-defs.ts` и `users-type-defs.ts`; target SDL целиком не загружается. Payments, block/unblock/delete, Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`; target SDL целиком не загружается. Payments, delete, Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
 Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия `1.1.0`. Общий schema-first fragment: `common-type-defs.ts` рядом; DateTime и pagination DTO — `libs/common/src/graphql`. Target SDL валидируется тестом, runtime schema собирается отдельно из реализованных feature fragments.
 
-**SA-GQL-04A — подготовлена только внутренняя модель:** `User.isBanned` с default false и persistent `AdminUserActionAudit` в Gateway DB. `UserAccessStateQuery` различает ACTIVE/BLOCKED/DELETED и отсутствие записи (`null`), но не выполняет авторизацию; ACTIVE не отменяет email confirmation и другие проверки. State-read/audit writer экспортирует `UserStateAuditModule`, owner — Users+Sessions/security. Writer принимает согласованные action/outcome и явный живой tx существующего transaction manager для общей транзакции User/Sessions/audit в будущих 4B/05; подробный API — в карточке 4 плана. Это **не** включение блокировки в действующие login/refresh/guards/WS. Каталог/основные детали реализованы в карточке 3 с использованием фактического isBanned; mutations остаются запланированы в 4B/5. Карточка 4 целиком не завершена.
+**SA-GQL-04A — подготовлена только внутренняя модель:** `User.isBanned` с default false и persistent `AdminUserActionAudit` в Gateway DB. `UserAccessStateQuery` различает ACTIVE/BLOCKED/DELETED и отсутствие записи (`null`), но не выполняет авторизацию; ACTIVE не отменяет email confirmation и другие проверки. State-read/audit writer экспортирует `UserStateAuditModule`, owner — Users+Sessions/security. Writer принимает согласованные action/outcome и явный живой tx существующего transaction manager для общей транзакции User/Sessions/audit в 4B и будущей 05; подробный API — в карточке 4 плана. В 4A enforcement отсутствовал; **SA-GQL-04B теперь подключает state/session checks к login, refresh, JWT REST и WS**. Каталог/основные детали реализованы в карточке 3 с использованием фактического isBanned; block/unblock реализованы в 4B, delete остаётся запланирован в 5. Технический review и staging-проверка карточки 4 не заявлены завершёнными.
 
 ## Operations и статусы
 
-**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). Остальные операции таблицы — **Запланировано**.
+**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. Остальные операции таблицы — **Запланировано**.
 
-| Operation                 | Input                                      | Output                                                        | Карточка                    |
-| ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | --------------------------- |
-| `superadminLogin`         | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                | **Реализовано — SA-GQL-02** |
-| `superadminLogout`        | нет                                        | `{ loggedOut: Boolean! }`                                     | **Реализовано — SA-GQL-02** |
-| `superadminSession`       | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`       | **Реализовано — SA-GQL-02** |
-| `superadminUsers`         | `SuperadminUsersInput!`                    | items, totalCount, pageInfo                                   | **Реализовано — SA-GQL-03** |
-| `superadminUser`          | `userId: ID!`                              | nullable SuperadminUser                                       | **Реализовано — SA-GQL-03** |
-| `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | 4B                          |
-| `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | 4B                          |
-| `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | 5                           |
-| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | 6                           |
+| Operation                 | Input                                      | Output                                                        | Карточка                     |
+| ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | ---------------------------- |
+| `superadminLogin`         | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                | **Реализовано — SA-GQL-02**  |
+| `superadminLogout`        | нет                                        | `{ loggedOut: Boolean! }`                                     | **Реализовано — SA-GQL-02**  |
+| `superadminSession`       | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`       | **Реализовано — SA-GQL-02**  |
+| `superadminUsers`         | `SuperadminUsersInput!`                    | items, totalCount, pageInfo                                   | **Реализовано — SA-GQL-03**  |
+| `superadminUser`          | `userId: ID!`                              | nullable SuperadminUser                                       | **Реализовано — SA-GQL-03**  |
+| `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | **Реализовано — SA-GQL-04B** |
+| `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | **Реализовано — SA-GQL-04B** |
+| `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | 5                            |
+| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | 6                            |
 
 Followers/Following не определены в SDL: источник, колонки и технический контракт ждут исследования **карточки 7 SA-FOLLOW-DISCOVERY**, реализация — **карточка 8 SA-GQL-08**. Отсутствие источника не есть пустой реальный список. Итоговая сверка документа и исполняемых примеров — **карточка 9 SA-GQL-09**.
 
@@ -126,6 +126,99 @@ query User($userId: ID!) {
 ```
 
 Variables: `{"userId":"00000000-0000-4000-8000-000000000001"}`. Отсутствующий/soft-deleted пользователь: `{"data":{"superadminUser":null}}`. Без Profile возвращается объект с `username`, `avatarUrl`, `profileUrl` = null, без создания Profile. **Открытый AC:** Frontend/Product должны подтвердить публичный маршрут и его параметр; в доступных frontend-контрактах/документации он не найден. REST URL профиля не доказывает маршрут приложения; пока `profileUrl` всегда null, даже при Profile. Карточка 3 не объявляется полностью принятой.
+
+## Block/unblock (реализовано — SA-GQL-04B)
+
+Обе операции — **mutations** под общей admin session/Origin/CSRF-защитой. Обычный user JWT не даёт admin-доступ. Клиент отправляет `credentials: 'include'` и `X-Superadmin-CSRF` из login/session bootstrap; `adminSessionId` для audit берётся только из проверенного principal, не из variables.
+
+```graphql
+mutation Block($input: SuperadminUserIdInput!) {
+  superadminBlockUser(input: $input) {
+    userId
+    outcome
+  }
+}
+mutation Unblock($input: SuperadminUserIdInput!) {
+  superadminUnblockUser(input: $input) {
+    userId
+    outcome
+  }
+}
+```
+
+Variables для каждой отдельной операции: `{"input":{"userId":"00000000-0000-4000-8000-000000000001"}}`. Синтетический пример ответа: `{"data":{"superadminBlockUser":{"userId":"00000000-0000-4000-8000-000000000001","outcome":"BLOCKED"}}}`. Если обе операции отправлены в одном GraphQL document, указывать соответствующий `operationName`; они не должны запускаться неявно вместе.
+
+| Состояние записи                 | Block outcome   | Unblock outcome |
+| -------------------------------- | --------------- | --------------- |
+| ACTIVE                           | BLOCKED         | ALREADY_ACTIVE  |
+| BLOCKED                          | ALREADY_BLOCKED | UNBLOCKED       |
+| DELETED (приоритет над isBanned) | USER_DELETED    | USER_DELETED    |
+| Записи нет                       | NOT_FOUND       | NOT_FOUND       |
+
+Некорректный UUID → `BAD_USER_INPUT`; отсутствие/expiry/revoke admin session → `UNAUTHENTICATED`; CSRF/Origin → `FORBIDDEN` (Origin проверяется на HTTP-границе); неожиданный DB failure → безопасный `INTERNAL_SERVER_ERROR`. При сбое проверки admin session сохраняется `UPSTREAM_UNAVAILABLE`. Outcomes — успешный результат выполненной команды, не исключение. Удалённый пользователь не восстанавливается. Повторные отдельные команды имеют отдельные audit results; client request deduplication не обещается.
+
+После mutation обновить текущий каталог и открытые детали (например, Apollo `refetchQueries`), сохранив search/sort/page; no-op/NOT_FOUND/USER_DELETED также требуют актуализации UI, а не фиктивной записи user из payload. `profileUrl` всё ещё null до решения Frontend/Product; эта работа не закрывает карточку 3. **Unblock требует нового пользовательского login:** прежние sessions/access/refresh tokens не восстанавливаются. Admin sessions не отзываются. Блокировка не отменяет paid auto-renew, подписки, платежи или публичные данные; payment lifecycle здесь не меняется.
+
+### Транзакция, каналы и пределы гарантии
+
+`ModerateUserUseCase` через действующий transaction manager блокирует User row (`FOR UPDATE`), вычисляет outcome, при BLOCKED меняет `isBanned`, soft-revoke всех пользовательских Session (`deletedAt`) и создаёт `UserAccessRevokeOutbox`, затем пишет audit тем же живым tx. Unblock меняет только isBanned; audit записывается и для no-op/missing/deleted. Ошибка откатывает state/sessions/outbox/audit вместе. Поля audit: action, targetUserId, outcome, occurredAt, adminSessionId и id — без token/cookie/password/hash. Общая admin account не идентифицирует конкретного человека.
+
+| Канал                                                                 | Проверка 4B                                                                                                                                                                                                                             |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Password login                                                        | Существующие password/email-confirmation проверки + row lock/state recheck в `PrismaSessionsRepository.save` перед созданием сессии                                                                                                     |
+| Google login/link/register                                            | Существующая Google email verification, внутренний state preflight (включая deleted email owners), затем тот же locked session write; preflight не заменяет атомарную проверку                                                          |
+| Refresh                                                               | JWT signature/type/expiry; точные userId/deviceId и refresh iat, Session.exp в Unix seconds; state lock + conditional write/reuse revoke в одной транзакции                                                                             |
+| Защищённые REST Payments/Profile/Posts/Sessions/Notifications и Users | Общие `JwtGuard`/`JwtStrategy` → `UserAccessCheck`: ACTIVE, существующая session именно пользователя/device, deletedAt=null, session.exp и token.exp ещё не истекли                                                                     |
+| WS `/notifications`                                                   | Signature/type/expiry + тот же check при handshake; сервер связывает socket с userId/deviceId/Session.id/exp. Перед **каждой** защищённой доставкой проверяется каждый socket отдельно; ошибка БД запрещает delivery и закрывает socket |
+| Пользовательский GraphQL                                              | Не существует в текущей базе; новый API не добавлен. Superadmin GraphQL сохраняет отдельную административную защиту                                                                                                                     |
+| Внутренний user gRPC / публичные REST reads                           | Не превращаются в публичную JWT-точку; публичное чтение не менялось                                                                                                                                                                     |
+
+ACTIVE не отменяет email confirmation и прочие существующие условия доступа. Session.exp — срок refresh-сессии в **секундах**, не access exp и не миллисекунды. Access iat не сравнивается на равенство с обновляемым refresh iat: обычный refresh не должен массово инвалидировать ещё не истёкшие access tokens. Login создаёт новый device/session, не upsert старой отозванной записи. После block→unblock старые токены по-прежнему не имеют действующей session.
+
+После commit новые проверки запрещают защищённый доступ и последующую delivery. Уже выполняющийся запрос/handshake или начатая delivery могут завершиться: прерывание всех in-flight действий не гарантируется. Login/refresh, ожидающие User lock после block, не создают действующую сессию. Если они завершили session write до block, subsequent revoke делает даже поздно возвращённый token непригодным.
+
+### Устойчивый revoke
+
+Миграция `20261018140000_add_user_access_revoke_outbox` добавляет отдельную таблицу Gateway. Legacy avatar relay не подходит: он читает все PENDING как avatar events и не ждёт broker confirms; его scope не меняется. Новых dependencies/брокеров/микросервисов нет.
+
+`UserAccessRevokeRelay` запускается существующим scheduler раз в секунду; claim одной записи — атомарный UPDATE с `FOR UPDATE SKIP LOCKED`, lease UUID на 30 секунд. Сетевая публикация выполняется **вне DB transaction** через существующий `AmqpConnection` confirm channel, timeout 5 секунд. Только подтверждение broker позволяет поставить publishedAt; сбой сохраняет `PUBLISH_FAILED`, attempts и availableAt с exponential retry 2..60 секунд. При падении worker lease истекает и другой Gateway продолжает. Lease-guarded updates не позволяют stale worker затереть результат нового. Возможны повторные публикации после crash/timeout; потребитель идемпотентен. Это at-least-once, не exactly-once. Для диагностики — безопасные structured logs с eventId/attempts/code и DB pending count/oldest createdAt/attempts; retention/мониторинг на реальном deployment требуют эксплуатационного review, автоматической очистки здесь нет.
+
+Exchange — существующий `common_exchange` (topic); routing key `gateway.user.access.revoked.v1`, event `UserAccessRevoked`, version 1. Каждый Gateway создаёт собственную server-named exclusive/auto-delete subscriber queue (не competing-consumer общую очередь). Событие содержит только eventId/userId/occurredAt/**идентификаторы отозванных Session**, без JWT/cookies. Совпадающие локальные socket sessions отключаются безусловно; остальные sockets того же пользователя проходят state/session recheck (включая orphan после физического logout). Задержанное событие после unblock/new login сохраняет новую действующую сессию. При reconnect брокера Gateway дополнительно перепроверяет существующие sockets на случай пропущенного ephemeral fan-out; delivery в любом случае проверяет БД независимо от broker. Неисправность RabbitMQ не открывает REST/refresh/WS delivery.
+
+### Проверки и границы окружения 4B
+
+Основной 4B набор — 20 интеграционных проверок; отдельный fan-out prerequisite — 1. Общий scoped регрессионный набор: **95/95 в 11 наборах**, включая auth/catalog/4A/infrastructure, JWT, notification WS/consumer/controller и payment history. Команды воспроизведения:
+
+```powershell
+pnpm run prisma:generate
+pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --testPathPatterns='superadmin|jwt-token-type|payment-history-extension|notifications-websocket.gateway|notification-live-event.consumer|notifications.controller'
+pnpm run build:main-gateway-service
+pnpm exec tsc --noEmit --incremental false -p apps/main-gateway-service/tsconfig.app.json
+git diff --check
+```
+
+Воспроизводимый source + изменённые test roots typecheck (PowerShell, без записи файлов):
+
+```powershell
+@'
+const ts = require('typescript');
+const { execFileSync } = require('node:child_process');
+const raw = ts.readConfigFile('apps/main-gateway-service/tsconfig.app.json', ts.sys.readFile);
+const config = ts.parseJsonConfigFileContent(raw.config, ts.sys, 'apps/main-gateway-service');
+const tests = execFileSync('git', ['ls-files', '-m', '-o', '--exclude-standard'], { encoding: 'utf8' })
+  .split(/\r?\n/).filter(file => file.includes('/test/') && file.endsWith('.ts'));
+const program = ts.createProgram([...config.fileNames, ...tests], { ...config.options, noEmit: true, incremental: false });
+const errors = ts.getPreEmitDiagnostics(program);
+process.stdout.write(ts.formatDiagnosticsWithColorAndContext(errors, { getCanonicalFileName: file => file, getCurrentDirectory: ts.sys.getCurrentDirectory, getNewLine: () => '\n' }));
+process.exit(errors.length ? 1 : 0);
+'@ | node
+```
+
+ESLint/Prettier применяются только к затронутым TS-файлам и FE guide (не глобальный `lint --fix`). Test typecheck выполняется TypeScript API с параметрами Gateway config, `noEmit`/`incremental:false` и добавленными root-файлами затронутых тестов; это отдельная проверка от ts-jest isolated compilation. Для операционной диагностики backlog: `SELECT count(*), min("createdAt") FROM "UserAccessRevokeOutbox" WHERE "publishedAt" IS NULL`, а также attempts/availableAt/lastErrorCode; не выгружать cookies/tokens или содержимое credential configuration.
+
+`rabbit-fanout.integration-spec.ts` воспроизводит prerequisite с двумя Nest Gateway instances и настоящим disposable RabbitMQ: независимые queues и доставка одного live event обоим. `user-access-enforcement.integration-spec.ts` использует два реальных локальных HTTP/WS приложения, отдельные Prisma clients, PostgreSQL и RabbitMQ: outcomes/audit/rollback, row-lock barriers для конкурентных команд/login/refresh/deleted fixture, real REST, WS handshake/per-session delivery, fan-out disconnect, broker pause/timeout/retry/restarted relay, lease recovery и duplicate/delayed revoke. Google provider — тестовая замена внешнего OAuth; credentials/часы — изолированные fixtures. Это **не staging и не проверка двух Kubernetes pod**. Deleted состояния готовятся SQL fixtures, delete use case не реализован. Новая migration применяется через официальный Prisma `migrate deploy` к изолированной прежней схеме, baselined через `migrate resolve`, с проверкой сохранения User/Profile/Session/AdminSession. Shared/production DB не используются.
+
+До production-приёмки остаются human security review, deployment migration, проверка RabbitMQ bindings/reconnect/scheduler и revoke на реальных Gateway pod, синхронизация часов, operational monitoring/retention, подтверждённые origins/SameSite и прежний вопрос назначения/владельца/смены fixed credentials. Точный public profile route, social contract и политики публичных данных/paid auto-renew после delete остаются открытыми и не подменяются этой реализацией.
 
 ## Auth, HTTP и CSRF
 
@@ -233,7 +326,7 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 
 `apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts`: 15 HTTP/DB проверок на отдельном disposable PostgreSQL 16 через production resolvers, queries и repository; замены — только конфигурация и управляемые часы. Проверены поиск/спецсимволы, четыре сортировки, pagination, nullable Profile, реальные состояния, UUID, admin guard, безопасные DB failures и точный набор runtime полей. SQL spy только наблюдает реальные обращения: одна joined выборка на страницу при 1 и 8 пользователях, одна на detail; User/Profile/Sessions/audit при чтении не меняются. Snapshot проверен вторым Prisma connection и управляемым advisory-lock barrier через test-only view/function; production запрос не содержит test hooks. Production/shared DB и реальные аккаунты не используются.
 
-Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts`. Совместный регрессионный прогон с `admin-auth.integration-spec.ts`, `user-state-audit.integration-spec.ts`, `superadmin-infrastructure.spec.ts`, `jwt-token-type.spec.ts`, `payment-history-extension.spec.ts`: 66/66. Gateway build, source/test typecheck и scoped ESLint/Prettier проверены отдельно. Это не подтверждение неизвестного public profile route или production collation; AC ссылки остаётся открытым. Новых migrations/dependencies и изменений обычного user access enforcement нет; следующий этап маршрута — 4B.
+Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts`. Совместный регрессионный прогон с `admin-auth.integration-spec.ts`, `user-state-audit.integration-spec.ts`, `superadmin-infrastructure.spec.ts`, `jwt-token-type.spec.ts`, `payment-history-extension.spec.ts`: 66/66. Gateway build, source/test typecheck и scoped ESLint/Prettier проверены отдельно. Это не подтверждение неизвестного public profile route или production collation; AC ссылки остаётся открытым. На этапе SA-GQL-03 новых migrations/dependencies и изменений обычного user access enforcement не было; последующий результат 4B описан выше.
 
 ## Приёмочные проверки SA-GQL-02 и ограничения окружения
 

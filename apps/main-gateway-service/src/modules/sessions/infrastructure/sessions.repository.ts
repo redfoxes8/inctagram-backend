@@ -5,18 +5,17 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { SessionMapper } from './mappers/session.mapper';
+import { lockActiveGatewayUser } from '../../../core/prisma/transactions/lock-gateway-user';
 
 @Injectable()
 export class PrismaSessionsRepository implements ISessionsRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
   public async save(session: SessionEntity): Promise<void> {
-    await this.prismaService.session.upsert({
-      where: {
-        deviceId: session.deviceId,
-      },
-      create: this.toCreateData(session),
-      update: this.toUpdateData(session),
+    await this.prismaService.$transaction(async (transaction) => {
+      await lockActiveGatewayUser({ transaction, userId: session.userId });
+      // Login generates a fresh device ID. Never revive an old device/session via upsert.
+      await transaction.session.create({ data: this.toCreateData(session) });
     });
   }
 
@@ -107,26 +106,37 @@ export class PrismaSessionsRepository implements ISessionsRepository {
     }
   }
 
-  public async updateSessionAtomic(
-    deviceId: string,
-    expectedIat: number,
-    newIat: number,
-    newExp: number,
-  ): Promise<boolean> {
-    const affectedRows = await this.prismaService.session.updateMany({
-      where: {
-        deviceId,
-        iat: expectedIat,
-        deletedAt: null,
-      },
-      data: {
-        iat: newIat,
-        exp: newExp,
-        updatedAt: new Date(),
-      },
-    });
+  public async updateSessionAtomic(input: {
+    userId: string;
+    deviceId: string;
+    expectedIat: number;
+    newIat: number;
+    newExp: number;
+  }): Promise<boolean> {
+    return this.prismaService.$transaction(async (transaction) => {
+      await lockActiveGatewayUser({ transaction, userId: input.userId });
+      const affectedRows = await transaction.session.updateMany({
+        where: {
+          userId: input.userId,
+          deviceId: input.deviceId,
+          iat: input.expectedIat,
+          exp: { gt: Math.floor(Date.now() / 1000) },
+          deletedAt: null,
+        },
+        data: {
+          iat: input.newIat,
+          exp: input.newExp,
+          updatedAt: new Date(),
+        },
+      });
 
-    return affectedRows.count > 0;
+      if (affectedRows.count > 0) return true;
+      // Reuse detection must not race another login/moderation or delete another user's device.
+      await transaction.session.deleteMany({
+        where: { userId: input.userId, deviceId: input.deviceId },
+      });
+      return false;
+    });
   }
 
   private toCreateData(session: SessionEntity): {
