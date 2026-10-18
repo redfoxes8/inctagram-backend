@@ -14,8 +14,10 @@ import { DomainException, Extension } from './domain-exception';
 export class GlobalDomainExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalDomainExceptionFilter.name);
 
-  catch(exception: DomainException, host: ArgumentsHost): void {
-    const hostType = host.getType<'http' | 'rpc'>();
+  catch(exception: DomainException, host: ArgumentsHost): unknown {
+    const hostType = host.getType<'http' | 'rpc' | 'graphql'>();
+
+    if (hostType === 'graphql') return exception;
 
     if (hostType === 'rpc') {
       // Not HTTP context, skip

@@ -1,0 +1,154 @@
+# Target contract 1.1.0. Planned operations; never load this file into runtime wholesale.
+scalar DateTime
+enum SuperadminUserSort {
+  USERNAME_ASC
+  USERNAME_DESC
+  CREATED_AT_DESC
+  CREATED_AT_ASC
+}
+enum SuperadminUserState {
+  ACTIVE
+  BLOCKED
+}
+enum SuperadminDeleteOutcome {
+  DELETED
+  ALREADY_DELETED
+  NOT_FOUND
+}
+enum SuperadminBlockOutcome {
+  BLOCKED
+  ALREADY_BLOCKED
+  NOT_FOUND
+  USER_DELETED
+}
+enum SuperadminUnblockOutcome {
+  UNBLOCKED
+  ALREADY_ACTIVE
+  NOT_FOUND
+  USER_DELETED
+}
+input SuperadminLoginInput {
+  email: String!
+  password: String!
+}
+input SuperadminUsersInput {
+  page: Int! = 1
+  pageSize: Int! = 8
+  searchUsername: String
+  sort: SuperadminUserSort! = CREATED_AT_DESC
+}
+input SuperadminUserIdInput {
+  userId: ID!
+}
+input PageInput {
+  page: Int! = 1
+  pageSize: Int! = 8
+}
+type SuperadminLoginPayload {
+  authenticated: Boolean!
+}
+type SuperadminLogoutPayload {
+  loggedOut: Boolean!
+}
+type SuperadminUserListItem {
+  userId: ID!
+  username: String
+  profileUrl: String
+  createdAt: DateTime!
+  state: SuperadminUserState!
+  isEmailConfirmed: Boolean!
+}
+type SuperadminUsersPage {
+  items: [SuperadminUserListItem!]!
+  totalCount: Int!
+  pageInfo: PageInfo!
+}
+type SuperadminUser {
+  userId: ID!
+  username: String
+  avatarUrl: String
+  profileUrl: String
+  createdAt: DateTime!
+  state: SuperadminUserState!
+  isEmailConfirmed: Boolean!
+  payments(input: PageInput!): PaymentConnection
+}
+type SuperadminDeleteUserPayload {
+  userId: ID!
+  outcome: SuperadminDeleteOutcome!
+}
+type SuperadminBlockUserPayload {
+  userId: ID!
+  outcome: SuperadminBlockOutcome!
+}
+type SuperadminUnblockUserPayload {
+  userId: ID!
+  outcome: SuperadminUnblockOutcome!
+}
+type PageInfo {
+  page: Int!
+  pageSize: Int!
+  pagesCount: Int!
+  hasNextPage: Boolean!
+}
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+}
+enum PaymentBillingInterval {
+  WEEK
+  MONTH
+}
+enum PaymentKind {
+  PURCHASE
+  RENEWAL
+}
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+enum CheckoutPurpose {
+  INITIAL_SUBSCRIPTION
+  ADDITIONAL_SUBSCRIPTION
+}
+type PaymentHistoryItem {
+  transactionId: ID!
+  createdAt: DateTime!
+  paidAt: DateTime
+  amountMinor: Int!
+  currency: String!
+  productId: ID!
+  productName: String!
+  billingInterval: PaymentBillingInterval!
+  billingIntervalCount: Int!
+  provider: PaymentProvider!
+  kind: PaymentKind!
+  status: PaymentStatus!
+  checkoutPurpose: CheckoutPurpose
+  subscriptionId: ID
+  subscriptionEndsAt: DateTime
+}
+type PaymentConnection {
+  items: [PaymentHistoryItem!]!
+  totalCount: Int!
+  pageInfo: PageInfo!
+}
+type Query {
+  superadminSession: SuperadminSessionPayload!
+  superadminUsers(input: SuperadminUsersInput!): SuperadminUsersPage!
+  superadminUser(userId: ID!): SuperadminUser
+}
+type SuperadminSessionPayload {
+  authenticated: Boolean!
+}
+type Mutation {
+  superadminLogin(input: SuperadminLoginInput!): SuperadminLoginPayload!
+  superadminLogout: SuperadminLogoutPayload!
+  superadminDeleteUser(input: SuperadminUserIdInput!): SuperadminDeleteUserPayload!
+  superadminBlockUser(input: SuperadminUserIdInput!): SuperadminBlockUserPayload!
+  superadminUnblockUser(input: SuperadminUserIdInput!): SuperadminUnblockUserPayload!
+}
