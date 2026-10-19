@@ -1,36 +1,36 @@
-# Superadmin GraphQL API — контракт 1.1.0
+# Superadmin GraphQL API — контракт 1.2.0
 
-Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, soft delete SA-GQL-05 и Payments SA-GQL-06, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и будущую реализацию временных социальных вкладок карточки 8.
+Статус: целевой контракт **1.2.0**. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. Версия повышена с 1.1.0 до 1.2.0 из-за добавления followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 ## URL и текущая доступность
 
-Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`; target SDL целиком не загружается. Поле `SuperadminUser.payments` опубликовано; Followers/Following не опубликованы. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
-Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия `1.1.0`. Общий schema-first fragment: `common-type-defs.ts` рядом; DateTime и pagination DTO — `libs/common/src/graphql`. Target SDL валидируется тестом, runtime schema собирается отдельно из реализованных feature fragments.
+Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.2.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
 
 **SA-GQL-04A — подготовлена только внутренняя модель:** `User.isBanned` с default false и persistent `AdminUserActionAudit` в Gateway DB. `UserAccessStateQuery` различает ACTIVE/BLOCKED/DELETED и отсутствие записи (`null`), но не выполняет авторизацию; ACTIVE не отменяет email confirmation и другие проверки. State-read/audit writer экспортирует `UserStateAuditModule`, owner — Users+Sessions/security. Writer принимает согласованные action/outcome и явный живой tx существующего transaction manager для общей транзакции User/Sessions/audit в 4B/05; подробный API — в карточке 4 плана. В 4A enforcement отсутствовал; **SA-GQL-04B теперь подключает state/session checks к login, refresh, JWT REST и WS**. Каталог/основные детали реализованы в карточке 3 с использованием фактического isBanned; block/unblock реализованы в 4B, soft delete реализован в 5. Технический review и staging-проверка карточки 4 не заявлены завершёнными.
 
 ## Operations и статусы
 
-**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. **Реализовано — SA-GQL-06:** `SuperadminUser.payments`. Followers/Following остаются запланированными.
+**Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. **Реализовано — SA-GQL-06:** `SuperadminUser.payments`. **Реализовано — SA-GQL-08:** Followers/Following как временный hardcoded-zero API.
 
-| Operation                 | Input                                      | Output                                                        | Карточка                     |
-| ------------------------- | ------------------------------------------ | ------------------------------------------------------------- | ---------------------------- |
-| `superadminLogin`         | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                | **Реализовано — SA-GQL-02**  |
-| `superadminLogout`        | нет                                        | `{ loggedOut: Boolean! }`                                     | **Реализовано — SA-GQL-02**  |
-| `superadminSession`       | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`       | **Реализовано — SA-GQL-02**  |
-| `superadminUsers`         | `SuperadminUsersInput!`                    | items, totalCount, pageInfo                                   | **Реализовано — SA-GQL-03**  |
-| `superadminUser`          | `userId: ID!`                              | nullable SuperadminUser                                       | **Реализовано — SA-GQL-03**  |
-| `superadminBlockUser`     | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED  | **Реализовано — SA-GQL-04B** |
-| `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | **Реализовано — SA-GQL-04B** |
-| `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | **Реализовано — SA-GQL-05**  |
-| `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | **Реализовано — SA-GQL-06**  |
-| `SuperadminUser.followers` | `PageInput!` | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Запланировано — временная заглушка, карточка 8** |
-| `SuperadminUser.following` | `PageInput!` | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Запланировано — временная заглушка, карточка 8** |
+| Operation                  | Input                                      | Output                                                                | Карточка                                             |
+| -------------------------- | ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `superadminLogin`          | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                        | **Реализовано — SA-GQL-02**                          |
+| `superadminLogout`         | нет                                        | `{ loggedOut: Boolean! }`                                             | **Реализовано — SA-GQL-02**                          |
+| `superadminSession`        | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`               | **Реализовано — SA-GQL-02**                          |
+| `superadminUsers`          | `SuperadminUsersInput!`                    | items, totalCount, pageInfo                                           | **Реализовано — SA-GQL-03**                          |
+| `superadminUser`           | `userId: ID!`                              | nullable SuperadminUser                                               | **Реализовано — SA-GQL-03**                          |
+| `superadminBlockUser`      | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED          | **Реализовано — SA-GQL-04B**                         |
+| `superadminUnblockUser`    | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED         | **Реализовано — SA-GQL-04B**                         |
+| `superadminDeleteUser`     | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                         | **Реализовано — SA-GQL-05**                          |
+| `SuperadminUser.payments`  | `PageInput!`                               | nullable PaymentConnection                                            | **Реализовано — SA-GQL-06**                          |
+| `SuperadminUser.followers` | `PageInput!`                               | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
+| `SuperadminUser.following` | `PageInput!`                               | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
 
-Followers/Following **пока не опубликованы** в target/runtime SDL 1.1.0. Пользователь **19.10.2026 принял результат карточки 7** и согласовал временные hardcoded-zero вкладки для **карточки 8 SA-GQL-08**; [ADR с решением и доказательствами](docs/adr/SA_FOLLOW_DISCOVERY.md). Административные поля имеют статус **«Запланировано — временная заглушка, карточка 8»**, не «Реализовано». Отсутствие source и отложенные FOLLOW-PREP-01/02 больше не блокируют начало 8 после завершения и merge 7. UI сможет показывать 0 подписчиков / 0 подписок, но это не статистика реальных связей. Существующие публичные counters с нулями не меняются. Настоящая модель и follow/unfollow не входят в текущий объём. Приёмка **карточки 9** следует только после реализованной/принятой/merged 8 и проверяет согласованный временный объём. Только здесь разрешена заглушка: Payments и другие данные по-прежнему не могут маскировать сбой пустым списком.
+Followers/Following **реализованы как временный FOLLOW-ZERO-1** по решению пользователя от 19.10.2026; [ADR](docs/adr/SA_FOLLOW_DISCOVERY.md) сохраняет доказательства отсутствия пригодного source и отложенные предложения о настоящих связях. Оба поля всегда возвращают пустые items и нулевые metadata с page/pageSize из валидированного input. Это не чтение реальных отношений; публичные нулевые counters не изменены. FOLLOW-PREP-01/02 остаются отложенными. Приёмка карточки 9 начинается после технической приёмки/merge 8; только здесь разрешены постоянные нулевые ответы, не маскирующие ошибки Payments/других данных.
 
 Реализованная операция (**SA-GQL-02**):
 
@@ -44,10 +44,9 @@ query CurrentSuperadminSession {
 
 При действующей session: `{"data":{"superadminSession":{"authenticated":true}}}`. Без действующей session: `{"data":null,"errors":[{"message":"Authentication required","path":["superadminSession"],"extensions":{"code":"UNAUTHENTICATED"}}]}`. Frontend использует query для проверки текущей admin session: `UNAUTHENTICATED` означает необходимость входа. Сетевой сбой, timeout, `UPSTREAM_UNAVAILABLE` и другие технические ошибки не следует автоматически трактовать как отсутствие session. Auth flow проверяется автоматизированно с изолированной PostgreSQL; неизвестное реальное browser deployment этими проверками не подтверждается.
 
+## Followers/Following — реализован временный FOLLOW-ZERO-1 (SA-GQL-08)
 
-## Followers/Following — запланировано, временная заглушка (карточка 8)
-
-Это **документированный временный контракт FOLLOW-ZERO-1**, ещё не опубликованный API. Target/runtime SDL 1.1.0 сейчас не менялись; реализованные schema fragments появятся только с resolvers/tests карточки 8. Прежний candidate 0.1 с followedAt/profile/privacy оставлен в ADR как отложенное предложение для настоящих связей и **не применяется к текущей 8**.
+Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в runtime и target **1.2.0** отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
 
 ```graphql
 extend type SuperadminUser {
@@ -66,7 +65,7 @@ type SuperadminFollowItem {
 
 Общие PageInput/PageInfo уже существуют: `input:{}` → page=1/pageSize=8; page 1..10000, pageSize 1..50. Item object имеет лишь минимальный структурный ID (GraphQL требует непустой object type); он **никогда не создаётся** на этом этапе, а userId не означает утверждение колонки UI. Нет username/profileUrl/followedAt, поиска/сортировок/privacy-функций и дополнительных counters в этих connections. Будущий настоящий item-контракт потребует отдельного решения.
 
-Ожидаемое поведение **после реализации 8**, одинаковое для followers и following:
+Фактическое поведение, одинаковое для followers и following:
 
 - Любой валидный input возвращает items=[], totalCount=0, pagesCount=0, hasNextPage=false; page/pageSize берутся из валидированного input/defaults. Например, page=10000/pageSize=50 возвращает нули и именно page=10000/pageSize=50. Это намеренные hardcoded значения, а не результат чтения source и не доказательство отсутствия внешних реальных связей.
 - Невалидные page/pageSize, required-null или неверный тип → BAD_USER_INPUT, не успешный нулевой результат. Общие body/depth/complexity budgets сохраняются независимо от пустых списков.
@@ -75,26 +74,40 @@ type SuperadminFollowItem {
 - Нет social DB, RPC или внешнего сервиса. Существующие auth/session/parent DB reads и auth touch сохраняются. Ошибки admin/validation и неожиданные ошибки не скрываются за константным успешным ответом.
 - Connections nullable для field errors; unexpected failure → безопасный INTERNAL_SERVER_ERROR с path/alias, без внутренних данных. Внутри успешной connection items/metadata non-null.
 
-Пример **будущего** запроса, сейчас не исполняется:
+Реализованный запрос с обеими вкладками:
 
 ```graphql
 query SocialTabs($userId: ID!, $input: PageInput!) {
   superadminUser(userId: $userId) {
     followers(input: $input) {
-      items { userId }
+      items {
+        userId
+      }
       totalCount
-      pageInfo { page pageSize pagesCount hasNextPage }
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
     }
     following(input: $input) {
-      items { userId }
+      items {
+        userId
+      }
       totalCount
-      pageInfo { page pageSize pagesCount hasNextPage }
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
     }
   }
 }
 ```
 
-userId — UUID выбранного существующего пользователя, input={} либо заданная допустимая страница. **Ожидаемый результат каждой connection** при input={page:2,pageSize:8}, без вымышленных строк:
+Variables: `{"userId":"00000000-0000-4000-8000-000000000001","input":{"page":2,"pageSize":8}}` — синтетический ID для примера, заменить UUID выбранного fixture. Defaults: `"input":{}`. Результат каждой connection, без вымышленных строк:
 
 ```json
 {
@@ -104,6 +117,62 @@ userId — UUID выбранного существующего пользова
 }
 ```
 
+### Aliases: независимые страницы
+
+```graphql
+query SocialPages($userId: ID!) {
+  superadminUser(userId: $userId) {
+    incoming: followers(input: { page: 1, pageSize: 8 }) {
+      items {
+        userId
+      }
+      totalCount
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
+    }
+    outgoing: following(input: { page: 10000, pageSize: 50 }) {
+      items {
+        userId
+      }
+      totalCount
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
+    }
+  }
+}
+```
+
+Variables: `{"userId":"00000000-0000-4000-8000-000000000001"}` (синтетический пример). Для существующего parent результат:
+
+```json
+{
+  "data": {
+    "superadminUser": {
+      "incoming": {
+        "items": [],
+        "totalCount": 0,
+        "pageInfo": { "page": 1, "pageSize": 8, "pagesCount": 0, "hasNextPage": false }
+      },
+      "outgoing": {
+        "items": [],
+        "totalCount": 0,
+        "pageInfo": { "page": 10000, "pageSize": 50, "pagesCount": 0, "hasNextPage": false }
+      }
+    }
+  }
+}
+```
+
+Aliases одного направления тоже независимы; request cache отсутствует. Приложение не предписывает текст UI: техническое ограничение описано здесь, а выбор текста остаётся frontend.
+
 В UI нули разрешены как явно временное ограничение. Настоящие directed relationships, хранение/активность/колонки/privacy/follow-unfollow и FOLLOW-PREP-01/02 **отложены**, не блокируют текущие 8/9 и не считаются реализованными. Публичный profileUrl карточки 3, реальные admin origins, staging/two-pod и production-политики delete/active paid auto-renew по-прежнему открыты. Решение пользователя не означает отдельного Architecture/Security/Frontend sign-off.
 
 ## Типы и nullable-поля
@@ -112,7 +181,7 @@ userId — UUID выбранного существующего пользова
 
 List/detail: `userId`, `createdAt`, `state`, `isEmailConfirmed` non-null. `username`, `profileUrl`, `avatarUrl` nullable: Profile optional в текущей Prisma model. Detail без Profile возвращает null этих полей. Отсутствующий/deleted User — null detail. Public profile route не подтверждён, URL не выдумывать; дата создания берётся из User.
 
-Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; опубликован согласованный API-контракт 1.1.0, Stripe lifecycle не меняется.
+Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; поля Payments сохраняются в API-контракте 1.2.0, Stripe lifecycle не меняется.
 
 ## Pagination, search, sort (реализовано — SA-GQL-03)
 
@@ -271,7 +340,7 @@ Enums: `PaymentProvider` STRIPE/PAYPAL; `PaymentBillingInterval` WEEK/MONTH; `Pa
 
 Рабочий Gateway soft-delete use case проверен с настоящими Payment transactions/subscriptions: записи не меняются, существующий RPC продолжает читать историю, но admin parent после удаления null и вложенный Payments RPC не вызывается. Revoke relay/broker/Stripe в этом новом history-тесте не запускаются; их прежние проверки не подменяются этой проверкой. Отмена подписки/refund/auto-renew не реализуются. Public data/delete policies, profileUrl, реальные admin origins и staging/two-pod остаются открытыми; human review/production-приёмка не заявляются.
 
-Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-payments.integration-spec.ts apps/main-gateway-service/test/unit/superadmin-payment-history.mapper.spec.ts`. Unit mapper/config tests — отдельные тесты без БД/транспорта, не интеграционные доказательства. Итог SA-GQL-06: 27 HTTP/gRPC/DB integration + 32 unit проверки; общий регрессионный прогон **178/178 в 14 suites**, дополнительно stripe-checkout-status **2/2**. Команда регрессии: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --testPathPatterns='superadmin|jwt-token-type|payment-history-extension|notifications-websocket.gateway|notification-live-event.consumer|notifications.controller|available-payment-products' --noStackTrace`. Gateway build, source/test typecheck, scoped ESLint/Prettier и git diff --check прошли. Версия target SDL остаётся **1.1.0**: реализовано ранее согласованное поле. Следующая карточка после технического merge — **7 SA-FOLLOW-DISCOVERY**.
+Запуск: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-payments.integration-spec.ts apps/main-gateway-service/test/unit/superadmin-payment-history.mapper.spec.ts`. Unit mapper/config tests — отдельные тесты без БД/транспорта, не интеграционные доказательства. Итог SA-GQL-06: 27 HTTP/gRPC/DB integration + 32 unit проверки; общий регрессионный прогон **178/178 в 14 suites**, дополнительно stripe-checkout-status **2/2**. Команда регрессии: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --testPathPatterns='superadmin|jwt-token-type|payment-history-extension|notifications-websocket.gateway|notification-live-event.consumer|notifications.controller|available-payment-products' --noStackTrace`. Gateway build, source/test typecheck, scoped ESLint/Prettier и git diff --check прошли. На этапе SA-GQL-06 target сохранялся 1.1.0; актуальная версия после SA-GQL-08 — **1.2.0**. Следующая карточка после технического merge — **7 SA-FOLLOW-DISCOVERY**.
 
 ## Soft delete (реализовано — SA-GQL-05)
 
@@ -284,7 +353,7 @@ mutation DeleteUser($input: SuperadminUserIdInput!) {
 }
 ```
 
-Variables: `{"input":{"userId":"00000000-0000-4000-8000-000000000001"}}` (синтетический ID). Ответ: `{"data":{"superadminDeleteUser":{"userId":"00000000-0000-4000-8000-000000000001","outcome":"DELETED"}}}`. Версия контракта остаётся **1.1.0**: реализовано ранее согласованное поле. Runtime fragment — `moderation-type-defs.ts`, без подключения полного target SDL или Payments/social.
+Variables: `{"input":{"userId":"00000000-0000-4000-8000-000000000001"}}` (синтетический ID). Ответ: `{"data":{"superadminDeleteUser":{"userId":"00000000-0000-4000-8000-000000000001","outcome":"DELETED"}}}`. На этапе SA-GQL-05 версия сохранялась 1.1.0; актуальная версия после SA-GQL-08 — **1.2.0**. Runtime fragment этой mutation — `moderation-type-defs.ts`; полный target не загружается. Payments и FOLLOW-ZERO-1 подключены отдельными реализованными fragments.
 
 | Состояние          | Delete outcome  |
 | ------------------ | --------------- |
@@ -512,7 +581,13 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 
 Историческая проверка дополнения 1.1.0 в SA-GQL-01: полный SDL через `buildSchema`/`assertValidSchema`, тип `SuperadminSessionPayload` и пример query через `validate`; две проверки target contract и disabled runtime. На том этапе endpoint был отключён; это не текущий статус SA-GQL-02.
 
-## Приёмочные проверки SA-GQL-03
+## Приёмочные проверки SA-GQL-08
+
+Набор `superadmin-users.integration-spec.ts` расширен в существующем изолированном PostgreSQL/GraphQL HTTP fixture, без новой инфраструктуры. Production admin verifier/guard/nested enhancers и parent queries настоящие; управляемые часы и test Origin/config из прежнего helper. Новые сценарии проверяют обе connections, точный target/runtime тип и версию, defaults/bounds/out-of-range, aliases/fragments/parents, missing/deleted/profileless/blocked parent, root/nested denial, Origin/CORS/budget, отсутствие изменений User/Profile/Sessions/audit/revoke outbox кроме штатного AdminSession touch. Pure application component не имеет source dependencies; наблюдается ровно один joined parent SQL, Payment RPC не вызывается. Fault injection только проверяет безопасную ошибку nullable поля; это не тест реального social source, которого не создавали.
+
+Команда scoped-регрессии: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --testPathPatterns='superadmin|jwt-token-type|payment-history-extension|notifications-websocket.gateway|notification-live-event.consumer|notifications.controller|available-payment-products|stripe-checkout-status' --noStackTrace`. Результат: остальные 14 регрессионных suites — 165/165 успешно; в catalogue suite после уточнения теста динамического pageSize budget — **41/41** (26 новых FOLLOW-ZERO-1 сценариев + 15 прежних). Общий первый запуск выявил только ошибку ожидания кода в тесте статического budget; production formatter не менялся. Финальный целевой прогон: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts --noStackTrace`. Gateway build, source/test typecheck, scoped ESLint/Prettier, runtime/target schema validation и diff-check прошли. Следующий этап после технического merge — **карточка 9, приёмка согласованного объёма**, не реализация настоящих связей.
+
+## Приёмочные проверки SA-GQL-03 (исторический результат до SA-GQL-08)
 
 `apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts`: 15 HTTP/DB проверок на отдельном disposable PostgreSQL 16 через production resolvers, queries и repository; замены — только конфигурация и управляемые часы. Проверены поиск/спецсимволы, четыре сортировки, pagination, nullable Profile, реальные состояния, UUID, admin guard, безопасные DB failures и точный набор runtime полей. SQL spy только наблюдает реальные обращения: одна joined выборка на страницу при 1 и 8 пользователях, одна на detail; User/Profile/Sessions/audit при чтении не меняются. Snapshot проверен вторым Prisma connection и управляемым advisory-lock barrier через test-only view/function; production запрос не содержит test hooks. Production/shared DB и реальные аккаунты не используются.
 

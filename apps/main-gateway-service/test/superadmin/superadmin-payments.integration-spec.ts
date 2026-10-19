@@ -622,7 +622,7 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     ).toBe('UNAUTHENTICATED');
   });
 
-  it('publishes Payments but no social fields, keeps query budget and Origin protection', async () => {
+  it('publishes Payments and FOLLOW-ZERO-1 only, keeps query budget and Origin protection', async () => {
     const schema = app.get(GraphQLSchemaHost).schema;
     const target = buildSchema(
       readFileSync(
@@ -640,13 +640,16 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
       'CheckoutPurpose',
       'PageInput',
       'PageInfo',
+      'SuperadminFollowItem',
+      'SuperadminFollowConnection',
     ]) {
       expect(printType(schema.getType(name)!)).toBe(printType(target.getType(name)!));
     }
     expect(String(schema.getType('SuperadminUser'))).toBe('SuperadminUser');
     expect(schema.getType('PaymentConnection')).toBeDefined();
-    expect(schema.getType('Followers')).toBeUndefined();
-    expect(schema.getType('Following')).toBeUndefined();
+    expect(printType(schema.getType('SuperadminUser')!)).toBe(
+      printType(target.getType('SuperadminUser')!),
+    );
     const spy = jest.spyOn(history, 'execute');
     expect((await post({ origin: 'https://untrusted.example.test' })).status).toBe(403);
     const response = await post({ variables: { id: userId, input: { pageSize: 50 } } });
