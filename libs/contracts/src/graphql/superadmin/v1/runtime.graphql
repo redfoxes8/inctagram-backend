@@ -1,0 +1,196 @@
+enum CheckoutPurpose {
+  ADDITIONAL_SUBSCRIPTION
+  INITIAL_SUBSCRIPTION
+}
+
+"""
+ISO-8601 UTC timestamp
+"""
+scalar DateTime
+
+type Mutation {
+  superadminBlockUser(input: SuperadminUserIdInput!): SuperadminBlockUserPayload!
+  superadminDeleteUser(input: SuperadminUserIdInput!): SuperadminDeleteUserPayload!
+  superadminLogin(input: SuperadminLoginInput!): SuperadminLoginPayload!
+  superadminLogout: SuperadminLogoutPayload!
+  superadminUnblockUser(input: SuperadminUserIdInput!): SuperadminUnblockUserPayload!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  page: Int!
+  pageSize: Int!
+  pagesCount: Int!
+}
+
+input PageInput {
+  page: Int! = 1
+  pageSize: Int! = 8
+}
+
+enum PaymentBillingInterval {
+  MONTH
+  WEEK
+}
+
+type PaymentConnection {
+  items: [PaymentHistoryItem!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PaymentHistoryItem {
+  amountMinor: Int!
+  billingInterval: PaymentBillingInterval!
+  billingIntervalCount: Int!
+  checkoutPurpose: CheckoutPurpose
+  createdAt: DateTime!
+  currency: String!
+  kind: PaymentKind!
+  paidAt: DateTime
+  productId: ID!
+  productName: String!
+  provider: PaymentProvider!
+  status: PaymentStatus!
+  subscriptionEndsAt: DateTime
+  subscriptionId: ID
+  transactionId: ID!
+}
+
+enum PaymentKind {
+  PURCHASE
+  RENEWAL
+}
+
+enum PaymentProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum PaymentStatus {
+  FAILED
+  PARTIALLY_REFUNDED
+  PENDING
+  PROCESSING
+  REFUNDED
+  SUCCEEDED
+}
+
+type Query {
+  superadminSession: SuperadminSessionPayload!
+  superadminUser(userId: ID!): SuperadminUser
+  superadminUsers(input: SuperadminUsersInput!): SuperadminUsersPage!
+}
+
+enum SuperadminBlockOutcome {
+  ALREADY_BLOCKED
+  BLOCKED
+  NOT_FOUND
+  USER_DELETED
+}
+
+type SuperadminBlockUserPayload {
+  outcome: SuperadminBlockOutcome!
+  userId: ID!
+}
+
+enum SuperadminDeleteOutcome {
+  ALREADY_DELETED
+  DELETED
+  NOT_FOUND
+}
+
+type SuperadminDeleteUserPayload {
+  outcome: SuperadminDeleteOutcome!
+  userId: ID!
+}
+
+type SuperadminFollowConnection {
+  items: [SuperadminFollowItem!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SuperadminFollowItem {
+  userId: ID!
+}
+
+input SuperadminLoginInput {
+  email: String!
+  password: String!
+}
+
+type SuperadminLoginPayload {
+  authenticated: Boolean!
+}
+
+type SuperadminLogoutPayload {
+  loggedOut: Boolean!
+}
+
+type SuperadminSessionPayload {
+  authenticated: Boolean!
+}
+
+enum SuperadminUnblockOutcome {
+  ALREADY_ACTIVE
+  NOT_FOUND
+  UNBLOCKED
+  USER_DELETED
+}
+
+type SuperadminUnblockUserPayload {
+  outcome: SuperadminUnblockOutcome!
+  userId: ID!
+}
+
+type SuperadminUser {
+  avatarUrl: String
+  createdAt: DateTime!
+  followers(input: PageInput!): SuperadminFollowConnection
+  following(input: PageInput!): SuperadminFollowConnection
+  isEmailConfirmed: Boolean!
+  payments(input: PageInput!): PaymentConnection
+  profileUrl: String
+  state: SuperadminUserState!
+  userId: ID!
+  username: String
+}
+
+input SuperadminUserIdInput {
+  userId: ID!
+}
+
+type SuperadminUserListItem {
+  createdAt: DateTime!
+  isEmailConfirmed: Boolean!
+  profileUrl: String
+  state: SuperadminUserState!
+  userId: ID!
+  username: String
+}
+
+enum SuperadminUserSort {
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  USERNAME_ASC
+  USERNAME_DESC
+}
+
+enum SuperadminUserState {
+  ACTIVE
+  BLOCKED
+}
+
+input SuperadminUsersInput {
+  page: Int! = 1
+  pageSize: Int! = 8
+  searchUsername: String
+  sort: SuperadminUserSort! = CREATED_AT_DESC
+}
+
+type SuperadminUsersPage {
+  items: [SuperadminUserListItem!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}

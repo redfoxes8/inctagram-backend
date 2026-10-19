@@ -271,6 +271,8 @@ await transactionManager.execute(async (transaction) => {
 
 ### 9. SA-GQL-09 — Сквозная приёмка и итоговая документация для фронтенда
 
+**Фактический результат SA-GQL-09, 19.10.2026:** [отчёт технической проверки](SA_GQL_09_ACCEPTANCE.md) содержит coverage/команды/результаты и границы доказательств. Проверены существующие компонентные suites и добавлен один связный HTTP journey с production superadmin feature modules, обычным login/защищённым REST и настоящим Payment history gRPC/БД; PostgreSQL/RabbitMQ и два локальных Gateway, не staging. Добавлена проверка штатного deploy всей новой цепочки migrations поверх явно SQL-applied/resolved legacy baseline, экспорт [runtime SDL 1.2.0](libs/contracts/src/graphql/superadmin/v1/runtime.graphql) сверяется с executable Nest schema; FE examples проходят schema validation. Production-код не менялся; уточнены тестовые fixtures. Открытые AC Profile link, browser/deployment/product/security вопросы и две baseline ошибки полного test typecheck сохранены в отчёте. Пользовательская/production-приёмка не объявляется; девять карточек, маршрут и FOLLOW-ZERO-1 не изменены.
+
 **Результат:** проверенный реализованный объём 1–8 и окончательная сверка существующего GRAPHQL_SUPERADMIN_FRONTEND_API.md. Followers/Following принимаются **только как согласованное временное hardcoded-zero ограничение**, не как законченная настоящая социальная подсистема.
 
 **SOW:** cross-card security/schema/contract tests, UC matrix, disposable fixture runbook, URL/auth/operations/variables/nullability/page/search/sort/errors/examples/list refresh по фактической schema; для 8 — пустые items/нулевые metadata и отсутствие social I/O. **Out:** FE, production deploy, реальные account deletion, source/follow-unfollow и отложенные PREP. **Владелец/файлы:** Gateway integration, test/superadmin и существующий FE guide через integrator 01. **Вход/выход:** реализованные контракты 1–8, включая FOLLOW-ZERO-1 → проверенные примеры/отчёт о текущем объёме и открытых AC. **Зависимости:** начало только после завершения, приёмки и merge 8; отсутствие настоящего source и отложенные PREP-01/02 не блокируют 9. Переход к 9 вместо ещё не реализованной/непринятой 8 по-прежнему недопустим. **AC:** общие проверки проходят; временные нули явно не представлены реальными данными; planned/implemented соответствует runtime; подтверждение delete проверяется только disposable fixture по согласованной процедуре; обязательные текущие AC и product/security/environment вопросы не объявляются закрытыми без доказательств. **DoD:** runtime/target/реализованные дополнения/tests/docs согласованы, примеры безопасны и проверены, feature statuses приняты integrator. **Ошибки/риски:** отсутствие реализации 8 или другая незакрытая обязательная проверка блокирует приёмку; будущие реальные social требования отдельно от текущего ограниченного объёма.
@@ -279,15 +281,15 @@ await transactionManager.execute(async (transaction) => {
 
 | ТЗ/проверка | Карточки | Статус |
 |---|---|---|
-| UC-1 / login/logout/admin-only | SA-GQL-01, SA-GQL-02, SA-GQL-09 | planned; login purpose/rotation open |
-| UC-2 list, 8 latest, actions | SA-GQL-01, SA-GQL-03, SA-GQL-04 (4A/4B), SA-GQL-05, SA-GQL-09 | catalogue waits 4A; URL nullable pending route |
-| UC-3 confirmed delete/disposable | SA-GQL-05, SA-GQL-09 | UI confirmation FE; backend after 4B and 03 |
-| UC-4/5 search/sort/page | SA-GQL-03, SA-GQL-09 | proposal compatible with model |
-| UC-6 base/Payments | SA-GQL-03, SA-GQL-06, SA-GQL-09 | reuse selected; 06 after 05 |
-| UC-6 Followers/Following | SA-FOLLOW-DISCOVERY, SA-GQL-08, SA-GQL-09 | 7: исследование принято пользователем 19.10.2026; 8: hardcoded-zero реализован, технический review/merge pending; 9 проверяет временное ограничение, не настоящие связи |
-| no admin/ordinary token; nested guard | SA-GQL-01, SA-GQL-02, SA-GQL-09 | mandatory |
-| old token revoked/block/delete; unblock new login | SA-GQL-04 (4B), SA-GQL-05, SA-GQL-09 | mandatory; two-gateway WS prerequisite |
-| repeat/concurrency/upstream/validation | SA-GQL-03–06, SA-GQL-09 | mandatory |
+| UC-1 / login/logout/admin-only | SA-GQL-01, SA-GQL-02, SA-GQL-09 | HTTP/DB проверены; FE redirect не проверен, login purpose/rotation open |
+| UC-2 list, 8 latest, actions | SA-GQL-01, SA-GQL-03, SA-GQL-04 (4A/4B), SA-GQL-05, SA-GQL-09 | HTTP/DB проверены; URL nullable pending route |
+| UC-3 confirmed delete/disposable | SA-GQL-05, SA-GQL-09 | рабочий soft delete/access/audit/outbox проверены изолированно; UI confirmation — FE, ручная проверка не заявлена |
+| UC-4/5 search/sort/page | SA-GQL-03, SA-GQL-09 | DB/HTTP literal search, 4 sort, snapshot/count и bounds проверены |
+| UC-6 base/Payments | SA-GQL-03, SA-GQL-06, SA-GQL-09 | actual Payment controller/handler/repository + DB/gRPC проверены; не Stripe lifecycle |
+| UC-6 Followers/Following | SA-FOLLOW-DISCOVERY, SA-GQL-08, SA-GQL-09 | 7/8 merged в базе a7acfbe; FOLLOW-ZERO-1 проверен, настоящие связи не реализованы |
+| no admin/ordinary token; nested guard | SA-GQL-01, SA-GQL-02, SA-GQL-09 | HTTP root/nested/aliases/fragments проверены |
+| old token revoked/block/delete; unblock new login | SA-GQL-04 (4B), SA-GQL-05, SA-GQL-09 | PG/RabbitMQ/2 local Gateway проверены; staging/two-pod открыт |
+| repeat/concurrency/upstream/validation | SA-GQL-03–06, SA-GQL-09 | компонентные suites + связный сценарий, результаты/ограничения — SA_GQL_09_ACCEPTANCE.md |
 
 | Открытый вопрос | Ответственный | Блокирует |
 |---|---|---|

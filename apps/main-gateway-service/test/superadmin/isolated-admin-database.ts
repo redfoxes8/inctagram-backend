@@ -17,6 +17,7 @@ export class IsolatedAdminDatabase {
     input: {
       beforeMigration?: (input: { name: string; database: IsolatedAdminDatabase }) => void;
       deployLastWithPrisma?: boolean;
+      deployFromMigration?: string;
     } = {},
   ): Promise<void> {
     execFileSync(
@@ -67,13 +68,19 @@ export class IsolatedAdminDatabase {
         );
       }
       input.beforeMigration?.({ name, database: this });
+      if (input.deployFromMigration === name) {
+        // The older history was applied/baselined explicitly. Deploy the entire new chain.
+        this.prismaMigration(['deploy']);
+        break;
+      }
       if (input.deployLastWithPrisma && name === names.at(-1)) {
         this.prismaMigration(['deploy']);
       } else {
         this.sql(readFileSync(join(migrations, name, 'migration.sql'), 'utf8'));
         // Baseline the existing fixture schema through the official CLI, then deploy ONLY
         // the new migration through migrate deploy. Never consume application DB URLs.
-        if (input.deployLastWithPrisma) this.prismaMigration(['resolve', '--applied', name]);
+        if (input.deployLastWithPrisma || input.deployFromMigration)
+          this.prismaMigration(['resolve', '--applied', name]);
       }
     }
   }
