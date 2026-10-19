@@ -5,6 +5,9 @@ import { GraphQLSchemaHost } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
 import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { buildSchema, isObjectType, printType } from 'graphql';
 import request from 'supertest';
 import { IsolatedAdminDatabase } from './isolated-admin-database';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
@@ -23,6 +26,11 @@ import { hashAdminToken } from '../../src/modules/superadmin/application/admin-t
 import { SUPERADMIN_RUNTIME_TYPE_DEFS } from '../../../../libs/contracts/src/graphql/superadmin/v1/runtime-type-defs';
 import { appSetup } from '../../../../libs/common/src/setup/app-setup';
 import { setupSuperadminHttp } from '../../src/modules/superadmin/api/superadmin-http-security';
+import { SuperadminFollowZeroResolver } from '../../src/modules/superadmin/api/superadmin-follow-zero.resolver';
+import { GetSuperadminUserQuery } from '../../src/modules/users/application/queries/get-superadmin-user.query';
+import { PaymentGrpcClient } from '../../src/modules/payments/infrastructure/payment-grpc.client';
+import { SUPERADMIN_CONTRACT_VERSION } from '../../../../libs/contracts/src/graphql/superadmin/v1/common-type-defs';
+import * as followZero from '../../src/modules/superadmin/application/get-temporary-follow-zero';
 
 const ORIGIN = 'https://catalogue.example.test';
 const PATH = '/api/v1/graphql';
@@ -37,6 +45,14 @@ const LIST = `query($input: SuperadminUsersInput!) {
 const DETAIL = `query($userId: ID!) { superadminUser(userId: $userId) {
   userId username avatarUrl profileUrl createdAt state isEmailConfirmed
 } }`;
+const FOLLOW_ZERO = `query($userId: ID!, $input: PageInput!) {
+  superadminUser(userId: $userId) {
+    followers(input:$input) { ...Zero }
+    following(input:$input) { ...Zero }
+  }
+} fragment Zero on SuperadminFollowConnection {
+  items { userId } totalCount pageInfo { page pageSize pagesCount hasNextPage }
+}`;
 
 @Module({
   imports: [
@@ -384,7 +400,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     ).toBe('UNAUTHENTICATED');
   });
 
-  it('publishes only auth/catalogue fields and keeps secrets out of outputs', async () => {
+  it('publishes implemented fields only, including FOLLOW-ZERO-1, and keeps secrets out', async () => {
     const schema = app.get(GraphQLSchemaHost).schema;
     expect(Object.keys(schema.getQueryType()!.getFields()).sort()).toEqual([
       'superadminSession',
@@ -406,6 +422,8 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     expect(type && 'getFields' in type && Object.keys(type.getFields()).sort()).toEqual([
       'avatarUrl',
       'createdAt',
+      'followers',
+      'following',
       'isEmailConfirmed',
       'payments',
       'profileUrl',
@@ -417,6 +435,290 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     expect(JSON.stringify((await post({})).body)).not.toMatch(
       /passwordHash|never-return|@fixture|tokenHash|revokedAt/,
     );
+  });
+
+  describe('SA-GQL-08 temporary FOLLOW-ZERO-1 over actual GraphQL HTTP/admin verifier', () => {
+    function empty(input: { page: number; pageSize: number }): object {
+      return {
+        items: [],
+        totalCount: 0,
+        pageInfo: { ...input, pagesCount: 0, hasNextPage: false },
+      };
+    }
+
+    it('matches target 1.2.0 exactly, only userId item and no new root operations', () => {
+      expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.2.0');
+      const schema = app.get(GraphQLSchemaHost).schema;
+      const target = buildSchema(
+        readFileSync(
+          join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/target.graphql'),
+          'utf8',
+        ),
+      );
+      for (const name of [
+        'SuperadminFollowItem',
+        'SuperadminFollowConnection',
+        'PageInput',
+        'PageInfo',
+      ]) {
+        expect(printType(schema.getType(name)!)).toBe(printType(target.getType(name)!));
+      }
+      const user = schema.getType('SuperadminUser');
+      const item = schema.getType('SuperadminFollowItem');
+      if (!isObjectType(user) || !isObjectType(item)) throw new Error('Missing follow types');
+      expect(Object.keys(item.getFields())).toEqual(['userId']);
+      expect(String(item.getFields().userId.type)).toBe('ID!');
+      for (const field of ['followers', 'following']) {
+        expect(String(user.getFields()[field].type)).toBe('SuperadminFollowConnection');
+        expect(
+          user.getFields()[field].args.map((argument) => [argument.name, String(argument.type)]),
+        ).toEqual([['input', 'PageInput!']]);
+      }
+      expect(
+        Object.keys(schema.getMutationType()!.getFields()).some((name) => /follow/i.test(name)),
+      ).toBe(false);
+    });
+
+    it.each([
+      {},
+      { page: 1, pageSize: 1 },
+      { page: 2, pageSize: 8 },
+      { page: 10000, pageSize: 50 },
+    ])('returns both zero connections for valid input %j, without mutation CSRF', async (input) => {
+      const userId = await fixture({ banned: true }); // Existing detail rules: blocked/unconfirmed/profileless parent is readable by admin.
+      const response = await post({ query: FOLLOW_ZERO, variables: { userId, input } });
+      expect(response.body.errors).toBeUndefined();
+      const expected = empty({ page: input.page ?? 1, pageSize: input.pageSize ?? 8 });
+      expect(response.body.data.superadminUser).toEqual({
+        followers: expected,
+        following: expected,
+      });
+    });
+
+    it.each([
+      { page: 0 },
+      { page: -1 },
+      { page: 10001 },
+      { pageSize: 0 },
+      { pageSize: 51 },
+      { page: 1.5 },
+      { pageSize: '8' },
+      { page: null },
+    ])('rejects invalid input %j as BAD_USER_INPUT before temporary component', async (input) => {
+      const userId = await fixture();
+      const spy = jest.spyOn(followZero, 'getTemporaryFollowZero');
+      const response = await post({ query: FOLLOW_ZERO, variables: { userId, input } });
+      expect(response.body.errors[0].extensions.code).toBe('BAD_USER_INPUT');
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('requires PageInput, rejecting null or omitted required arguments', async () => {
+      const userId = await fixture();
+      const response = await post({ query: FOLLOW_ZERO, variables: { userId, input: null } });
+      expect(response.body.errors[0].extensions.code).toBe('BAD_USER_INPUT');
+      const missing = await post({
+        query: 'query($userId:ID!){superadminUser(userId:$userId){followers{totalCount}}}',
+        variables: { userId },
+      });
+      expect(missing.body.errors).toBeDefined(); // GraphQL validation rejects absent required argument before resolvers.
+    });
+
+    it('keeps independent pageInfo for aliases, fragments, both directions and different parents', async () => {
+      const one = await fixture();
+      const two = await fixture({ username: 'second-parent' });
+      const response = await post({
+        query: `query($one:ID!,$two:ID!){
+        one:superadminUser(userId:$one){ ...Tabs }
+        two:superadminUser(userId:$two){ later:followers(input:{page:9,pageSize:1}){...Zero} }
+      } fragment Tabs on SuperadminUser {
+        first:followers(input:{page:1,pageSize:8}){...Zero}
+        second:followers(input:{page:2,pageSize:3}){...Zero}
+        outgoing:following(input:{page:10000,pageSize:50}){...Zero}
+      } fragment Zero on SuperadminFollowConnection {items{userId} totalCount pageInfo{page pageSize pagesCount hasNextPage}}`,
+        variables: { one, two },
+      });
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data).toEqual({
+        one: {
+          first: empty({ page: 1, pageSize: 8 }),
+          second: empty({ page: 2, pageSize: 3 }),
+          outgoing: empty({ page: 10000, pageSize: 50 }),
+        },
+        two: { later: empty({ page: 9, pageSize: 1 }) },
+      });
+    });
+
+    it.each(['missing', 'user-jwt', 'idle-expired', 'absolute-expired', 'revoked'])(
+      'denies %s session for both fields',
+      async (mode) => {
+        const userId = await fixture();
+        if (mode === 'idle-expired')
+          await prisma.adminSession.updateMany({
+            data: {
+              createdAt: new Date(NOW - ADMIN_IDLE_MS),
+              lastSeenAt: new Date(NOW - ADMIN_IDLE_MS),
+              idleExpiresAt: new Date(NOW),
+            },
+          });
+        if (mode === 'absolute-expired')
+          await prisma.adminSession.updateMany({
+            data: {
+              createdAt: new Date(NOW - ADMIN_ABSOLUTE_MS),
+              lastSeenAt: new Date(NOW - 60000),
+              idleExpiresAt: new Date(NOW),
+              absoluteExpiresAt: new Date(NOW),
+            },
+          });
+        if (mode === 'revoked')
+          await prisma.adminSession.updateMany({ data: { revokedAt: new Date(NOW) } });
+        const spy = jest.spyOn(followZero, 'getTemporaryFollowZero');
+        const jwt = new JwtService({ secret: 'isolated-user-fixture-only' }).sign({
+          userId,
+          deviceId: randomUUID(),
+          tokenType: 'ACCESS',
+        });
+        const response = await post({
+          query: FOLLOW_ZERO,
+          variables: { userId, input: {} },
+          cookie:
+            mode === 'missing' || mode === 'user-jwt'
+              ? 'refreshToken=ordinary-user-token'
+              : undefined,
+        }).set('Authorization', `Bearer ${jwt}`);
+        expect(response.body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+        expect(spy).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['followers', 'following'])(
+      'rechecks nested %s after parent, with no public exception or fragment bypass',
+      async (field) => {
+        const userId = await fixture();
+        const query = app.get(GetSuperadminUserQuery);
+        const execute = query.execute.bind(query);
+        jest.spyOn(query, 'execute').mockImplementation(async (input) => {
+          const user = await execute(input);
+          await prisma.adminSession.updateMany({ data: { revokedAt: new Date(NOW) } });
+          return user;
+        });
+        const spy = jest.spyOn(followZero, 'getTemporaryFollowZero');
+        const response = await post({
+          query: `query($userId:ID!){parent:superadminUser(userId:$userId){userId ...Tab}} fragment Tab on SuperadminUser{tab:${field}(input:{}){totalCount}}`,
+          variables: { userId },
+        });
+        expect(response.body.data.parent).toEqual({ userId, tab: null });
+        expect(response.body.errors).toEqual([
+          {
+            message: 'Authentication required',
+            path: ['parent', 'tab'],
+            extensions: { code: 'UNAUTHENTICATED' },
+          },
+        ]);
+        expect(spy).not.toHaveBeenCalled();
+        expect(
+          Reflect.getMetadata(
+            'superadmin:session-exception',
+            SuperadminFollowZeroResolver.prototype[field as 'followers' | 'following'],
+          ),
+        ).toBeUndefined();
+      },
+    );
+
+    it('does not execute nested fields for missing/deleted parent or when not selected', async () => {
+      const userId = await fixture();
+      const deleted = await fixture({ deleted: true });
+      const spy = jest.spyOn(followZero, 'getTemporaryFollowZero');
+      for (const id of [randomUUID(), deleted]) {
+        expect(
+          (await post({ query: FOLLOW_ZERO, variables: { userId: id, input: {} } })).body.data
+            .superadminUser,
+        ).toBeNull();
+      }
+      expect((await post({ query: DETAIL, variables: { userId } })).body.errors).toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('uses only existing parent/admin reads, no Payment RPC and no writes beyond auth touch', async () => {
+      const userId = await fixture({ username: 'unchanged' });
+      await prisma.adminSession.updateMany({
+        data: {
+          createdAt: new Date(NOW - 120000),
+          lastSeenAt: new Date(NOW - 61000),
+          idleExpiresAt: new Date(NOW + ADMIN_IDLE_MS - 61000),
+        },
+      });
+      const before = {
+        users: await prisma.user.findMany(),
+        profiles: await prisma.profile.findMany(),
+        sessions: await prisma.session.findMany(),
+        audit: await prisma.adminUserActionAudit.findMany(),
+        outbox: await prisma.userAccessRevokeOutbox.findMany(),
+        admins: await prisma.adminSession.findMany(),
+      };
+      const query = jest.spyOn(prisma, '$queryRaw');
+      const rpc = jest.spyOn(PaymentGrpcClient.prototype, 'getPaymentHistoryWithTimeout');
+      const response = await post({ query: FOLLOW_ZERO, variables: { userId, input: {} } });
+      expect(response.body.errors).toBeUndefined();
+      expect(query).toHaveBeenCalledTimes(1); // One joined parent SELECT; temporary component has no clients/repositories/DI dependencies.
+      expect(rpc).not.toHaveBeenCalled();
+      expect(await prisma.user.findMany()).toEqual(before.users);
+      expect(await prisma.profile.findMany()).toEqual(before.profiles);
+      expect(await prisma.session.findMany()).toEqual(before.sessions);
+      expect(await prisma.adminUserActionAudit.findMany()).toEqual(before.audit);
+      expect(await prisma.userAccessRevokeOutbox.findMany()).toEqual(before.outbox);
+      expect(await prisma.adminSession.findMany()).toEqual([
+        {
+          ...before.admins[0],
+          lastSeenAt: new Date(NOW),
+          idleExpiresAt: new Date(NOW + ADMIN_IDLE_MS),
+        },
+      ]);
+    });
+
+    it('retains exact Origin/CORS and the shared query budget for temporary fields', async () => {
+      const userId = await fixture();
+      const spy = jest.spyOn(followZero, 'getTemporaryFollowZero');
+      const forbidden = await post({ query: FOLLOW_ZERO, variables: { userId, input: {} } }).set(
+        'Origin',
+        'https://untrusted.example.test',
+      );
+      expect(forbidden.status).toBe(403);
+      expect(forbidden.body.errors[0].extensions.code).toBe('FORBIDDEN');
+      // Static field count is small; pageSize multiplication crosses the execution budget.
+      const aliases = Array.from(
+        { length: 4 },
+        (_, index) => `field${index}:followers(input:{pageSize:50}){items{userId}totalCount}`,
+      ).join(' ');
+      const expensive = await post({
+        query: `query($userId:ID!){superadminUser(userId:$userId){${aliases}}}`,
+        variables: { userId },
+      });
+      expect(expensive.body.errors[0].extensions.code).toBe('BAD_USER_INPUT');
+      expect(spy).not.toHaveBeenCalled();
+      const allowed = await post({ query: FOLLOW_ZERO, variables: { userId, input: {} } });
+      expect(allowed.headers['access-control-allow-origin']).toBe(ORIGIN);
+      expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('keeps safe nullable field errors instead of hiding unexpected failures as zero', async () => {
+      const userId = await fixture();
+      jest.spyOn(followZero, 'getTemporaryFollowZero').mockImplementationOnce(() => {
+        throw new Error('private database URL token cookie');
+      });
+      const response = await post({
+        query:
+          'query($userId:ID!){superadminUser(userId:$userId){userId broken:followers(input:{}){totalCount}}}',
+        variables: { userId },
+      });
+      expect(response.body.data.superadminUser).toEqual({ userId, broken: null });
+      expect(response.body.errors).toEqual([
+        {
+          message: 'Internal server error',
+          path: ['superadminUser', 'broken'],
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        },
+      ]);
+    });
   });
 
   it('maps DB failures safely instead of returning an empty list or missing user', async () => {

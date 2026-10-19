@@ -5,6 +5,7 @@ import { PrismaSuperadminUsersQueryRepository } from '../users/infrastructure/su
 import { GetSuperadminUsersQuery } from '../users/application/queries/get-superadmin-users.query';
 import { GetSuperadminUserQuery } from '../users/application/queries/get-superadmin-user.query';
 import { SuperadminUsersResolver } from './api/superadmin-users.resolver';
+import { SuperadminFollowZeroResolver } from './api/superadmin-follow-zero.resolver';
 
 @Module({
   imports: [PrismaModule],
@@ -13,6 +14,7 @@ import { SuperadminUsersResolver } from './api/superadmin-users.resolver';
     GetSuperadminUsersQuery,
     GetSuperadminUserQuery,
     SuperadminUsersResolver,
+    SuperadminFollowZeroResolver,
   ],
 })
 export class SuperadminUsersModule {}

@@ -1,4 +1,4 @@
-# Target contract 1.1.0. Planned operations; never load this file into runtime wholesale.
+# Target contract 1.2.0. Never load this file into runtime wholesale.
 scalar DateTime
 enum SuperadminUserSort {
   USERNAME_ASC
@@ -72,6 +72,16 @@ type SuperadminUser {
   state: SuperadminUserState!
   isEmailConfirmed: Boolean!
   payments(input: PageInput!): PaymentConnection
+  followers(input: PageInput!): SuperadminFollowConnection
+  following(input: PageInput!): SuperadminFollowConnection
+}
+type SuperadminFollowItem {
+  userId: ID!
+}
+type SuperadminFollowConnection {
+  items: [SuperadminFollowItem!]!
+  totalCount: Int!
+  pageInfo: PageInfo!
 }
 type SuperadminDeleteUserPayload {
   userId: ID!

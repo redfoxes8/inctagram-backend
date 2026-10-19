@@ -22,7 +22,7 @@
 
 Прежний запрет заглушек отменён **только для этих двух вкладок и их согласованного нулевого поведения**. Для Payments, каталога, auth и прочих данных запрет фиктивных успешных ответов, в том числе маскировки ошибки пустым списком, сохраняется. Защита доступа не ослабляется.
 
-**Статус API сейчас:** поля followers/following не опубликованы; target/runtime SDL 1.1.0 не изменены. Ниже — документированный временный контракт **FOLLOW-ZERO-1 для будущей карточки 8**, а не уже работающий API и не изменение файлов SDL:
+**Статус API после реализации SA-GQL-08:** FOLLOW-ZERO-1 опубликован отдельным feature fragment; target/runtime контракт **1.2.0**, с повышением версии 1.1.0 → 1.2.0 из-за добавления полей/типов. Ниже — точная форма временного API; настоящее чтение связей по-прежнему не реализовано.
 
 ```graphql
 extend type SuperadminUser {
@@ -51,7 +51,7 @@ type SuperadminFollowItem {
 - Не добавляются social follow/unfollow, поиск, сортировки, followedAt, новые privacy-функции или дублирующие counters: totalCount обеих connections уже равен согласованному нулю. UI может показывать 0 подписчиков / 0 подписок как временное ограничение.
 - Ошибки auth/validation не превращаются в успешный нулевой ответ. Unexpected error → безопасный INTERNAL_SERVER_ERROR с nullable field/path; parent/error formatter сохраняются. Payments outage по-прежнему даёт null + UPSTREAM_UNAVAILABLE, никогда hardcoded [].
 
-Пример **ожидаемого, пока не опубликованного** результата одной connection при input={page:2,pageSize:8}: `{"items":[],"totalCount":0,"pageInfo":{"page":2,"pageSize":8,"pagesCount":0,"hasNextPage":false}}`. Вымышленных строк/пользовательских ID для примера нет.
+Пример реализованного временного результата одной connection при input={page:2,pageSize:8}: `{"items":[],"totalCount":0,"pageInfo":{"page":2,"pageSize":8,"pagesCount":0,"hasNextPage":false}}`. Вымышленных строк/пользовательских ID для примера нет.
 
 FOLLOW-PREP-01/02 и разделы 4–7 ниже — **отложенные предложения для будущего настоящего social graph**, не prerequisites текущей карточки 8. Вариант хранения, lifecycle, privacy и follow/unfollow не утверждены этим решением. Profile route карточки 3, admin origins, staging/two-pod и production-политики delete/paid auto-renew не закрываются.
 
@@ -75,7 +75,7 @@ rg -n 'CREATE TABLE|ALTER TABLE|RENAME TO' apps -g 'migration.sql'
 rg -n 'RabbitSubscribe|createSubscriber|routingKey:|eventType:' apps libs -g '*.ts' -g '!**/client/**' -g '!**/generated/**'
 ```
 
-### Доказательства по компонентам
+### Доказательства по компонентам (исторический срез исследованного commit 2e06189)
 
 | Область | Проверенный путь и символ | Вывод / классификация |
 | --- | --- | --- |
@@ -186,7 +186,7 @@ type SuperadminFollowItem {
 | ID | Нужный ответ | Ответственный по роли | Предложение / что блокируется |
 | --- | --- | --- | --- |
 | Q1 | Есть ли подтверждённый внешний social source? Если нет — согласовать A и data owner | Architecture + Users backend owner; владелец внешних интеграций | Запросить contract/owner/test environment, иначе A. **Блокирует только будущую source implementation, не текущую 8**, не завершение исследования репозитория. |
-| Q2 | Точные колонки, дата связи, nullable-поля, page/sort/count; достаточно ли candidate 0.1? | Product + Frontend + schema integrator SA-GQL-01 | Review таблицы/SDL выше; **блокирует только будущий реальный social contract, не текущую 8**. Не изменяет существующий target 1.1.0 до принятого дополнения. |
+| Q2 | Точные колонки, дата связи, nullable-поля, page/sort/count; достаточно ли candidate 0.1? | Product + Frontend + schema integrator SA-GQL-01 | Review таблицы/SDL выше; **блокирует только будущий реальный social contract, не текущую 8**. Не является разрешением менять действующий target/runtime (1.2.0 после временной 8) без будущего принятого дополнения. |
 | Q3 | Direct follow или pending/private approval, self-follow, active/unfollow/re-follow lifecycle, способ наполнения source | Product + Users/Architecture | Предлагается direct/current-edge и запрет self-follow; **блокирует модель и authoritative write path**. Discovery не уполномочен добавлять эти правила. |
 | Q4 | Admin visibility для blocked/deleted/missing counterpart, privacy, хранение edges после block/delete | Product + Security + Users | Предлагаются правила раздела 5; **блокирует только будущую реальную source read policy, не текущую 8**. Не изменяет принятые access revoke/soft-delete решения; общая public-data policy остаётся отдельным production-вопросом. |
 | Q5 | Public profile route/параметр | Frontend/Product | Временно null; **блокирует конкретный profileUrl AC 3 и будущих реальных строк; в текущей 8 поля profileUrl нет**, не независимые storage/read работы при допустимом nullable-контракте. Не выдумывать путь из REST `/profile/:userId`. |
@@ -224,9 +224,9 @@ type SuperadminFollowItem {
 
 ## 8. Handoff текущей карточке 8
 
-**Назначить:** можно Gateway backend owner, без назначения data owner несуществующей подсистемы. **Начать:** после завершения документации и merge карточки 7; принятие исследования пользователем уже зафиксировано. Отсутствие social source, отложенные FOLLOW-PREP-01/02 и решения о реальных колонках/privacy больше не блокируют этот этап. **Принять:** только после реализации FOLLOW-ZERO-1, проверки runtime fragment, root/nested защиты, pagination/пустых результатов и документации; сейчас реализация не выполнена.
+**Назначить:** можно Gateway backend owner, без назначения data owner несуществующей подсистемы. **Начать:** после завершения документации и merge карточки 7; принятие исследования пользователем уже зафиксировано. Отсутствие social source, отложенные FOLLOW-PREP-01/02 и решения о реальных колонках/privacy больше не блокируют этот этап. **Принять:** после технического review реализованного FOLLOW-ZERO-1 и его проверок. Реализация 8 подготовлена в ветке feature/sa-gql-08-follow-zero от dec5c78; merge/приёмка ещё не заявлены.
 
-Owner карточки 8 готовит тонкие field resolvers и явный временный application query без social repository/transport; SA-GQL-01 owner интегрирует root/common/feature SDL и guide. Только PR 8 добавляет реализованный fragment/типы с тестами; в этом проходе target/runtime 1.1.0 не менялись. Новые counters не нужны.
+Owner карточки 8 готовит тонкие field resolvers и явный временный application query без social repository/transport; SA-GQL-01 owner интегрирует root/common/feature SDL и guide. PR 8 добавил реализованный fragment/типы с тестами в контракт 1.2.0; первоначальная карточка 7 оставляла SDL 1.1.0 без изменений. Новые counters не нужны.
 
 Приёмочные тесты 8: оба поля, defaults и bounds, допустимая page за пределами пустой выборки, malformed input, действующая/expired/revoked admin session, обычный user JWT, повторная nested проверка после parent, aliases/fragments с разными input/parents, missing/deleted parent, отсутствие social I/O и regression текущих auth/catalog/Payments/moderation/budgets. Auth/validation ошибки не превращать в успешный zero result.
 
@@ -236,6 +236,11 @@ Owner карточки 8 готовит тонкие field resolvers и явны
 
 Пользователь принял исследовательский результат и временный вариант **19.10.2026**. Это не отдельные approvals Architecture, Security или Frontend. Ранее предложенное review вариантов A/B/C, lifecycle, настоящих колонок/privacy и PREP остаётся отложенным для будущего источника, не условием текущей 8.
 
-Технический schema/document integrator проверяет соответствие будущего PR 8 FOLLOW-ZERO-1, безопасность и planned/implemented статусы; эта обычная техническая проверка не приписывается уже выполненной. Open AC profileUrl карточки 3 и прочие перечисленные production-вопросы не закрыты.
+Технический schema/document integrator проверяет соответствие PR 8 FOLLOW-ZERO-1, безопасность и planned/implemented статусы; эта обычная техническая проверка не приписывается уже выполненной. Open AC profileUrl карточки 3 и прочие перечисленные production-вопросы не закрыты.
 
-В первоначальном discovery выполнена статическая сверка и read-only buildSchema/assertValidSchema для runtime composition: Query superadminSession/superadminUsers/superadminUser; mutations login/logout/block/unblock/delete; SuperadminUser содержит основные поля и payments, но не followers/following. В текущем docs-only проходе сверен существующий target/runtime SDL; приложение, БД и тестовые наборы не запускались. Проверки ссылок/нумерации/docs-only diff и git diff --check выполняются перед handoff. Секретов и реальных пользовательских данных ADR не содержит.
+В первоначальном discovery выполнена статическая сверка и read-only buildSchema/assertValidSchema для runtime composition: Query superadminSession/superadminUsers/superadminUser; mutations login/logout/block/unblock/delete; SuperadminUser содержит основные поля и payments, но не followers/following. В историческом docs-only проходе карточки 7 сверен SDL 1.1.0 без приложения/БД/тестовых наборов; проверки реализации 8 описаны в дополнении ниже и актуальном guide. Проверки ссылок/нумерации/docs-only diff и git diff --check выполняются перед handoff. Секретов и реальных пользовательских данных ADR не содержит.
+
+
+## 10. Фактическая реализация SA-GQL-08 — к техническому review
+
+[SuperadminFollowZeroResolver](../../apps/main-gateway-service/src/modules/superadmin/api/superadmin-follow-zero.resolver.ts) вызывает чистую [getTemporaryFollowZero](../../apps/main-gateway-service/src/modules/superadmin/application/get-temporary-follow-zero.ts), зарегистрирован в существующем SuperadminUsersModule. [SDL fragment](../../libs/contracts/src/graphql/superadmin/v1/follow-zero-type-defs.ts) и target 1.2.0 содержат только FOLLOW-ZERO-1, не candidate 0.1. [HTTP/DB тесты](../../apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts) переиспользуют прежний helper и настоящий verifier. Source/repositories/migrations/dependencies/user endpoints не добавлены, публичные counters не менялись; отдельные Architecture/Security/Frontend approvals и production-приёмка не заявляются. См. актуальный [FE guide](../../GRAPHQL_SUPERADMIN_FRONTEND_API.md) с примерами обоих полей/aliases. Исторические доказательства выше не переписаны под новую schema; исходное исследование всё так же доказывает отсутствие пригодного source, не наличие настоящих связей.

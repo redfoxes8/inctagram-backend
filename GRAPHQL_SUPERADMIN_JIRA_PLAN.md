@@ -132,9 +132,9 @@ type Mutation { superadminLogin(input: SuperadminLoginInput!): SuperadminLoginPa
 
 `username`, `avatarUrl`, `profileUrl` nullable: `User.profile` optional. Profileless user listed/detailed with nulls; username search does not match it. **[Решение]** catalogue shows every non-deleted user, including blocked/unconfirmed; state and confirmation separate. **[Предложение]** trim + case-insensitive substring search before count/page; empty => no filter; selected sort + ID same-direction tie-breaker. Compatible with model/TЗ, but not original wording.
 
-`profileUrl` planned as public-main-app link, null until route agrees. Для username ASC/DESC null всегда last, ID secondary в том же направлении. Followers/Following пока отсутствуют в target/runtime SDL 1.1.0; временное дополнение FOLLOW-ZERO-1 для будущей карточки 8 описано в [ADR, §1.1](docs/adr/SA_FOLLOW_DISCOVERY.md#11-решение-пользователя-от-19102026--действует-для-текущего-этапа). Только эти connections могут намеренно возвращать hardcoded []; это не реальное чтение. Errors остальным операциям: UNAUTHENTICATED/FORBIDDEN/BAD_USER_INPUT/NOT_FOUND/CONFLICT/UPSTREAM_UNAVAILABLE/INTERNAL_SERVER_ERROR, без stacks/secrets; payload outcomes не подменяются общими ошибками. Detail missing/deleted остаётся null.
+`profileUrl` planned as public-main-app link, null until route agrees. Для username ASC/DESC null всегда last, ID secondary в том же направлении. Followers/Following реализованы временным FOLLOW-ZERO-1 в target/runtime SDL 1.2.0; реализованный FOLLOW-ZERO-1 карточки 8 описано в [ADR, §1.1](docs/adr/SA_FOLLOW_DISCOVERY.md#11-решение-пользователя-от-19102026--действует-для-текущего-этапа). Только эти connections могут намеренно возвращать hardcoded []; это не реальное чтение. Errors остальным операциям: UNAUTHENTICATED/FORBIDDEN/BAD_USER_INPUT/NOT_FOUND/CONFLICT/UPSTREAM_UNAVAILABLE/INTERNAL_SERVER_ERROR, без stacks/secrets; payload outcomes не подменяются общими ошибками. Detail missing/deleted остаётся null.
 
-The full SDL above is the historical target contract in this plan, not an assertion that all fields run today. Runtime fields land only with implementing resolvers/tests. Исключение из запрета заглушек — **только согласованные hardcoded-zero Followers/Following** карточки 8, не auth/catalog/Payments/moderation. SA-GQL-01 владеет common/root/schema integration; 03/06 и 08 передают реализованные feature fragments через него. Для начала 08 нужен merge принятой пользователем карточки 7, а не готовый social source; в этом docs-only проходе target/runtime SDL не меняется.
+The full SDL above is the historical target contract in this plan, not an assertion that all fields run today. Runtime fields land only with implementing resolvers/tests. Исключение из запрета заглушек — **только согласованные hardcoded-zero Followers/Following** карточки 8, не auth/catalog/Payments/moderation. SA-GQL-01 владеет common/root/schema integration; 03/06 и 08 передают реализованные feature fragments через него. Для начала 08 нужен merge принятой пользователем карточки 7, а не готовый social source; в PR 8 target/runtime дополнены до 1.2.0.
 
 ## 6. Payments и незавершённый social contract
 
@@ -240,7 +240,9 @@ await transactionManager.execute(async (transaction) => {
 
 ### 8. SA-GQL-08 — Временные Followers/Following
 
-**Статус:** готова к назначению Gateway backend owner и **к началу после завершения и merge карточки 7**. Отсутствие social source, FOLLOW-PREP-01/02 и будущие реальные колонки/privacy не блокируют этот этап. Сейчас поля ещё не реализованы/не опубликованы; результат 8 не принят.
+**Фактический результат — подготовлен к техническому review:** два тонких field resolver + чистая application-функция, отдельный implemented feature SDL fragment; target/runtime версия **1.2.0** (additive поля/типы), семантика **FOLLOW-ZERO-1**. Оба поля возвращают только пустые items/нулевые metadata и валидированные page/pageSize. Используются существующие SuperadminUsersModule, PaginationInput, guard/field enhancers; source/модель/миграции/RPC/dependencies/feature flags не добавлены, публичные counters не менялись. HTTP/DB тесты расширены в прежнем catalogue fixture: root/nested auth, aliases/fragments, bounds, parent null, auth touch и отсутствие social I/O. Технический review/merge и приёмка 9 ещё впереди; profileUrl/origins/staging/delete/auto-renew не закрываются.
+
+**Статус:** готова к назначению Gateway backend owner и **к началу после завершения и merge карточки 7**. Отсутствие social source, FOLLOW-PREP-01/02 и будущие реальные колонки/privacy не блокируют этот этап. Поля реализованы в рабочей ветке и опубликованы runtime schema этой реализации; результат 8 подготовлен к review, но ещё не принят и не merged.
 
 **Конкретный результат:** защищённые вложенные `SuperadminUser.followers(input:PageInput!)` и `following(input:PageInput!)` по временному **FOLLOW-ZERO-1** из [ADR §1.1](docs/adr/SA_FOLLOW_DISCOVERY.md). Для обеих connections `items:[]`, `totalCount:0`, `pagesCount:0`, `hasNextPage:false`; page/pageSize — из валидированного input/defaults. Не результат чтения настоящих связей.
 
@@ -282,7 +284,7 @@ await transactionManager.execute(async (transaction) => {
 | UC-3 confirmed delete/disposable | SA-GQL-05, SA-GQL-09 | UI confirmation FE; backend after 4B and 03 |
 | UC-4/5 search/sort/page | SA-GQL-03, SA-GQL-09 | proposal compatible with model |
 | UC-6 base/Payments | SA-GQL-03, SA-GQL-06, SA-GQL-09 | reuse selected; 06 after 05 |
-| UC-6 Followers/Following | SA-FOLLOW-DISCOVERY, SA-GQL-08, SA-GQL-09 | 7: исследование принято пользователем 19.10.2026; 8: planned hardcoded-zero, старт после merge 7 без source; 9 проверяет временное ограничение, не настоящие связи |
+| UC-6 Followers/Following | SA-FOLLOW-DISCOVERY, SA-GQL-08, SA-GQL-09 | 7: исследование принято пользователем 19.10.2026; 8: hardcoded-zero реализован, технический review/merge pending; 9 проверяет временное ограничение, не настоящие связи |
 | no admin/ordinary token; nested guard | SA-GQL-01, SA-GQL-02, SA-GQL-09 | mandatory |
 | old token revoked/block/delete; unblock new login | SA-GQL-04 (4B), SA-GQL-05, SA-GQL-09 | mandatory; two-gateway WS prerequisite |
 | repeat/concurrency/upstream/validation | SA-GQL-03–06, SA-GQL-09 | mandatory |
@@ -301,7 +303,7 @@ await transactionManager.execute(async (transaction) => {
 
 **Начало и приёмка:** основной маршрут — 1 → 2 → 4A → 3 → 4B → 5 → 6 → 7 → 8 → 9. 4A/4B внутри карточки 4, принимаемой после B. Прежние зависимости 5 после 4B/3, 6 после merge 5, 7 после merge 6 сохранены. Исследование 7 принято пользователем; 8 начинает после завершения и merge 7, без требования social source/PREP. 9 — только после завершения, приёмки и merge 8. Отсутствие реальных связей не блокирует текущий временный scope, но не означает его реализацию. Production-приёмка по-прежнему ждёт соответствующих открытых политик/security/environment AC.
 
-**PR/merge:** 01 infrastructure → 02 AdminSession → 04A state/audit → 03 catalogue → 04B enforcement → 05 delete → 06 Payments → 07 ADR + принятое временное решение → 08 реализованные защищённые hardcoded-zero fields/tests → 09 final verification текущего объёма. FOLLOW-PREP-01/02 отложены за пределы этого маршрута и девяти карточек; будущее настоящее развитие согласуется отдельно. Runtime дополнение публикуется в PR 8 с рабочими resolvers/tests, не в docs-only проходе.
+**PR/merge:** 01 infrastructure → 02 AdminSession → 04A state/audit → 03 catalogue → 04B enforcement → 05 delete → 06 Payments → 07 ADR + принятое временное решение → 08 реализованные защищённые hardcoded-zero fields/tests → 09 final verification текущего объёма. FOLLOW-PREP-01/02 отложены за пределы этого маршрута и девяти карточек; будущее настоящее развитие согласуется отдельно. Runtime дополнение реализовано в PR 8 с resolvers/tests; технический review/merge остаются отдельными действиями.
 
 ## 10. Общий Definition of Done
 

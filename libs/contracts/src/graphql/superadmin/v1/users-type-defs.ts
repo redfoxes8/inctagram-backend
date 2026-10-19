@@ -1,4 +1,4 @@
-// Implemented SA-GQL-03 fragment only. Payments/social fields remain outside runtime.
+// Implemented SA-GQL-03 fragment; Payments and FOLLOW-ZERO-1 extend this type separately.
 export const SUPERADMIN_USERS_TYPE_DEFS = `
   enum SuperadminUserSort { USERNAME_ASC USERNAME_DESC CREATED_AT_ASC CREATED_AT_DESC }
   enum SuperadminUserState { ACTIVE BLOCKED }
