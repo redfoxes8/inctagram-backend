@@ -2,6 +2,9 @@ import { type INestApplication, Module, type INestMicroservice } from '@nestjs/c
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { CqrsModule } from '@nestjs/cqrs';
+import { PassportModule } from '@nestjs/passport';
+import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
+import bcrypt from 'bcrypt';
 import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { GraphQLSchemaHost } from '@nestjs/graphql';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -11,7 +14,15 @@ import { createServer } from 'node:net';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { buildSchema, printType } from 'graphql';
+import {
+  buildSchema,
+  printType,
+  printSchema,
+  lexicographicSortSchema,
+  parse,
+  validate,
+  Kind,
+} from 'graphql';
 import request from 'supertest';
 import { IsolatedAdminDatabase } from './isolated-admin-database';
 import { createIsolatedPaymentDatabase } from './isolated-payment-database';
@@ -51,6 +62,20 @@ import { PaymentQueryRepository } from '../../../micro-payment-service/src/modul
 import { PrismaService as PaymentPrismaService } from '../../../micro-payment-service/src/core/prisma/prisma.service';
 import type { PrismaClient as PaymentPrismaClient } from '../../../micro-payment-service/src/core/prisma/client';
 import { PaymentGrpcResponseMapper } from '../../../micro-payment-service/src/modules/payment/api/grpc/mappers/payment-grpc-response.mapper';
+import { AuthController } from '../../src/modules/auth/api/auth.controller';
+import { LocalStrategy } from '../../src/common/strategies/local.strategy';
+import { LoginUseCase } from '../../src/modules/auth/application/use-cases/login.use-case';
+import { IUsersRepository } from '../../src/modules/users/domain/interfaces/users.repository.interface';
+import { PrismaUsersRepository } from '../../src/modules/users/infrastructure/users.repository';
+import { IProfileRepository } from '../../src/modules/users/domain/interfaces/user-profile.repository.interface';
+import { ProfileRepository } from '../../src/modules/users/infrastructure/profile.repository';
+import { IPasswordService } from '../../src/modules/users/application/interfaces/password.service.interface';
+import { BcryptService } from '../../src/modules/users/infrastructure/password.service';
+import { ISessionsRepository } from '../../src/modules/sessions/domain/interfaces/sessions.repository.interface';
+import { PrismaSessionsRepository } from '../../src/modules/sessions/infrastructure/sessions.repository';
+import { IJwtService } from '../../src/modules/auth/application/interfaces/jwt.service.interface';
+import { JwtServiceImplementation } from '../../src/modules/auth/infrastructure/jwt.service';
+import { CoreConfig } from '../../../../libs/common/src/core.config';
 
 const ORIGIN = 'https://payments-admin.example.test';
 const PATH = '/api/v1/graphql';
@@ -65,8 +90,15 @@ const QUERY = `query($id: ID!, $input: PageInput!) { superadminUser(userId: $id)
 
 @Module({
   imports: [
+    CqrsModule,
     PaymentsModule,
     UserAccessModule,
+    PassportModule,
+    GoogleRecaptchaModule.forRoot({
+      secretKey: 'unused-fixture',
+      response: (): string => '',
+      skipIf: true,
+    }),
     JwtModule.register({ secret: 'payment-rest-fixture-only' }),
     SuperadminModule.withRuntime({
       typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
@@ -83,7 +115,18 @@ const QUERY = `query($id: ID!, $input: PageInput!) { superadminUser(userId: $id)
       },
     }),
   ],
-  providers: [JwtStrategy],
+  controllers: [AuthController],
+  providers: [
+    JwtStrategy,
+    LocalStrategy,
+    LoginUseCase,
+    { provide: CoreConfig, useValue: { env: 'test' } },
+    { provide: IUsersRepository, useClass: PrismaUsersRepository },
+    { provide: IProfileRepository, useClass: ProfileRepository },
+    { provide: IPasswordService, useClass: BcryptService },
+    { provide: ISessionsRepository, useClass: PrismaSessionsRepository },
+    { provide: IJwtService, useClass: JwtServiceImplementation },
+  ],
 })
 class PaymentsFixtureModule {}
 
@@ -217,9 +260,18 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
       .useValue({
         paymentServiceGrpcUrl: `127.0.0.1:${port}`,
         jwtSecret: 'payment-rest-fixture-only',
+        accessTokenExpTime: 300,
+        refreshTokenExpTime: 3600,
       })
       .overrideProvider(ConfigService)
-      .useValue(new ConfigService({ NODE_ENV: 'test', SUPERADMIN_PAYMENTS_TIMEOUT_MS: 3000 }))
+      .useValue(
+        new ConfigService({
+          NODE_ENV: 'test',
+          SUPERADMIN_PAYMENTS_TIMEOUT_MS: 3000,
+          SUPERADMIN_EMAIL: 'acceptance-admin@example.test',
+          SUPERADMIN_PASSWORD_HASH: await bcrypt.hash('isolated-final-admin', 10),
+        }),
+      )
       .compile();
     app = module.createNestApplication();
     setupSuperadminHttp({ app, policy: { allowedOrigins: [ORIGIN] } });
@@ -655,6 +707,160 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     const response = await post({ variables: { id: userId, input: { pageSize: 50 } } });
     expect(response.body.errors[0].extensions.code).toBe('BAD_USER_INPUT'); // 16 fields x 50 exceeds budget 200.
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('SA-GQL-09 connected HTTP journey: login, catalogue/tabs, block/unblock/new login/delete, audit and logout', async () => {
+    const userPassword = 'isolated-final-user';
+    const account = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: await bcrypt.hash(userPassword, 10),
+        isConfirmed: true,
+        profile: { create: { username: 'final-journey-user' } },
+      },
+    });
+    const paymentId = await transaction({ linked: true });
+    const userLogin = (): request.Test =>
+      request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ usernameOrEmail: account.email, password: userPassword });
+    const initialLogin = await userLogin();
+    expect(initialLogin.status).toBe(200);
+    expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(1);
+    const oldAccess: string = initialLogin.body.accessToken;
+    const protectedRead = (access: string): request.Test =>
+      request(app.getHttpServer())
+        .get('/api/v1/payments/history')
+        .set('Authorization', `Bearer ${access}`);
+    expect((await protectedRead(oldAccess)).status).toBe(200);
+
+    const signIn = await post({
+      cookie: '',
+      query: 'mutation($input:SuperadminLoginInput!){superadminLogin(input:$input){authenticated}}',
+      variables: {
+        input: { email: 'acceptance-admin@example.test', password: 'isolated-final-admin' },
+      },
+    });
+    expect(signIn.body).toEqual({ data: { superadminLogin: { authenticated: true } } });
+    let cookies = (signIn.headers['set-cookie'] as unknown as string[]).map(
+      (value) => value.split(';')[0],
+    );
+    let csrf = String(signIn.headers['x-superadmin-csrf']);
+    const admin = (input: { query: string; variables?: object }): request.Test =>
+      post({ ...input, cookie: cookies.join('; ') }).set('X-Superadmin-CSRF', csrf);
+    const session = await admin({ query: '{superadminSession{authenticated}}' });
+    expect(session.body.data.superadminSession.authenticated).toBe(true);
+    // HTTP reload/bootstrap: frontend gets nonce from exposed header, never by reading another host's cookie.
+    csrf = String(session.headers['x-superadmin-csrf']);
+    const csrfCookie = (session.headers['set-cookie'] as unknown as string[])[0].split(';')[0];
+    cookies = [...cookies.filter((cookie) => !cookie.startsWith('superadminCsrf=')), csrfCookie];
+    const catalogQuery =
+      'query($input:SuperadminUsersInput!){superadminUsers(input:$input){items{userId username}totalCount pageInfo{page pageSize pagesCount hasNextPage}}}';
+    const catalog = await admin({
+      query: catalogQuery,
+      variables: { input: { searchUsername: ' JOURNEY ' } },
+    });
+    expect(catalog.body.data.superadminUsers).toMatchObject({
+      totalCount: 1,
+      items: [{ userId, username: 'final-journey-user' }],
+      pageInfo: { page: 1, pageSize: 8 },
+    });
+    const detailQuery = `query($userId:ID!){superadminUser(userId:$userId){
+      userId username profileUrl state
+      payments(input:{}){items{transactionId amountMinor currency}totalCount}
+      followers(input:{}){items{userId}totalCount pageInfo{page pageSize pagesCount hasNextPage}}
+      following(input:{page:2,pageSize:3}){items{userId}totalCount pageInfo{page pageSize pagesCount hasNextPage}}
+    }}`;
+    const detail = await admin({ query: detailQuery, variables: { userId } });
+    expect(detail.body.errors).toBeUndefined();
+    expect(detail.body.data.superadminUser).toEqual({
+      userId,
+      username: 'final-journey-user',
+      profileUrl: null,
+      state: 'ACTIVE',
+      payments: {
+        items: [{ transactionId: paymentId, amountMinor: 899, currency: 'EUR' }],
+        totalCount: 1,
+      },
+      followers: {
+        items: [],
+        totalCount: 0,
+        pageInfo: { page: 1, pageSize: 8, pagesCount: 0, hasNextPage: false },
+      },
+      following: {
+        items: [],
+        totalCount: 0,
+        pageInfo: { page: 2, pageSize: 3, pagesCount: 0, hasNextPage: false },
+      },
+    });
+    const mutate = async (input: { operation: string; outcome: string }): Promise<void> => {
+      const response = await admin({
+        query: `mutation($input:SuperadminUserIdInput!){${input.operation}(input:$input){userId outcome}}`,
+        variables: { input: { userId } },
+      });
+      expect(response.body).toEqual({
+        data: { [input.operation]: { userId, outcome: input.outcome } },
+      });
+    };
+    await mutate({ operation: 'superadminBlockUser', outcome: 'BLOCKED' });
+    expect((await protectedRead(oldAccess)).status).toBe(401);
+    await mutate({ operation: 'superadminUnblockUser', outcome: 'UNBLOCKED' });
+    expect((await protectedRead(oldAccess)).status).toBe(401);
+    const renewed = await userLogin();
+    expect(renewed.status).toBe(200);
+    const renewedAccess: string = renewed.body.accessToken;
+    expect((await protectedRead(renewedAccess)).status).toBe(200);
+    await mutate({ operation: 'superadminDeleteUser', outcome: 'DELETED' });
+    expect((await protectedRead(renewedAccess)).status).toBe(401);
+    expect((await userLogin()).status).toBe(401);
+    expect(
+      (await admin({ query: catalogQuery, variables: { input: { searchUsername: 'journey' } } }))
+        .body.data.superadminUsers.totalCount,
+    ).toBe(0);
+    expect(
+      (await admin({ query: detailQuery, variables: { userId } })).body.data.superadminUser,
+    ).toBeNull();
+    await mutate({ operation: 'superadminDeleteUser', outcome: 'ALREADY_DELETED' });
+    const rows = await prisma.adminUserActionAudit.findMany({
+      where: { targetUserId: userId },
+      orderBy: { occurredAt: 'asc' },
+    });
+    expect(rows.map((row) => `${row.action}:${row.outcome}`).sort()).toEqual(
+      ['BLOCK:BLOCKED', 'UNBLOCK:UNBLOCKED', 'DELETE:DELETED', 'DELETE:ALREADY_DELETED'].sort(),
+    );
+    expect(new Set(rows.map((row) => row.adminSessionId)).size).toBe(1);
+    expect(rows[0].adminSessionId).not.toBe(sessionId); // Actor is the actual login session, not seeded fixture principal.
+    expect(await payment.paymentTransaction.count({ where: { id: paymentId } })).toBe(1);
+    expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(0);
+    const signedOut = await admin({ query: 'mutation{superadminLogout{loggedOut}}' });
+    expect(signedOut.body.data.superadminLogout.loggedOut).toBe(true);
+    expect(
+      (await admin({ query: '{superadminSession{authenticated}}' })).body.errors[0].extensions.code,
+    ).toBe('UNAUTHENTICATED');
+  });
+
+  it('validates every executable FE guide GraphQL example and checks reproducible runtime export', () => {
+    const schema = app.get(GraphQLSchemaHost).schema;
+    const artifact = readFileSync(
+      join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/runtime.graphql'),
+      'utf8',
+    );
+    // Compare canonical SDL, not Prettier's block-string layout.
+    expect(printSchema(lexicographicSortSchema(schema))).toBe(
+      printSchema(lexicographicSortSchema(buildSchema(artifact))),
+    );
+    const guide = readFileSync(join(process.cwd(), 'GRAPHQL_SUPERADMIN_FRONTEND_API.md'), 'utf8');
+    let examples = 0;
+    for (const match of guide.matchAll(/```graphql\s*\n([\s\S]*?)```/g)) {
+      const document = parse(match[1]);
+      if (
+        document.definitions.some((definition) => definition.kind === Kind.OPERATION_DEFINITION)
+      ) {
+        expect(validate(schema, document)).toEqual([]);
+        examples++;
+      }
+    }
+    expect(examples).toBeGreaterThanOrEqual(9);
   });
 
   it('handles a genuinely stopped gRPC server as null payments, not empty history', async () => {

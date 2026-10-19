@@ -2,6 +2,8 @@
 
 Статус: целевой контракт **1.2.0**. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. Версия повышена с 1.1.0 до 1.2.0 из-за добавления followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
+**SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
+
 ## URL и текущая доступность
 
 Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
@@ -9,6 +11,8 @@
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
 Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.2.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
+
+Для frontend tooling: **[экспорт фактически опубликованного runtime SDL](libs/contracts/src/graphql/superadmin/v1/runtime.graphql)**. Это отдельный артефакт, не target и не новая версия контракта. Тест SA-GQL-09 сравнивает его канонический SDL с реальным `GraphQLSchemaHost` всех production superadmin feature modules, а все executable GraphQL-блоки этого guide проходят parse/validate по этой schema. Связный HTTP-сценарий исполняет auth/catalog/все вкладки/moderation/logout; schema validation остальных примеров не объявляется их исполнением.
 
 **SA-GQL-04A — подготовлена только внутренняя модель:** `User.isBanned` с default false и persistent `AdminUserActionAudit` в Gateway DB. `UserAccessStateQuery` различает ACTIVE/BLOCKED/DELETED и отсутствие записи (`null`), но не выполняет авторизацию; ACTIVE не отменяет email confirmation и другие проверки. State-read/audit writer экспортирует `UserStateAuditModule`, owner — Users+Sessions/security. Writer принимает согласованные action/outcome и явный живой tx существующего transaction manager для общей транзакции User/Sessions/audit в 4B/05; подробный API — в карточке 4 плана. В 4A enforcement отсутствовал; **SA-GQL-04B теперь подключает state/session checks к login, refresh, JWT REST и WS**. Каталог/основные детали реализованы в карточке 3 с использованием фактического isBanned; block/unblock реализованы в 4B, soft delete реализован в 5. Технический review и staging-проверка карточки 4 не заявлены завершёнными.
 
@@ -581,7 +585,30 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 
 Историческая проверка дополнения 1.1.0 в SA-GQL-01: полный SDL через `buildSchema`/`assertValidSchema`, тип `SuperadminSessionPayload` и пример query через `validate`; две проверки target contract и disabled runtime. На том этапе endpoint был отключён; это не текущий статус SA-GQL-02.
 
-## Приёмочные проверки SA-GQL-08
+## Приёмочные проверки SA-GQL-09 и воспроизводимый SDL
+
+Текущие результаты и точные команды — [SA_GQL_09_ACCEPTANCE.md](SA_GQL_09_ACCEPTANCE.md). PostgreSQL/RabbitMQ, два **локальных** Gateway, настоящий Payment gRPC controller/handler/repository с отдельной БД проверены автоматически; полный PaymentRootModule/Stripe, браузер и staging не поднимались. Public profile route остаётся неизвестным, `profileUrl=null`. Точные admin origins, secrets provision/rotation, HTTPS/SameSite, штатный migration deployment, staging/two-pod и политики public data/paid auto-renew после delete остаются открытыми.
+
+Экспорт воспроизводится из runtime composition существующими TypeScript/GraphQL/Prettier средствами (PowerShell из корня, вывод в stdout; отдельный генератор не добавлен). Production introspection для этого не включается. Сверку с executable Nest schema выполняет `superadmin-payments.integration-spec.ts`:
+
+```powershell
+@'
+const ts = require('typescript');
+const fs = require('node:fs');
+require.extensions['.ts'] = (module, path) => module._compile(ts.transpileModule(
+  fs.readFileSync(path, 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 } }
+).outputText, path);
+const { buildSchema, lexicographicSortSchema, printSchema } = require('graphql');
+const { SUPERADMIN_RUNTIME_TYPE_DEFS } = require('./libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts');
+const { dateTimeScalar } = require('./libs/common/src/graphql/date-time.scalar.ts');
+const schema = buildSchema(SUPERADMIN_RUNTIME_TYPE_DEFS);
+schema.getType('DateTime').description = dateTimeScalar.description;
+process.stdout.write(printSchema(lexicographicSortSchema(schema)) + '\n');
+'@ | node | pnpm exec prettier --parser graphql
+```
+
+## Приёмочные проверки SA-GQL-08 (исторический результат до SA-GQL-09)
 
 Набор `superadmin-users.integration-spec.ts` расширен в существующем изолированном PostgreSQL/GraphQL HTTP fixture, без новой инфраструктуры. Production admin verifier/guard/nested enhancers и parent queries настоящие; управляемые часы и test Origin/config из прежнего helper. Новые сценарии проверяют обе connections, точный target/runtime тип и версию, defaults/bounds/out-of-range, aliases/fragments/parents, missing/deleted/profileless/blocked parent, root/nested denial, Origin/CORS/budget, отсутствие изменений User/Profile/Sessions/audit/revoke outbox кроме штатного AdminSession touch. Pure application component не имеет source dependencies; наблюдается ровно один joined parent SQL, Payment RPC не вызывается. Fault injection только проверяет безопасную ошибку nullable поля; это не тест реального social source, которого не создавали.
 

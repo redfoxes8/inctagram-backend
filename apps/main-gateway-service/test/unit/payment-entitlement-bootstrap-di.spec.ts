@@ -13,6 +13,7 @@ import type { PaymentRabbitConsumer as PaymentRabbitConsumerType } from '../../s
 import type { NotificationLiveEventConsumer as NotificationLiveEventConsumerType } from '../../src/modules/notifications/infrastructure/notification-live-event.consumer';
 import type { NotificationLiveEventPublisher as NotificationLiveEventPublisherType } from '../../src/modules/notifications/infrastructure/notification-live-event.publisher';
 import type { NotificationRealtimePublisher as NotificationRealtimePublisherType } from '../../src/modules/notifications/realtime/notification-realtime.publisher';
+import type { UserAccessModule as UserAccessModuleType } from '../../src/modules/sessions/user-access.module';
 
 describe('PaymentRabbitConsumer bootstrap DI', () => {
   let AppModule: typeof AppModuleType;
@@ -24,6 +25,7 @@ describe('PaymentRabbitConsumer bootstrap DI', () => {
   let NotificationLiveEventPublisher: typeof NotificationLiveEventPublisherType;
   let NotificationRealtimePublisher: typeof NotificationRealtimePublisherType;
   let GatewayRabbitMqModule: typeof GatewayRabbitMqModuleType;
+  let UserAccessModule: typeof UserAccessModuleType;
   const config = {
     includeTestingModule: false,
     rabbitmqUrl: 'amqp://127.0.0.1:1',
@@ -50,6 +52,9 @@ describe('PaymentRabbitConsumer bootstrap DI', () => {
     GatewayRabbitMqModule = jest.requireActual(
       '../../src/core/gateway-rabbitmq.module',
     ).GatewayRabbitMqModule;
+    UserAccessModule = jest.requireActual(
+      '../../src/modules/sessions/user-access.module',
+    ).UserAccessModule;
   });
 
   it('registers both consumers beside one configured RabbitMQ module', async () => {
@@ -76,6 +81,7 @@ describe('PaymentRabbitConsumer bootstrap DI', () => {
     ).toHaveLength(1);
     expect(usersProviders).not.toContain(PaymentRabbitConsumer);
     expect(staticImports).not.toContain(RabbitMQModule);
+    expect(staticImports).toContain(UserAccessModule);
     expect(gatewayRabbitImports).toHaveLength(1);
     expect(rabbitImports).toHaveLength(1);
 
@@ -85,7 +91,7 @@ describe('PaymentRabbitConsumer bootstrap DI', () => {
       exports: [AmqpConnection],
     };
     const testingModule = await Test.createTestingModule({
-      imports: [PrismaModule, testRabbitModule],
+      imports: [PrismaModule, UserAccessModule, testRabbitModule],
       providers: [
         PaymentRabbitConsumer,
         NotificationLiveEventConsumer,
