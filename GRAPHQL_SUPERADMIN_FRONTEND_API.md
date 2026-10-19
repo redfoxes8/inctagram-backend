@@ -1,6 +1,6 @@
 # Superadmin GraphQL API — контракт 1.1.0
 
-Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, soft delete SA-GQL-05 и Payments SA-GQL-06, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и незавершённый social scope.
+Статус: целевой контракт 1.1.0; реализованы auth subset SA-GQL-02 и каталог/основные детали SA-GQL-03 и block/unblock SA-GQL-04B, soft delete SA-GQL-05 и Payments SA-GQL-06, кроме открытого AC публичной ссылки профиля (`profileUrl: null`). Версия не меняется: реализованы ранее согласованные поля. Это не production-приёмка и не согласование с человеком: review Platform/Security и Frontend остаётся открытым. Перед принятием всего контракта проверить nullable Profile/Payments, outcomes, бюджет запросов, origin allow-list и будущую реализацию временных социальных вкладок карточки 8.
 
 ## URL и текущая доступность
 
@@ -27,8 +27,10 @@
 | `superadminUnblockUser`   | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED | **Реализовано — SA-GQL-04B** |
 | `superadminDeleteUser`    | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                 | **Реализовано — SA-GQL-05**  |
 | `SuperadminUser.payments` | `PageInput!`                               | nullable PaymentConnection                                    | **Реализовано — SA-GQL-06**  |
+| `SuperadminUser.followers` | `PageInput!` | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Запланировано — временная заглушка, карточка 8** |
+| `SuperadminUser.following` | `PageInput!` | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Запланировано — временная заглушка, карточка 8** |
 
-Followers/Following не определены в SDL: источник, колонки и технический контракт ждут исследования **карточки 7 SA-FOLLOW-DISCOVERY**, реализация — **карточка 8 SA-GQL-08**. Отсутствие источника не есть пустой реальный список. Итоговая сверка документа и исполняемых примеров — **карточка 9 SA-GQL-09**.
+Followers/Following **пока не опубликованы** в target/runtime SDL 1.1.0. Пользователь **19.10.2026 принял результат карточки 7** и согласовал временные hardcoded-zero вкладки для **карточки 8 SA-GQL-08**; [ADR с решением и доказательствами](docs/adr/SA_FOLLOW_DISCOVERY.md). Административные поля имеют статус **«Запланировано — временная заглушка, карточка 8»**, не «Реализовано». Отсутствие source и отложенные FOLLOW-PREP-01/02 больше не блокируют начало 8 после завершения и merge 7. UI сможет показывать 0 подписчиков / 0 подписок, но это не статистика реальных связей. Существующие публичные counters с нулями не меняются. Настоящая модель и follow/unfollow не входят в текущий объём. Приёмка **карточки 9** следует только после реализованной/принятой/merged 8 и проверяет согласованный временный объём. Только здесь разрешена заглушка: Payments и другие данные по-прежнему не могут маскировать сбой пустым списком.
 
 Реализованная операция (**SA-GQL-02**):
 
@@ -41,6 +43,68 @@ query CurrentSuperadminSession {
 ```
 
 При действующей session: `{"data":{"superadminSession":{"authenticated":true}}}`. Без действующей session: `{"data":null,"errors":[{"message":"Authentication required","path":["superadminSession"],"extensions":{"code":"UNAUTHENTICATED"}}]}`. Frontend использует query для проверки текущей admin session: `UNAUTHENTICATED` означает необходимость входа. Сетевой сбой, timeout, `UPSTREAM_UNAVAILABLE` и другие технические ошибки не следует автоматически трактовать как отсутствие session. Auth flow проверяется автоматизированно с изолированной PostgreSQL; неизвестное реальное browser deployment этими проверками не подтверждается.
+
+
+## Followers/Following — запланировано, временная заглушка (карточка 8)
+
+Это **документированный временный контракт FOLLOW-ZERO-1**, ещё не опубликованный API. Target/runtime SDL 1.1.0 сейчас не менялись; реализованные schema fragments появятся только с resolvers/tests карточки 8. Прежний candidate 0.1 с followedAt/profile/privacy оставлен в ADR как отложенное предложение для настоящих связей и **не применяется к текущей 8**.
+
+```graphql
+extend type SuperadminUser {
+  followers(input: PageInput!): SuperadminFollowConnection
+  following(input: PageInput!): SuperadminFollowConnection
+}
+type SuperadminFollowConnection {
+  items: [SuperadminFollowItem!]!
+  totalCount: Int!
+  pageInfo: PageInfo!
+}
+type SuperadminFollowItem {
+  userId: ID!
+}
+```
+
+Общие PageInput/PageInfo уже существуют: `input:{}` → page=1/pageSize=8; page 1..10000, pageSize 1..50. Item object имеет лишь минимальный структурный ID (GraphQL требует непустой object type); он **никогда не создаётся** на этом этапе, а userId не означает утверждение колонки UI. Нет username/profileUrl/followedAt, поиска/сортировок/privacy-функций и дополнительных counters в этих connections. Будущий настоящий item-контракт потребует отдельного решения.
+
+Ожидаемое поведение **после реализации 8**, одинаковое для followers и following:
+
+- Любой валидный input возвращает items=[], totalCount=0, pagesCount=0, hasNextPage=false; page/pageSize берутся из валидированного input/defaults. Например, page=10000/pageSize=50 возвращает нули и именно page=10000/pageSize=50. Это намеренные hardcoded значения, а не результат чтения source и не доказательство отсутствия внешних реальных связей.
+- Невалидные page/pageSize, required-null или неверный тип → BAD_USER_INPUT, не успешный нулевой результат. Общие body/depth/complexity budgets сохраняются независимо от пустых списков.
+- Root и nested fields требуют действующую admin session; user JWT/expired/revoked session не дают доступ, aliases/fragments не обходят guard. Требуются действующие Origin/CORS-проверки; query не требует mutation-only CSRF.
+- Отсутствующий/soft-deleted parent остаётся null, nested resolver не запускается. Без Profile не создаётся Profile; остальные правила superadminUser не меняются.
+- Нет social DB, RPC или внешнего сервиса. Существующие auth/session/parent DB reads и auth touch сохраняются. Ошибки admin/validation и неожиданные ошибки не скрываются за константным успешным ответом.
+- Connections nullable для field errors; unexpected failure → безопасный INTERNAL_SERVER_ERROR с path/alias, без внутренних данных. Внутри успешной connection items/metadata non-null.
+
+Пример **будущего** запроса, сейчас не исполняется:
+
+```graphql
+query SocialTabs($userId: ID!, $input: PageInput!) {
+  superadminUser(userId: $userId) {
+    followers(input: $input) {
+      items { userId }
+      totalCount
+      pageInfo { page pageSize pagesCount hasNextPage }
+    }
+    following(input: $input) {
+      items { userId }
+      totalCount
+      pageInfo { page pageSize pagesCount hasNextPage }
+    }
+  }
+}
+```
+
+userId — UUID выбранного существующего пользователя, input={} либо заданная допустимая страница. **Ожидаемый результат каждой connection** при input={page:2,pageSize:8}, без вымышленных строк:
+
+```json
+{
+  "items": [],
+  "totalCount": 0,
+  "pageInfo": { "page": 2, "pageSize": 8, "pagesCount": 0, "hasNextPage": false }
+}
+```
+
+В UI нули разрешены как явно временное ограничение. Настоящие directed relationships, хранение/активность/колонки/privacy/follow-unfollow и FOLLOW-PREP-01/02 **отложены**, не блокируют текущие 8/9 и не считаются реализованными. Публичный profileUrl карточки 3, реальные admin origins, staging/two-pod и production-политики delete/active paid auto-renew по-прежнему открыты. Решение пользователя не означает отдельного Architecture/Security/Frontend sign-off.
 
 ## Типы и nullable-поля
 
@@ -344,7 +408,7 @@ ESLint/Prettier применяются только к затронутым TS-�
 
 `rabbit-fanout.integration-spec.ts` воспроизводит prerequisite с двумя Nest Gateway instances и настоящим disposable RabbitMQ: независимые queues и доставка одного live event обоим. `user-access-enforcement.integration-spec.ts` использует два реальных локальных HTTP/WS приложения, отдельные Prisma clients, PostgreSQL и RabbitMQ: outcomes/audit/rollback, row-lock barriers для конкурентных команд/login/refresh/deleted fixture, real REST, WS handshake/per-session delivery, fan-out disconnect, broker pause/timeout/retry/restarted relay, lease recovery и duplicate/delayed revoke. Google provider — тестовая замена внешнего OAuth; credentials/часы — изолированные fixtures. Это **не staging и не проверка двух Kubernetes pod**. В исторических 4B сценариях deleted задаётся fixtures; сценарии SA-GQL-05 вызывают рабочий moderation use case/GraphQL mutation, не фиктивную delete-реализацию. Новая migration применяется через официальный Prisma `migrate deploy` к изолированной прежней схеме, baselined через `migrate resolve`, с проверкой сохранения User/Profile/Session/AdminSession. Shared/production DB не используются.
 
-До production-приёмки остаются human security review, deployment migration, проверка RabbitMQ bindings/reconnect/scheduler и revoke на реальных Gateway pod, синхронизация часов, operational monitoring/retention, подтверждённые origins/SameSite и прежний вопрос назначения/владельца/смены fixed credentials. Точный public profile route, social contract и политики публичных данных/paid auto-renew после delete остаются открытыми и не подменяются этой реализацией.
+До production-приёмки остаются human security review, deployment migration, проверка RabbitMQ bindings/reconnect/scheduler и revoke на реальных Gateway pod, синхронизация часов, operational monitoring/retention, подтверждённые origins/SameSite и прежний вопрос назначения/владельца/смены fixed credentials. Точный public profile route и политики публичных данных/paid auto-renew после delete остаются открытыми; настоящий social contract отложен, временный FOLLOW-ZERO-1 реализуется отдельно в 8 и не подменяются этой реализацией.
 
 ## Auth, HTTP и CSRF
 
@@ -432,7 +496,7 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 3. `setupSuperadminHttp` уже установлен в bootstrap до общего parser/CORS; сохранять этот порядок и exact path. GraphQL config использует `/graphql` + `useGlobalPrefix: true`, итог — `/api/v1/graphql`, без двойного prefix.
 4. Feature owners передают изменения planned/implemented sections document integrator SA-GQL-01. Владение User — карточка 3, block — 4, delete — 5, Payments — 6, social research — 7, social implementation — 8; окончательный verifier — карточка 9.
 
-Открытые решения: public profile route (Frontend/Product); social source/columns (Architecture/Product); public data и active paid auto-renew после delete (Product + Post/File/Payment); назначение fixed credentials вне учебной проверки и rotation owner (Product/Security). Техническая сверка SA-GQL-01 их не закрывает. Документ не содержит реальных credentials, user data или tokens.
+Открытые решения: public profile route (Frontend/Product); настоящие social source/columns/lifecycle (Architecture/Product, отложено и не блокирует временную 8); public data и active paid auto-renew после delete (Product + Post/File/Payment); назначение fixed credentials вне учебной проверки и rotation owner (Product/Security). Техническая сверка SA-GQL-01 их не закрывает. Документ не содержит реальных credentials, user data или tokens.
 
 ## Совместимость и технический review
 
