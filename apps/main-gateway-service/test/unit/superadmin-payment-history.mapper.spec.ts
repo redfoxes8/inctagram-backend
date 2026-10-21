@@ -95,7 +95,7 @@ describe('Superadmin Payment boundary (unit, no transport)', () => {
       ).toBe(status);
     },
   );
-  it.each(['', '0', '-1', '30001', 'not-a-number', true, {}, 1.5])(
+  it.each(['0', '-1', '30001', 'not-a-number', true, {}, 1.5])(
     'invalid timeout %j fails only the Payments feature',
     (value) => {
       const config = new SuperadminPaymentsConfig(

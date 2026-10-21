@@ -2,13 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
+import { resolveSuperadminSetting, SUPERADMIN_CONFIG_DEFAULTS } from './superadmin-config-defaults';
 
 @Injectable()
 export class SuperadminPaymentsConfig {
   private readonly configuredTimeout: unknown;
 
   constructor(config: ConfigService) {
-    this.configuredTimeout = config.get<unknown>('SUPERADMIN_PAYMENTS_TIMEOUT_MS') ?? 3000;
+    this.configuredTimeout = resolveSuperadminSetting({
+      value: config.get<unknown>('SUPERADMIN_PAYMENTS_TIMEOUT_MS'),
+      fallback: SUPERADMIN_CONFIG_DEFAULTS.paymentsTimeoutMs,
+    });
   }
 
   get timeoutMs(): number {

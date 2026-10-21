@@ -55,7 +55,11 @@ import { GatewayConfig } from '../../src/core/gateway.config';
 import { CoreConfig } from '../../../../libs/common/src/core.config';
 import { SUPERADMIN_AUTH_TYPE_DEFS } from '../../../../libs/contracts/src/graphql/superadmin/v1/auth-type-defs';
 import { appSetup } from '../../../../libs/common/src/setup/app-setup';
-import { setupSuperadminHttp } from '../../src/modules/superadmin/api/superadmin-http-security';
+import {
+  parseSuperadminOrigins,
+  setupSuperadminHttp,
+} from '../../src/modules/superadmin/api/superadmin-http-security';
+import { SUPERADMIN_CONFIG_DEFAULTS } from '../../src/modules/superadmin/infrastructure/superadmin-config-defaults';
 
 const ORIGIN = 'https://admin.frontend.example.test';
 const PATH = '/api/v1/graphql';
@@ -140,7 +144,7 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
   const apps: INestApplication<Server>[] = [];
 
   async function createApp(
-    config: { enabled?: boolean; sameSite?: string; production?: boolean } = {},
+    config: { enabled?: boolean; sameSite?: string; production?: boolean; fallback?: boolean } = {},
   ): Promise<INestApplication<Server>> {
     const connection = apps.length === 0 ? prisma : peerPrisma;
     const module = await Test.createTestingModule({ imports: [AdminFixtureModule] })
@@ -152,14 +156,21 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
       .useValue(
         new ConfigService({
           NODE_ENV: config.production ? 'production' : 'test',
-          SUPERADMIN_EMAIL: config.enabled === false ? '' : EMAIL,
-          SUPERADMIN_PASSWORD_HASH: config.enabled === false ? '' : passwordHash,
-          SUPERADMIN_COOKIE_SAME_SITE: config.sameSite ?? 'lax',
+          ...(config.fallback
+            ? {}
+            : {
+                SUPERADMIN_EMAIL: config.enabled === false ? 'invalid-email' : EMAIL,
+                SUPERADMIN_PASSWORD_HASH: config.enabled === false ? 'malformed' : passwordHash,
+                SUPERADMIN_COOKIE_SAME_SITE: config.sameSite ?? 'lax',
+              }),
         }),
       )
       .compile();
     const application: INestApplication<Server> = module.createNestApplication();
-    setupSuperadminHttp({ app: application, policy: { allowedOrigins: [ORIGIN] } });
+    setupSuperadminHttp({
+      app: application,
+      policy: { allowedOrigins: config.fallback ? parseSuperadminOrigins(undefined) : [ORIGIN] },
+    });
     appSetup(application, AdminFixtureModule, {
       httpConfig: {
         enabled: true,
@@ -281,7 +292,7 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
     expect(result.headers['access-control-expose-headers']).toContain('X-Superadmin-CSRF');
   });
 
-  it('uses indistinguishable safe errors for wrong email/password; missing config closes only login', async (): Promise<void> => {
+  it('uses indistinguishable safe errors for wrong email/password; invalid config closes only login', async (): Promise<void> => {
     const wrongEmail = await login({ email: 'wrong@example.test' });
     const wrongPassword = await login({ password: 'wrong-fixture-only' });
     expect(wrongEmail.body).toEqual(wrongPassword.body);
@@ -294,7 +305,7 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
       (await post({ query: LOGOUT, target: disabled })).body.data.superadminLogout.loggedOut,
     ).toBe(true);
     for (const config of [
-      {},
+      { SUPERADMIN_EMAIL: 'invalid-email' },
       { SUPERADMIN_EMAIL: EMAIL, SUPERADMIN_PASSWORD_HASH: 'malformed' },
       {
         SUPERADMIN_EMAIL: EMAIL,
@@ -304,6 +315,51 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
     ]) {
       expect(new AdminAuthConfig(new ConfigService(config)).enabled).toBe(false);
     }
+  });
+
+  it('uses fallback credentials/origins for actual production-mode HTTP login, retaining Secure cookies and CSRF', async (): Promise<void> => {
+    const fallback = await createApp({ production: true, fallback: true });
+    for (const origin of ['https://nymbi.org', 'https://dev.nymbi.org:3000']) {
+      const signIn = await request(fallback.getHttpServer())
+        .post(PATH)
+        .set('Origin', origin)
+        .send({
+          query: LOGIN,
+          variables: { input: { email: SUPERADMIN_CONFIG_DEFAULTS.email, password: 'admin' } },
+        });
+      expect(signIn.body).toEqual({ data: { superadminLogin: { authenticated: true } } });
+      expect(signIn.headers['access-control-allow-origin']).toBe(origin);
+      const current = browser(signIn);
+      for (const cookie of signIn.headers['set-cookie'] as unknown as string[]) {
+        expect(cookie).toContain('HttpOnly');
+        expect(cookie).toContain('Secure');
+        expect(cookie).toContain('SameSite=Lax');
+        expect(cookie).toContain('Path=/api/v1/graphql');
+      }
+      const session = await request(fallback.getHttpServer())
+        .post(PATH)
+        .set('Origin', origin)
+        .set('Cookie', current.cookie)
+        .send({ query: SESSION });
+      expect(session.body.data.superadminSession.authenticated).toBe(true);
+      const noCsrf = await request(fallback.getHttpServer())
+        .post(PATH)
+        .set('Origin', origin)
+        .set('Cookie', current.cookie)
+        .send({ query: LOGOUT });
+      expect(noCsrf.body.errors[0].extensions.code).toBe('FORBIDDEN');
+    }
+    const before = await prisma.adminSession.count();
+    const forbidden = await request(fallback.getHttpServer())
+      .post(PATH)
+      .set('Origin', 'https://untrusted.example.test')
+      .send({
+        query: LOGIN,
+        variables: { input: { email: SUPERADMIN_CONFIG_DEFAULTS.email, password: 'admin' } },
+      });
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body.errors[0].extensions.code).toBe('FORBIDDEN');
+    expect(await prisma.adminSession.count()).toBe(before);
   });
 
   it('guards the real session query, ignores JWT, and boots CSRF after a reload across origins', async (): Promise<void> => {
