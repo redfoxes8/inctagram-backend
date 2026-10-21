@@ -1,12 +1,61 @@
 # Superadmin GraphQL API — контракт 1.2.0
 
+## Быстрое подключение для frontend
+
+- **Локальный endpoint:** `http://localhost:4278/api/v1/graphql` (POST JSON).
+- **Публичный endpoint: уточняется.** Публичный HTTPS URL Gateway не подтверждён доступной конфигурацией. Итоговый URL — адрес Gateway + `/api/v1/graphql`, не frontend-путь `/superadmin`.
+- Предлагаемые, **пока не подтверждённые как существующие**, страницы: `https://nymbi.org/superadmin` и `https://dev.nymbi.org:3000/superadmin`. Создание frontend в backend scope не входит.
+- Учебный вход: **`admin@gmail.com` / `admin`** — теперь встроенный backend fallback, **включая production**, по явному решению пользователя от 21.10.2026. Это не обычная пользовательская учётная запись. Bcrypt-хеш фронтенду не нужен, в bundle его не передавать; пароль берётся из формы, не вшивается в приложение. Фактический публичный deployment этой версии ещё не подтверждён.
+- Реальный allow-list определяется непустым `SUPERADMIN_ALLOWED_ORIGINS` **окружения запущенного Gateway** либо встроенными origins `https://nymbi.org,https://dev.nymbi.org:3000`, не загрузкой `.env.example`. `location.origin` должен совпадать точно, включая scheme и port; без `/superadmin`, wildcard и завершающего `/`. Пример `http://localhost:3000` **не считается разрешённым** без явной настройки backend. Отсутствующая/пустая/whitespace env использует fallback, а не запрещающий пустой список.
+- На локальной development-БД три новые миграции применены; Gateway проверен на 4278. Это **не доказательство** настроенных admin credentials/origins, работы login или публичного deployment.
+- HTTPS frontend → HTTP API может блокироваться браузером как mixed content. `SameSite=Lax` предполагает same-site размещение frontend/API; разные origins/порты не обязательно означают разные sites. Для cross-site нужны `SameSite=None; Secure`, HTTPS и browser-проверка third-party cookies. В production cookies Secure; не обещается работа произвольной комбинации адресов, включая локальный HTTP API из удалённой HTTPS страницы.
+
+Порядок подключения:
+
+1. Получить от backend/Operations URL Gateway и подтверждение allow-list для вашего точного origin.
+2. Настроить browser transport ниже: POST JSON, `credentials: 'include'`. Cookies HttpOnly, JavaScript их не читает.
+3. Выполнить login, сохранить nonce из **response header** `X-Superadmin-CSRF` в памяти.
+4. После reload сначала выполнить `superadminSession` без cache; при успехе обновить nonce из header. `UNAUTHENTICATED` → форма входа; техническую ошибку не считать logout.
+5. Читать каталог/детали; в mutations передавать актуальный nonce. После logout очищать client cache/состояние.
+
+Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.2.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
+
+### Backend checklist до браузерного подключения
+
+- Применены AdminSession → state/audit → revoke outbox migrations в **нужной** БД; сгенерирован совместимый Prisma Client.
+- Сервер использует согласованные встроенные email/bcrypt-hash либо валидные непустые env overrides; startup Gateway сам по себе этого не проверяет как рабочий login.
+- Точный frontend origin входит в разрешённые fallback origins либо env override; при смене настроек Gateway перезапущен/передеплоен. `.env.example` автоматически в deployment не загружается.
+- Cookie Secure/SameSite и HTTPS соответствуют фактическому browser-размещению.
+- Gateway нужной версии развёрнут; публичный URL подтверждён ответственным за окружение.
+- Proxy пропускает POST/OPTIONS `/api/v1/graphql`, request `Origin`, `Content-Type`, `X-Superadmin-CSRF`, cookies и response `Set-Cookie`, `X-Superadmin-CSRF`; CORS credentials и expose header не теряются. Не логировать credentials/cookies/nonce.
+
+Выполнение этого checklist на публичном сервере **не подтверждено**. Открыты profile route (`profileUrl=null`), реальные origins/API URL, browser HTTPS/SameSite, provision/rotation секретов, staging/two-pod и production-политики публичных данных/paid auto-renew после delete. FOLLOW-ZERO-1 принят как временные пустые connections, не настоящие социальные данные.
+
+### Встроенные fallback и env override — решение от 21.10.2026
+
+Пять новых env **необязательны** при использовании встроенных настроек. Это осознанное изменение прежнего запрещающего configuration default, в том числе для production; оно не ослабляет guards/сессии/CSRF/rate limit. Исторические отчёты ниже и в других файлах описывают прежнее поведение, а не наличие этих defaults с начала разработки.
+
+| Настройка                      | Встроенный fallback                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| SUPERADMIN_EMAIL               | `admin@gmail.com`                                                                        |
+| SUPERADMIN_PASSWORD_HASH       | Bcrypt-хеш учебного `admin`, cost=12; значение только в backend, фронтенду не передаётся |
+| SUPERADMIN_ALLOWED_ORIGINS     | `https://nymbi.org,https://dev.nymbi.org:3000`                                           |
+| SUPERADMIN_COOKIE_SAME_SITE    | `lax`                                                                                    |
+| SUPERADMIN_PAYMENTS_TIMEOUT_MS | `3000`                                                                                   |
+
+Каждое значение разрешается независимо: отсутствующее, пустое или состоящее только из пробелов → fallback; непустое → env override. Непустые значения не заменяются defaults при ошибке валидации: неверные email/hash/SameSite закрывают login (`UPSTREAM_UNAVAILABLE`), неправильный формат origins останавливает bootstrap, неверный timeout закрывает Payments read. Email по-прежнему trim/lowercase; остальные непустые значения не «исправляются» молча. Разрешение defaults не записывает значения в `process.env`.
+
+**Пустыми env административный вход больше не отключается.** Guard по-прежнему запрещает доступ без действующей admin session, обычный user JWT не подходит. В production cookie остаётся HttpOnly/Secure/SameSite=Lax; `none` сохраняет Secure, но требует подходящего HTTPS/cross-site размещения и browser-проверки. Изменение/обновление defaults или env требует перезапуска/передеплоя Gateway. Не логировать пароль, hash, cookies, tokens.
+
+В текущем manifest четыре admin Secret key references помечены `optional:true`, timeout отдельно не подключён и использует default. Поэтому отсутствие **этих ключей** не препятствует запуску Node.js. Другие обязательные Secret/key references и инфраструктура остаются необходимыми: если весь существующий Secret или другой обязательный key отсутствует, Kubernetes может не запустить контейнер, и fallback приложения это не исправит. Pipeline/manifest этой задачей не меняются.
+
 Статус: целевой контракт **1.2.0**. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. Версия повышена с 1.1.0 до 1.2.0 из-за добавления followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 **SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
 
 ## URL и текущая доступность
 
-Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Пустой `SUPERADMIN_ALLOWED_ORIGINS` по-прежнему запрещает все admin HTTP-запросы, включая login.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Отсутствующий/пустой `SUPERADMIN_ALLOWED_ORIGINS` теперь использует два согласованных fallback origins, остальные Origin по-прежнему отклоняются.
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
@@ -493,7 +542,7 @@ ESLint/Prettier применяются только к затронутым TS-�
 
 Login и безопасная идемпотентная очистка logout — реализованные scoped exceptions (`SuperadminSessionException`), только root Mutation с точным именем. Они не дают доступа к вложенным административным данным или другим mutations. Logout без действующей/с expired/revoked session возвращает `{ loggedOut: true }` и очищает обе admin cookies. Действующий logout требует CSRF и отзывает только текущую session. Ошибка БД при проверке/отзыве не выдаётся за успешный revoke; cookies не очищаются под ложным успешным ответом.
 
-HTTP primitives: POST + application/json; OPTIONS только для CORS preflight, не исполнения GraphQL. `SUPERADMIN_ALLOWED_ORIGINS` — comma-separated exact HTTP(S) origins без path/wildcard. Точные origins frontend суперadminки не подтверждены; их настройка необходима до браузерной проверки рабочего входа в SA-GQL-02. Пустой allow-list отказывает всем; неизвестный или отсутствующий Origin запрещён. Credentials=true, preflight допускает Content-Type и X-Superadmin-CSRF. Разные origins не означают разные sites.
+HTTP primitives: POST + application/json; OPTIONS только для CORS preflight, не исполнения GraphQL. `SUPERADMIN_ALLOWED_ORIGINS` — comma-separated exact HTTP(S) origins без path/wildcard, либо два fallback origins при отсутствующей/пустой env. Фактический frontend origin должен совпадать с разрешённым; неизвестный или отсутствующий Origin запрещён. Credentials=true, preflight допускает Content-Type и X-Superadmin-CSRF. Разные origins не означают разные sites; адрес API и browser compatibility требуют отдельной проверки.
 
 First login: Origin allow-list + JSON-only, без предварительной session/nonce. Успешные login и защищённый `superadminSession` устанавливают отдельный случайный nonce в HttpOnly cookie `superadminCsrf` (тот же Path/SameSite/Secure; CSRF cookie непостоянная, без Max-Age) и возвращают его в **response header `X-Superadmin-CSRF`**, открытом через `Access-Control-Expose-Headers`. Nonce не содержит session token; FE не читает cookie другого hostname и не ослабляет HttpOnly. Хранить nonce в памяти; после reload выполнить `superadminSession` с credentials и прочитать новый header. Это работает для разных origins при разрешённых cookies; при ротации nonce другой вкладкой повторить bootstrap query перед mutation. Запросы не кешируются (`Cache-Control: no-store`).
 
@@ -503,35 +552,204 @@ First login: Origin allow-list + JSON-only, без предварительно�
 
 Имена в `apps/main-gateway-service/.env.example` и optional secret refs в существующем `deployment.yaml`: `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD_HASH` (bcrypt cost 10..15, как существующее bcrypt средство проекта; plaintext пароль не хранится), `SUPERADMIN_ALLOWED_ORIGINS`, `SUPERADMIN_COOKIE_SAME_SITE`. Email — trim/lowercase; пароль сравнивается без trim, не более 72 UTF-8 bytes (лимит bcrypt). Неверные email/password дают одинаковую ошибку `UNAUTHENTICATED`. Некорректные/отсутствующие admin credentials закрывают login с `UPSTREAM_UNAVAILABLE`, не останавливая обычный REST startup. Обычный user login/refresh не менялся.
 
-`SUPERADMIN_COOKIE_SAME_SITE=lax` — для same-site размещения, включая допустимые разные origins; `none` — cross-site, автоматически Secure даже вне production и требует HTTPS. Другие значения отключают admin login. Выбор определяется фактическим размещением; точные admin origins и cross-site browser compatibility пока **не подтверждены**. Пустой allow-list — deny, не wildcard fallback.
+`SUPERADMIN_COOKIE_SAME_SITE=lax` — встроенный fallback для отсутствующей/пустой env, для same-site размещения, включая допустимые разные origins; `none` — явный cross-site override, автоматически Secure даже вне production и требует HTTPS. Другие непустые значения отключают admin login. Выбор определяется фактическим размещением; cross-site browser compatibility пока **не подтверждена**. Fallback origins точные, не wildcard; пустое значение env больше не создаёт запрещающий пустой policy.
 
 Login ограничен **5 попытками за скользящие 15 минут на комбинацию прямого peer IP и нормализованного email**, включая неверные credentials и успешные входы. Backend — существующий Gateway PostgreSQL, `AdminLoginRateLimit`; transaction advisory lock сериализует попытки одного ключа на всех Gateway, timestamps ограничены пятью. `X-Forwarded-For` не доверяем, unconditional trust proxy не включён; за ingress peer IP может быть общим, это консервативный лимит, не подтверждение end-user IP. Ответ при лимите — `TOO_MANY_REQUESTS`, без раскрытия ключей/счётчиков. Недоступность storage — `UPSTREAM_UNAVAILABLE`, вход закрыт. Часы Gateway должны быть синхронизированы. Истёкшие окна очищаются при следующей попытке того же ключа; индекс updatedAt позволяет операторскую очистку старых rate rows. Retention/очистка revoked sessions должна учитывать будущую audit policy, автоматическое удаление здесь не выполняется.
 
-### Пример клиента (без credentials в исходниках)
+### Общий browser transport: fetch и Apollo
 
-Apollo `HttpLink` должен использовать `credentials: 'include'`. JSON отправляется только с разрешённого Origin. Следующий browser-код показывает bootstrap/headers; `endpoint`, `email` и `password` передаются вызывающим кодом, значения не логируются и не сохраняются в bundle:
+Код ниже выполняется **в браузере** (Next.js client-side), не в общем SSR singleton: нельзя смешивать cookies/cache/nonce разных посетителей. Одна transport instance на текущую browser session; не отправлять параллельно несколько login/session-bootstrap запросов, меняющих nonce. Не использовать BatchHttpLink, GET queries, subscriptions или автоматический retry mutations.
+
+`Origin` и `Cookie` устанавливает браузер; вручную подменять их не надо. Обе admin cookies HttpOnly: nonce берётся **только из response header**, а не из cookie другого hostname. Backend выставляет `Access-Control-Expose-Headers: X-Superadmin-CSRF`; proxy должен сохранить его.
 
 ```javascript
-let csrfNonce;
-async function adminGraphql({ endpoint, query, variables }) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(csrfNonce ? { 'X-Superadmin-CSRF': csrfNonce } : {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const nonce = response.headers.get('X-Superadmin-CSRF');
-  if (nonce) csrfNonce = nonce;
-  const result = await response.json();
-  if (result.data?.superadminLogout?.loggedOut) csrfNonce = undefined;
-  return result; // Inspect errors[].extensions.code; technical errors are not logout.
+import { getOperationAST, parse } from 'graphql';
+
+function createSuperadminTransport(endpoint) {
+  let csrfNonce;
+
+  async function cookieFetch(uri, options) {
+    const payload = JSON.parse(options.body);
+    const operation = getOperationAST(parse(payload.query), payload.operationName);
+    if (!operation) throw new Error('Choose one GraphQL operation');
+    const first = operation.selectionSet.selections[0];
+    const singleField = operation.selectionSet.selections.length === 1 && first.kind === 'Field';
+    const mutation = operation.operation === 'mutation';
+    const loginOnly = mutation && singleField && first.name.value === 'superadminLogin';
+    const logoutOnly = mutation && singleField && first.name.value === 'superadminLogout';
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+    headers.delete('X-Superadmin-CSRF');
+    if (mutation && !loginOnly && csrfNonce) headers.set('X-Superadmin-CSRF', csrfNonce);
+
+    const response = await fetch(uri, {
+      ...options,
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
+    const nonce = response.headers.get('X-Superadmin-CSRF');
+    if (nonce) csrfNonce = nonce;
+    if (logoutOnly) {
+      const result = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      const key = first.alias?.value ?? first.name.value;
+      if (result?.data?.[key]?.loggedOut === true) csrfNonce = undefined;
+    }
+    return response;
+  }
+
+  async function request({ query, variables = {} }) {
+    const response = await cookieFetch(endpoint, {
+      body: JSON.stringify({ query, variables }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      error.result = result;
+      throw error;
+    }
+    if (!result) throw new Error('Expected a GraphQL JSON response');
+    return result; // GraphQL errors may exist even with HTTP 200; preserve partial data.
+  }
+
+  return { request, fetch: cookieFetch };
 }
-// Login: variables = { input: { email, password } }, supplied at runtime.
-// After reload: execute CurrentSuperadminSession first to bootstrap csrfNonce.
+
+function requireComplete(result) {
+  if (result.errors?.length) {
+    const error = new Error(
+      result.errors.map((item) => item.extensions?.code ?? 'UNKNOWN').join(', '),
+    );
+    error.result = result; // Includes partial data; never log login variables/cookies.
+    throw error;
+  }
+  return result.data;
+}
 ```
+
+Этот transport не требует nonce до login и **не запрещает logout локально при отсутствии nonce**: без действующей session сервер разрешает безопасную очистку. Если session действует, сервер требует корректный CSRF. После reload сначала session query; если logout вернул FORBIDDEN из-за утраченного nonce, восстановить его session query и повторить logout явно. При UNAUTHENTICATED logout можно отправить без nonce; при UPSTREAM_UNAVAILABLE не объявлять server-side revoke успешным. Origin/JSON checks действуют во всех случаях. Auth operations отправлять отдельно, одним root field; примеры поддерживают его alias. UI не должен автоматически повторять block/delete при неизвестном результате.
+
+### Пошаговое подключение: fetch
+
+Использует `createSuperadminTransport` и `requireComplete` выше. `email`/`password` приходят из формы; учебная пара указана в начале документа, в bundle значения не вшивать.
+
+```javascript
+const endpoint = 'http://localhost:4278/api/v1/graphql'; // Replace only with confirmed Gateway URL.
+const transport = createSuperadminTransport(endpoint);
+const operations = {
+  login: `mutation SignIn($input: SuperadminLoginInput!) {
+    superadminLogin(input: $input) { authenticated }
+  }`,
+  session: `query RestoreSession { superadminSession { authenticated } }`,
+  catalog: `query Catalog($input: SuperadminUsersInput!) {
+    superadminUsers(input: $input) {
+      items { userId username state profileUrl }
+      totalCount pageInfo { page pageSize pagesCount hasNextPage }
+    }
+  }`,
+  block: `mutation Block($input: SuperadminUserIdInput!) {
+    superadminBlockUser(input: $input) { userId outcome }
+  }`,
+  unblock: `mutation Unblock($input: SuperadminUserIdInput!) {
+    superadminUnblockUser(input: $input) { userId outcome }
+  }`,
+  logout: `mutation SignOut { superadminLogout { loggedOut } }`,
+};
+
+async function signIn({ email, password }) {
+  return requireComplete(
+    await transport.request({
+      query: operations.login,
+      variables: { input: { email, password } },
+    }),
+  ); // { superadminLogin: { authenticated: true } }; nonce captured from response header.
+}
+
+async function restoreAfterReload() {
+  return requireComplete(await transport.request({ query: operations.session }));
+  // { superadminSession: { authenticated: true } }; nonce refreshed before subsequent mutations.
+}
+
+async function loadCatalog() {
+  return requireComplete(
+    await transport.request({
+      query: operations.catalog,
+      variables: { input: {} },
+    }),
+  ); // Default first page, 8 newest; empty DB: items=[], totalCount=0, pagesCount=0.
+}
+
+async function blockDisposableUser(userId) {
+  return requireComplete(
+    await transport.request({
+      query: operations.block,
+      variables: { input: { userId } },
+    }),
+  ); // superadminBlockUser: { userId, outcome: 'BLOCKED' } for an ACTIVE fixture.
+}
+
+async function unblockDisposableUser(userId) {
+  return requireComplete(
+    await transport.request({
+      query: operations.unblock,
+      variables: { input: { userId } },
+    }),
+  ); // superadminUnblockUser: { userId, outcome: 'UNBLOCKED' } for a BLOCKED fixture.
+}
+
+async function signOut() {
+  return requireComplete(await transport.request({ query: operations.logout }));
+  // { superadminLogout: { loggedOut: true } }; nonce cleared; UI/cache must also be cleared.
+}
+```
+
+Последовательность вызовов: `signIn({email,password})` → `loadCatalog()`; после reload вместо login — `restoreAfterReload()` → `loadCatalog()`. `blockDisposableUser(userId)`/`unblockDisposableUser(userId)` показывают mutation с автоматически добавленным CSRF header: применять только к своему disposable fixture. Variables moderation: `{"input":{"userId":"00000000-0000-4000-8000-000000000001"}}` — синтетический UUID, заменить ID своего fixture. После mutation refetch каталога/деталей; другие outcomes перечислены ниже. Завершение — `signOut()`.
+
+Для Payments **не отбрасывать partial data** через `requireComplete`: получить `result = await transport.request(...)`, отобразить `result.data.superadminUser` и отдельно ошибку вкладки из `result.errors` (пример ниже). Ошибка nonce/session не должна маскироваться пустыми списками.
+
+### Минимальное подключение Apollo Client
+
+Пример для Apollo Client 4; используется **тот же** transport выше (выберите fetch или Apollo как основной клиент, не создавайте конкурирующие nonce stores). `HttpLink.fetch` получает body и использует response header; auth query всегда идёт в сеть, а не только в cache. [Официальный HttpLink](https://www.apollographql.com/docs/react/api/link/apollo-link-http) поддерживает custom fetch и credentials.
+
+```javascript
+import { ApolloClient, HttpLink, InMemoryCache, gql } from '@apollo/client';
+
+const client = new ApolloClient({
+  link: new HttpLink({
+    uri: endpoint,
+    credentials: 'include',
+    useGETForQueries: false,
+    fetch: transport.fetch,
+  }),
+  cache: new InMemoryCache(),
+  defaultOptions: {
+    query: { fetchPolicy: 'no-cache', errorPolicy: 'all' },
+    watchQuery: { fetchPolicy: 'no-cache', errorPolicy: 'all' },
+    mutate: { errorPolicy: 'all' },
+  },
+});
+
+// email/password supplied by the sign-in form; inspect result.error even if HTTP status is 200.
+async function apolloLogin({ email, password }) {
+  return client.mutate({
+    mutation: gql(operations.login),
+    variables: { input: { email, password } },
+  });
+}
+async function apolloRestore() {
+  return client.query({ query: gql(operations.session), fetchPolicy: 'no-cache' });
+}
+async function apolloLogout() {
+  const result = await client.mutate({ mutation: gql(operations.logout) });
+  if (!result.error && result.data?.superadminLogout?.loggedOut) await client.clearStore();
+  return result;
+}
+```
+
+Не выполнять обычные mutations до успешного login/restore. Login не требует предварительного nonce; logout без session не блокируется клиентом из-за его отсутствия. При logout с действующей session nonce обязателен на сервере. После успешного logout очищать UI/cache; после нового login также исключить показ данных предыдущей session. С `errorPolicy:'all'` Apollo Client 4 позволяет обработать `result.error` вместе с `result.data` (например, оставить детали при outage Payments); версия Apollo в frontend может требовать своей формы проверки ошибок. Не добавлять обычный user bearer вместо admin cookie. SSR cookie forwarding этим browser-примером не покрывается.
 
 ```graphql
 mutation SuperadminLogin($input: SuperadminLoginInput!) {
@@ -539,6 +757,9 @@ mutation SuperadminLogin($input: SuperadminLoginInput!) {
     authenticated
   }
 }
+```
+
+```graphql
 mutation SuperadminLogout {
   superadminLogout {
     loggedOut
@@ -546,11 +767,28 @@ mutation SuperadminLogout {
 }
 ```
 
-Отправляйте каждую operation отдельным документом; пример login использует runtime variables `{ input: { email, password } }`, не значения из документации.
+Каждый блок — отдельный документ. Login variables: `{ "input": { "email": "admin@gmail.com", "password": "<пароль из формы>" } }`; учебная пара указана в начале, подставляется пользователем после серверной настройки. Logout/session variables: `{}`. Не сохранять введённый пароль в bundle или логах.
 
 Login success JSON: `{"data":{"superadminLogin":{"authenticated":true}}}`. Logout success: `{"data":{"superadminLogout":{"loggedOut":true}}}`. Cookies и response CSRF header не являются полями GraphQL payload. Не отправлять пароль/token в GET URL, логи, telemetry или persisted operation variables.
 
 ## Errors и бюджеты
+
+### Диагностика подключения
+
+Проверять **HTTP status и GraphQL envelope**, не только успешный HTTP 200. При CORS/mixed content браузер может скрыть response целиком (`Failed to fetch`): смотреть Network/Console и передавать backend URL, origin, время и operation name, но не password/cookie/nonce.
+
+| Симптом                                                                            | Значение и действие frontend                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP 404                                                                           | Проверить адрес Gateway, `/api/v1/graphql`, POST, proxy и версию deployment. Не путать с `outcome: NOT_FOUND` или nullable detail отсутствующего пользователя.                                                                                                               |
+| HTTP 403, `FORBIDDEN`, `Request rejected`, либо CORS rejection без доступного body | Middleware не принял Origin. Origin должен точно входить в окружение Gateway; проверить preflight и CORS headers proxy. Отсутствующий Origin тоже запрещён; CORS не исправляется передачей bearer.                                                                           |
+| `UNAUTHENTICATED`, `Authentication required`                                       | Нет действующей admin session (либо неверные credentials в login). Для protected query показать login; проверить отправку/сохранение cookies, expiry/revoke. Обычный user JWT не подходит.                                                                                   |
+| `FORBIDDEN`, `Access denied` на mutation после успешной session query              | Типичный CSRF failure: header отсутствует/устарел или cookie не передалась. Получить nonce через успешную session query; отправить актуальный header вместе с cookies. Не повторять block/delete автоматически при неизвестном результате.                                   |
+| `TOO_MANY_REQUESTS`, `Too many requests`                                           | Login: 5 попыток на IP + нормализованный email за 15 минут, общий storage. Прекратить автоматические повторы; после окна попробовать снова. Не рассчитывать на несуществующий обязательный Retry-After.                                                                      |
+| `UPSTREAM_UNAVAILABLE`, `Service unavailable`                                      | Технический сбой session/rate-limit storage или Payment MS/timeout. Не трактовать как logout или пустую историю. Для nullable `payments` сохранить parent и показать ошибку конкретной вкладки/path. Явно невалидная непустая admin config также закрывает login этим кодом. |
+| `GRAPHQL_VALIDATION_FAILED` / `GRAPHQL_PARSE_FAILED`                               | `Invalid GraphQL operation` / `Invalid GraphQL syntax`: сверить документ с runtime SDL, имена полей, required args, типы; это не ошибка пароля.                                                                                                                              |
+| `BAD_USER_INPUT`, `Invalid input`                                                  | DTO bounds, UUID, длина search и другие прикладные input validations. Неверный тип variable может отклоняться GraphQL coercion этим же кодом. Budget violations могут быть BAD_USER_INPUT либо validation error в зависимости от этапа проверки.                             |
+| HTTP 405/415/413                                                                   | Нужны POST / application/json / body ≤256 KiB соответственно. Transport envelope: `Request rejected`, code BAD_USER_INPUT.                                                                                                                                                   |
+| `INTERNAL_SERVER_ERROR`, `Internal server error`                                   | Неожиданная ошибка backend/несовместимый ответ upstream; не подменять успешным результатом. Передать безопасный контекст backend без секретов.                                                                                                                               |
 
 GraphQL envelope `errors[]`: безопасное message, optional path, только `extensions.code`. Коды: UNAUTHENTICATED, FORBIDDEN, BAD_USER_INPUT, TOO_MANY_REQUESTS, INTERNAL_SERVER_ERROR, NOT_FOUND, CONFLICT, UPSTREAM_UNAVAILABLE; GraphQL validation/parse отличаются кодами GRAPHQL_VALIDATION_FAILED/GRAPHQL_PARSE_FAILED. Stack, secrets, raw upstream details, cookies/tokens не публикуются. Бизнес-outcomes mutations относятся к data payload. Ошибки auth/storage возвращаются в GraphQL envelope (не полагаться только на HTTP status); transport/Origin/body violations могут иметь HTTP 4xx.
 
@@ -569,7 +807,7 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 3. `setupSuperadminHttp` уже установлен в bootstrap до общего parser/CORS; сохранять этот порядок и exact path. GraphQL config использует `/graphql` + `useGlobalPrefix: true`, итог — `/api/v1/graphql`, без двойного prefix.
 4. Feature owners передают изменения planned/implemented sections document integrator SA-GQL-01. Владение User — карточка 3, block — 4, delete — 5, Payments — 6, social research — 7, social implementation — 8; окончательный verifier — карточка 9.
 
-Открытые решения: public profile route (Frontend/Product); настоящие social source/columns/lifecycle (Architecture/Product, отложено и не блокирует временную 8); public data и active paid auto-renew после delete (Product + Post/File/Payment); назначение fixed credentials вне учебной проверки и rotation owner (Product/Security). Техническая сверка SA-GQL-01 их не закрывает. Документ не содержит реальных credentials, user data или tokens.
+Открытые решения: public profile route (Frontend/Product); настоящие social source/columns/lifecycle (Architecture/Product, отложено и не блокирует временную 8); public data и active paid auto-renew после delete (Product + Post/File/Payment); назначение fixed credentials вне учебной проверки и rotation owner (Product/Security). Техническая сверка SA-GQL-01 их не закрывает. В начале приведена только согласованная учебная пара; bcrypt-хеш, production credentials, реальные user data и tokens в guide не публикуются.
 
 ## Совместимость и технический review
 

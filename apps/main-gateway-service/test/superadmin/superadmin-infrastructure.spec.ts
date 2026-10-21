@@ -364,12 +364,12 @@ describe('Superadmin infrastructure (isolated schema, no external services)', ()
       await isolated.close();
     }
   });
-  it('rejects requests with an empty configured origin allow-list', async (): Promise<void> => {
+  it('rejects requests with an explicitly empty HTTP policy allow-list', async (): Promise<void> => {
     const disabled = await Test.createTestingModule({ imports: [SuperadminModule] }).compile();
     const isolated: INestApplication<Server> = disabled.createNestApplication();
     setupSuperadminHttp({
       app: isolated,
-      policy: { allowedOrigins: parseSuperadminOrigins(undefined) },
+      policy: { allowedOrigins: [] },
     });
     await isolated.init();
     try {
@@ -413,7 +413,10 @@ describe('Superadmin infrastructure (isolated schema, no external services)', ()
     expect(result.body).toEqual({ code: 400, message: 'REST unchanged', extensions: [] });
   });
   it('validates origins and DateTime, masking unknown error codes', (): void => {
-    expect(parseSuperadminOrigins(undefined)).toEqual([]);
+    expect(parseSuperadminOrigins(undefined)).toEqual([
+      'https://nymbi.org',
+      'https://dev.nymbi.org:3000',
+    ]);
     expect(() => parseSuperadminOrigins('*')).toThrow();
     expect(() => parseSuperadminOrigins('https://example.test/path')).toThrow();
     expect(dateTimeScalar.parseValue('2026-10-18T12:00:00Z')).toBe('2026-10-18T12:00:00.000Z');

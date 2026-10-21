@@ -1,15 +1,22 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { json, type NextFunction, type Request, type Response } from 'express';
+import {
+  resolveSuperadminSetting,
+  SUPERADMIN_CONFIG_DEFAULTS,
+} from '../infrastructure/superadmin-config-defaults';
 
 export const SUPERADMIN_GRAPHQL_PATH = '/api/v1/graphql';
 export type SuperadminHttpPolicy = Readonly<{ allowedOrigins: string[] }>;
 
 export function parseSuperadminOrigins(value: string | undefined): string[] {
-  if (!value?.trim()) return [];
+  const configured = resolveSuperadminSetting({
+    value,
+    fallback: SUPERADMIN_CONFIG_DEFAULTS.allowedOrigins,
+  });
   return [
     ...new Set(
-      value.split(',').map((entry) => {
+      configured.split(',').map((entry) => {
         const origin = entry.trim();
         const url = new URL(origin);
         if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) {
