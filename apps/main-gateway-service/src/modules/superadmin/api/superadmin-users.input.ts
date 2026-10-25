@@ -1,7 +1,10 @@
 import { Transform } from 'class-transformer';
 import { IsEnum, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
 import { PaginationInput } from '../../../../../../libs/common/src/graphql/pagination-input';
-import { SuperadminUserSort } from '../../../../../../libs/common/types/superadmin-users';
+import {
+  SuperadminUserSort,
+  SuperadminUsersBanFilter,
+} from '../../../../../../libs/common/types/superadmin-users';
 
 export class SuperadminUsersInput extends PaginationInput {
   @Transform(({ value }: { value: unknown }): unknown =>
@@ -14,6 +17,9 @@ export class SuperadminUsersInput extends PaginationInput {
 
   @IsEnum(SuperadminUserSort)
   sort: SuperadminUserSort = SuperadminUserSort.CreatedAtDesc;
+
+  @IsEnum(SuperadminUsersBanFilter)
+  banFilter: SuperadminUsersBanFilter = SuperadminUsersBanFilter.All;
 }
 
 export class SuperadminUserArgs {

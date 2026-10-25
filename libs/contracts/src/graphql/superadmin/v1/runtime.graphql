@@ -182,7 +182,14 @@ enum SuperadminUserState {
   BLOCKED
 }
 
+enum SuperadminUsersBanFilter {
+  ALL
+  BLOCKED
+  NOT_BLOCKED
+}
+
 input SuperadminUsersInput {
+  banFilter: SuperadminUsersBanFilter! = ALL
   page: Int! = 1
   pageSize: Int! = 8
   searchUsername: String

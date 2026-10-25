@@ -7,7 +7,13 @@ import type { Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildSchema, isObjectType, printType } from 'graphql';
+import {
+  buildSchema,
+  isObjectType,
+  printType,
+  printSchema,
+  lexicographicSortSchema,
+} from 'graphql';
 import request from 'supertest';
 import { IsolatedAdminDatabase } from './isolated-admin-database';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
@@ -31,6 +37,7 @@ import { GetSuperadminUserQuery } from '../../src/modules/users/application/quer
 import { PaymentGrpcClient } from '../../src/modules/payments/infrastructure/payment-grpc.client';
 import { SUPERADMIN_CONTRACT_VERSION } from '../../../../libs/contracts/src/graphql/superadmin/v1/common-type-defs';
 import * as followZero from '../../src/modules/superadmin/application/get-temporary-follow-zero';
+import { SuperadminUsersQueryRepository } from '../../src/modules/users/domain/interfaces/superadmin-users.query-repository';
 
 const ORIGIN = 'https://catalogue.example.test';
 const PATH = '/api/v1/graphql';
@@ -170,7 +177,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     jest.restoreAllMocks();
   });
 
-  it('defaults to newest eight, includes blocked/unconfirmed/profileless and excludes deleted', async () => {
+  it('preserves legacy input without banFilter: ALL, newest eight, blocked/unconfirmed/profileless, no deleted', async () => {
     const ids: string[] = [];
     for (let index = 0; index < 10; index++)
       ids.push(await fixture({ time: NOW + index, banned: index === 9 }));
@@ -192,6 +199,74 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       isEmailConfirmed: false,
     });
     expect(page.items[1].state).toBe('ACTIVE');
+  });
+
+  it.each([
+    { banFilter: 'ALL', indices: [0, 1, 2, 3, 4, 5] },
+    { banFilter: 'BLOCKED', indices: [1, 3, 5] },
+    { banFilter: 'NOT_BLOCKED', indices: [0, 2, 4] },
+  ])(
+    'filters $banFilter independently of email confirmation and Profile',
+    async ({ banFilter, indices }) => {
+      const users = [
+        { username: 'active', confirmed: true },
+        { username: 'blocked', banned: true, confirmed: true },
+        { username: 'unconfirmed' },
+        { username: 'blocked-unconfirmed', banned: true },
+        { confirmed: true },
+        { banned: true, confirmed: true },
+        { deleted: true },
+        { deleted: true, banned: true },
+      ];
+      const ids: string[] = [];
+      for (const [index, user] of users.entries())
+        ids.push(await fixture({ ...user, time: NOW + index }));
+      const result = await post({ variables: { input: { banFilter } } });
+      expect(result.body.errors).toBeUndefined();
+      const page = result.body.data.superadminUsers;
+      expect(page.items.map((item: { userId: string }) => item.userId)).toEqual(
+        indices.map((index) => ids[index]).reverse(),
+      );
+      expect(page).toMatchObject({
+        totalCount: indices.length,
+        pageInfo: { page: 1, pageSize: 8, pagesCount: 1, hasNextPage: false },
+      });
+    },
+  );
+
+  it('applies banFilter and normalized username search before count and pagination', async () => {
+    const expected = await fixture({ username: 'match-one', banned: true, time: NOW });
+    await fixture({ username: 'MATCH-two', banned: true, time: NOW + 1 });
+    await fixture({ username: 'match-three', banned: true, time: NOW + 2 });
+    await fixture({ username: 'match-active', time: NOW + 3 });
+    await fixture({ username: 'unrelated', banned: true, time: NOW + 4 });
+    await fixture({ username: 'match-deleted', banned: true, deleted: true, time: NOW + 5 });
+    await fixture({ banned: true, time: NOW + 6 });
+    const result = await post({
+      variables: {
+        input: {
+          banFilter: 'BLOCKED',
+          searchUsername: ' MaTcH ',
+          page: 2,
+          pageSize: 2,
+          sort: 'CREATED_AT_DESC',
+        },
+      },
+    });
+    expect(result.body.errors).toBeUndefined();
+    expect(result.body.data.superadminUsers).toMatchObject({
+      items: [{ userId: expected }],
+      totalCount: 3,
+      pageInfo: { page: 2, pageSize: 2, pagesCount: 2, hasNextPage: false },
+    });
+    expect(result.body.data.superadminUsers.items).toHaveLength(1);
+  });
+
+  it('rejects an invalid banFilter enum before reading the catalogue', async () => {
+    const read = jest.spyOn(app.get(SuperadminUsersQueryRepository), 'findPage');
+    const result = await post({ variables: { input: { banFilter: 'CONFIRMED' } } });
+    expect(result.body.errors[0].extensions.code).toBe('BAD_USER_INPUT');
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('returns nullable profile fields without creating a Profile, and hides deleted/missing details', async () => {
@@ -402,6 +477,24 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
 
   it('publishes implemented fields only, including FOLLOW-ZERO-1, and keeps secrets out', async () => {
     const schema = app.get(GraphQLSchemaHost).schema;
+    const exported = buildSchema(
+      readFileSync(
+        join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/runtime.graphql'),
+        'utf8',
+      ),
+    );
+    expect(printSchema(lexicographicSortSchema(schema))).toBe(
+      printSchema(lexicographicSortSchema(exported)),
+    );
+    const target = buildSchema(
+      readFileSync(
+        join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/target.graphql'),
+        'utf8',
+      ),
+    );
+    for (const name of ['SuperadminUsersBanFilter', 'SuperadminUsersInput']) {
+      expect(printType(schema.getType(name)!)).toBe(printType(target.getType(name)!));
+    }
     expect(Object.keys(schema.getQueryType()!.getFields()).sort()).toEqual([
       'superadminSession',
       'superadminUser',
@@ -446,8 +539,8 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       };
     }
 
-    it('matches target 1.2.0 exactly, only userId item and no new root operations', () => {
-      expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.2.0');
+    it('matches target 1.3.0 exactly, only userId item and no new root operations', () => {
+      expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.3.0');
       const schema = app.get(GraphQLSchemaHost).schema;
       const target = buildSchema(
         readFileSync(

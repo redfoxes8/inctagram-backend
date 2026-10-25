@@ -1,5 +1,11 @@
 import type { UserAccessState } from './user-access-state';
 
+export enum SuperadminUsersBanFilter {
+  All = 'ALL',
+  Blocked = 'BLOCKED',
+  NotBlocked = 'NOT_BLOCKED',
+}
+
 export enum SuperadminUserSort {
   UsernameAsc = 'USERNAME_ASC',
   UsernameDesc = 'USERNAME_DESC',
@@ -12,6 +18,7 @@ export type SuperadminUsersFilter = Readonly<{
   pageSize: number;
   searchUsername: string | null;
   sort: SuperadminUserSort;
+  banFilter: SuperadminUsersBanFilter;
 }>;
 
 export type SuperadminUserListItem = {

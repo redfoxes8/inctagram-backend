@@ -1,4 +1,4 @@
-# Superadmin GraphQL API — контракт 1.2.0
+# Superadmin GraphQL API — контракт 1.3.0
 
 ## Быстрое подключение для frontend
 
@@ -18,7 +18,7 @@
 4. После reload сначала выполнить `superadminSession` без cache; при успехе обновить nonce из header. `UNAUTHENTICATED` → форма входа; техническую ошибку не считать logout.
 5. Читать каталог/детали; в mutations передавать актуальный nonce. После logout очищать client cache/состояние.
 
-Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.2.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
+Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.3.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
 
 ### Backend checklist до браузерного подключения
 
@@ -49,7 +49,7 @@
 
 В текущем manifest четыре admin Secret key references помечены `optional:true`, timeout отдельно не подключён и использует default. Поэтому отсутствие **этих ключей** не препятствует запуску Node.js. Другие обязательные Secret/key references и инфраструктура остаются необходимыми: если весь существующий Secret или другой обязательный key отсутствует, Kubernetes может не запустить контейнер, и fallback приложения это не исправит. Pipeline/manifest этой задачей не меняются.
 
-Статус: целевой контракт **1.2.0**. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. Версия повышена с 1.1.0 до 1.2.0 из-за добавления followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
+Статус: runtime и целевой контракт **1.3.0**. Additive S1: в существующий superadminUsers добавлен banFilter с default ALL; старые запросы сохраняют поведение. Причина блокировки и общий Payments list ещё не опубликованы. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 **SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
 
@@ -59,7 +59,7 @@
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
-Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.2.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
+Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.3.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
 
 Для frontend tooling: **[экспорт фактически опубликованного runtime SDL](libs/contracts/src/graphql/superadmin/v1/runtime.graphql)**. Это отдельный артефакт, не target и не новая версия контракта. Тест SA-GQL-09 сравнивает его канонический SDL с реальным `GraphQLSchemaHost` всех production superadmin feature modules, а все executable GraphQL-блоки этого guide проходят parse/validate по этой schema. Связный HTTP-сценарий исполняет auth/catalog/все вкладки/moderation/logout; schema validation остальных примеров не объявляется их исполнением.
 
@@ -99,7 +99,7 @@ query CurrentSuperadminSession {
 
 ## Followers/Following — реализован временный FOLLOW-ZERO-1 (SA-GQL-08)
 
-Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в runtime и target **1.2.0** отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
+Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.3.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
 
 ```graphql
 extend type SuperadminUser {
@@ -234,11 +234,21 @@ Aliases одного направления тоже независимы; reque
 
 List/detail: `userId`, `createdAt`, `state`, `isEmailConfirmed` non-null. `username`, `profileUrl`, `avatarUrl` nullable: Profile optional в текущей Prisma model. Detail без Profile возвращает null этих полей. Отсутствующий/deleted User — null detail. Public profile route не подтверждён, URL не выдумывать; дата создания берётся из User.
 
-Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; поля Payments сохраняются в API-контракте 1.2.0, Stripe lifecycle не меняется.
+Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; поля Payments без изменений сохраняются в API-контракте 1.3.0, Stripe lifecycle не меняется.
 
-## Pagination, search, sort (реализовано — SA-GQL-03)
+## Pagination, search, sort и banFilter (SA-GQL-03 + S1)
 
 `page` 1..10 000, default 1; `pageSize` 1..50, default 8. `PageInfo`: page, pageSize, pagesCount, hasNextPage; `totalCount` относится к фильтру. Успешная страница вне диапазона данных — пустые items с корректной metadata. Невалидные bounds — BAD_USER_INPUT. DTO `PaginationInput` должен применяться к `@Args('input')` каждой реализованной feature; декларация SDL сама не проверяет диапазоны.
+
+**S1 — фильтр блокировки (1.3.0):** `SuperadminUsersInput.banFilter: SuperadminUsersBanFilter! = ALL`.
+
+| UI           | banFilter   | Поведение                    |
+| ------------ | ----------- | ---------------------------- |
+| Not selected | ALL         | Все неудалённые пользователи |
+| Blocked      | BLOCKED     | isBanned=true                |
+| Not blocked  | NOT_BLOCKED | isBanned=false               |
+
+Фильтр применяется в БД вместе с поиском **до count и pagination**; items/totalCount остаются на одном SQL snapshot. Подтверждение email не влияет на фильтр, отсутствие Profile не исключает пользователя. Во всех вариантах deletedAt IS NULL. Без banFilter (включая `input:{}`) действует ALL, defaults page=1/pageSize=8 и прежний response не меняются. Неподдерживаемое значение enum/явный null → безопасный BAD_USER_INPUT до чтения каталога; для Not selected отправляйте ALL или не передавайте поле, не null. Поиск/4 сортировки сочетаются с фильтром, `totalCount` относится ко всей отфильтрованной выборке.
 
 Каталог включает всех неудалённых, в том числе blocked/unconfirmed и пользователей без Profile. `searchUsername`: trim, substring, case-insensitive; null/пустой после trim поиск отключает фильтр. Максимум 100 символов **после trim**, превышение → `BAD_USER_INPUT`. Поиск применяется до count/page. `%`, `_`, обратный слеш и кавычки — буквальный текст, не wildcard-синтаксис: параметризованный `strpos(lower(username), lower(parameter))`, не LIKE.
 
@@ -272,7 +282,7 @@ query Users($input: SuperadminUsersInput!) {
 }
 ```
 
-Variables: `{"input":{"page":1,"pageSize":8,"searchUsername":"  sample  ","sort":"USERNAME_ASC"}}`. Для defaults: `{"input":{}}`.
+Variables (filter + search + pagination): `{"input":{"page":1,"pageSize":8,"searchUsername":"  sample  ","sort":"USERNAME_ASC","banFilter":"BLOCKED"}}`. Для всех пользователей: `"banFilter":"ALL"` или прежний `{"input":{}}`; для незаблокированных: `"banFilter":"NOT_BLOCKED"`. Размер/номер страницы и сортировка работают как раньше.
 
 Иллюстративный ответ с синтетическими данными (не реальные аккаунты):
 
