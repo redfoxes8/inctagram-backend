@@ -7,7 +7,7 @@
 - Предлагаемые, **пока не подтверждённые как существующие**, страницы: `https://nymbi.org/superadmin` и `https://dev.nymbi.org:3000/superadmin`. Создание frontend в backend scope не входит.
 - Учебный вход: **`admin@gmail.com` / `admin`** — теперь встроенный backend fallback, **включая production**, по явному решению пользователя от 21.10.2026. Это не обычная пользовательская учётная запись. Bcrypt-хеш фронтенду не нужен, в bundle его не передавать; пароль берётся из формы, не вшивается в приложение. Фактический публичный deployment этой версии ещё не подтверждён.
 - Реальный allow-list определяется непустым `SUPERADMIN_ALLOWED_ORIGINS` **окружения запущенного Gateway** либо встроенными origins `https://nymbi.org,https://dev.nymbi.org:3000`, не загрузкой `.env.example`. `location.origin` должен совпадать точно, включая scheme и port; без `/superadmin`, wildcard и завершающего `/`. Пример `http://localhost:3000` **не считается разрешённым** без явной настройки backend. Отсутствующая/пустая/whitespace env использует fallback, а не запрещающий пустой список.
-- На локальной development-БД три новые миграции применены; Gateway проверен на 4278. Это **не доказательство** настроенных admin credentials/origins, работы login или публичного deployment.
+- Ранее локальный Gateway проверялся на 4278 с тремя auth/state/revoke миграциями. Это **не подтверждает** применение последующих migrations данной итерации, настроенные admin credentials/origins, рабочий login или публичный deployment; актуальные prerequisites — в checklist ниже.
 - HTTPS frontend → HTTP API может блокироваться браузером как mixed content. `SameSite=Lax` предполагает same-site размещение frontend/API; разные origins/порты не обязательно означают разные sites. Для cross-site нужны `SameSite=None; Secure`, HTTPS и browser-проверка third-party cookies. В production cookies Secure; не обещается работа произвольной комбинации адресов, включая локальный HTTP API из удалённой HTTPS страницы.
 
 Порядок подключения:
@@ -22,7 +22,8 @@
 
 ### Backend checklist до браузерного подключения
 
-- Применены AdminSession → state/audit → revoke outbox migrations в **нужной** БД; сгенерирован совместимый Prisma Client.
+- Применены AdminSession → state/audit → revoke outbox и последующие ban-reason/profile-outbox migrations в **Gateway DB**, projection migration — в **Payment DB**; сгенерированы совместимые Prisma Clients. Generation не заменяет migrate deploy; точные команды и порядок — в [Deployment runbook F существующего плана](GRAPHQL_SUPERADMIN_MODERATION_PAYMENTS_PLAN.md).
+- Для общего Payments list отдельно переданы Payment env `PAYMENT_USER_PROJECTION_SYNC_ENABLED=true`, `GATEWAY_USER_SERVICE_GRPC_URL` и `RABBITMQ_URL`; сначала проверены durable queue/consumer, затем все Gateway writers и operator marker, bootstrap достиг READY. Эти настройки не включаются superadmin fallback-значениями; текущий Payment manifest требует отдельного env mapping перед deployment.
 - Сервер использует согласованные встроенные email/bcrypt-hash либо валидные непустые env overrides; startup Gateway сам по себе этого не проверяет как рабочий login.
 - Точный frontend origin входит в разрешённые fallback origins либо env override; при смене настроек Gateway перезапущен/передеплоен. `.env.example` автоматически в deployment не загружается.
 - Cookie Secure/SameSite и HTTPS соответствуют фактическому browser-размещению.
@@ -55,7 +56,7 @@
 
 ## URL и текущая доступность
 
-Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Отсутствующий/пустой `SUPERADMIN_ALLOWED_ORIGINS` теперь использует два согласованных fallback origins, остальные Origin по-прежнему отклоняются.
+Фактический URL: `/api/v1/graphql` на Gateway (POST JSON). **Runtime endpoint включён** через `SuperadminModule.withRuntime`; опубликованы `superadminSession`, `superadminLogin`, `superadminLogout`, `superadminUsers`, `superadminUser`, `superadminBlockUser`, `superadminUnblockUser`, `superadminDeleteUser`, `superadminPayments`. Runtime composition — `libs/contracts/src/graphql/superadmin/v1/runtime-type-defs.ts`: `auth-type-defs.ts`, `users-type-defs.ts`, `moderation-type-defs.ts`, `payments-type-defs.ts`, `follow-zero-type-defs.ts`, `payments-list-type-defs.ts`; target SDL целиком не загружается. Поля `SuperadminUser.payments`, `followers`, `following` опубликованы; последние два реализуют только временные hardcoded-zero connections. Отсутствующий/пустой `SUPERADMIN_ALLOWED_ORIGINS` теперь использует два согласованных fallback origins, остальные Origin по-прежнему отклоняются.
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
@@ -498,6 +499,15 @@ mutation BlockWithReason($input: SuperadminUserIdInput!, $reason: SuperadminBanR
 {
   "input": { "userId": "00000000-0000-4000-8000-000000000001" },
   "reason": { "code": "BAD_BEHAVIOR" }
+}
+```
+
+Advertising placement, variables для той же операции:
+
+```json
+{
+  "input": { "userId": "00000000-0000-4000-8000-000000000001" },
+  "reason": { "code": "ADVERTISING_PLACEMENT" }
 }
 ```
 

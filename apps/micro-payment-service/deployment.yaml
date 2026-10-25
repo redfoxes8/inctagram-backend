@@ -170,6 +170,16 @@ spec:
                  secretKeyRef:
                    name: micro-payment-service-10-07-2026-production-config-secret
                    key: PAYMENT_REMINDER_MAX_BATCHES_PER_TICK
+             - name: PAYMENT_USER_PROJECTION_SYNC_ENABLED
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: PAYMENT_USER_PROJECTION_SYNC_ENABLED
+             - name: GATEWAY_USER_SERVICE_GRPC_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: micro-payment-service-10-07-2026-production-config-secret
+                   key: GATEWAY_USER_SERVICE_GRPC_URL
              - name: PORT
                valueFrom:
                  secretKeyRef:

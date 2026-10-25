@@ -728,7 +728,7 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('SA-GQL-09 connected HTTP journey: login, catalogue/tabs, block/unblock/new login/delete, audit and logout', async () => {
+  it('F connected HTTP journey: login, reason/filter/unblock/new login, global payments, delete, audit and logout', async () => {
     const userPassword = 'isolated-final-user';
     const account = await prisma.user.update({
       where: { id: userId },
@@ -739,6 +739,16 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
       },
     });
     const paymentId = await transaction({ linked: true });
+    // Acceptance fixture: READY is seeded in beforeEach, not obtained by bootstrap/rollout.
+    await payment.adminUserProfileReadModel.create({
+      data: {
+        userId,
+        sourceVersion: 0n,
+        username: 'final-journey-user',
+        profileExists: true,
+        isDeleted: false,
+      },
+    });
     const userLogin = (): request.Test =>
       request(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -821,14 +831,73 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
         data: { [input.operation]: { userId, outcome: input.outcome } },
       });
     };
-    await mutate({ operation: 'superadminBlockUser', outcome: 'BLOCKED' });
+    const blocked = await admin({
+      query:
+        'mutation($input:SuperadminUserIdInput!, $reason:SuperadminBanReasonInput){superadminBlockUser(input:$input,reason:$reason){userId outcome}}',
+      variables: {
+        input: { userId },
+        reason: { code: 'ANOTHER_REASON', text: '  Acceptance fixture reason  ' },
+      },
+    });
+    expect(blocked.body).toEqual({ data: { superadminBlockUser: { userId, outcome: 'BLOCKED' } } });
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: userId } })).toMatchObject({
+      isBanned: true,
+      banReasonCode: 'ANOTHER_REASON',
+      banReasonText: 'Acceptance fixture reason',
+    });
+    expect(
+      (
+        await admin({
+          query: catalogQuery,
+          variables: { input: { searchUsername: 'journey', banFilter: 'BLOCKED' } },
+        })
+      ).body.data.superadminUsers,
+    ).toMatchObject({ totalCount: 1, items: [{ userId }], pageInfo: { pageSize: 8 } });
     expect((await protectedRead(oldAccess)).status).toBe(401);
     await mutate({ operation: 'superadminUnblockUser', outcome: 'UNBLOCKED' });
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: userId } })).toMatchObject({
+      isBanned: false,
+      banReasonCode: null,
+      banReasonText: null,
+    });
+    expect(
+      (
+        await admin({
+          query: catalogQuery,
+          variables: { input: { searchUsername: 'journey', banFilter: 'NOT_BLOCKED' } },
+        })
+      ).body.data.superadminUsers,
+    ).toMatchObject({ totalCount: 1, items: [{ userId }], pageInfo: { pageSize: 8 } });
     expect((await protectedRead(oldAccess)).status).toBe(401);
     const renewed = await userLogin();
     expect(renewed.status).toBe(200);
     const renewedAccess: string = renewed.body.accessToken;
     expect((await protectedRead(renewedAccess)).status).toBe(200);
+    for (let index = 0; index < 6; index++) await transaction({ amount: 100 + index });
+    const globalPage = await admin({ query: GLOBAL_QUERY, variables: { input: {} } });
+    expect(globalPage.body.errors).toBeUndefined();
+    expect(globalPage.body.data.result).toMatchObject({
+      totalCount: 7,
+      pageInfo: { page: 1, pageSize: 6, pagesCount: 2, hasNextPage: true },
+    });
+    expect(globalPage.body.data.result.items).toHaveLength(6);
+    const nextPayments = await admin({
+      query: GLOBAL_QUERY,
+      variables: { input: { page: 2, searchUsername: ' JOURNEY ', sort: 'AMOUNT_ASC' } },
+    });
+    expect(nextPayments.body.errors).toBeUndefined();
+    expect(nextPayments.body.data.result).toMatchObject({
+      totalCount: 7,
+      pageInfo: { page: 2, pageSize: 6, hasNextPage: false },
+      items: [
+        {
+          transactionId: paymentId,
+          username: 'final-journey-user',
+          amountMinor: 899,
+          provider: 'PAYPAL',
+        },
+      ],
+    });
     await mutate({ operation: 'superadminDeleteUser', outcome: 'DELETED' });
     expect((await protectedRead(renewedAccess)).status).toBe(401);
     expect((await userLogin()).status).toBe(401);
@@ -848,6 +917,18 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
       ['BLOCK:BLOCKED', 'UNBLOCK:UNBLOCKED', 'DELETE:DELETED', 'DELETE:ALREADY_DELETED'].sort(),
     );
     expect(new Set(rows.map((row) => row.adminSessionId)).size).toBe(1);
+    expect(rows.filter((row) => row.action === 'BLOCK' || row.action === 'UNBLOCK')).toEqual([
+      expect.objectContaining({
+        action: 'BLOCK',
+        banReasonCode: 'ANOTHER_REASON',
+        banReasonText: 'Acceptance fixture reason',
+      }),
+      expect.objectContaining({
+        action: 'UNBLOCK',
+        banReasonCode: 'ANOTHER_REASON',
+        banReasonText: 'Acceptance fixture reason',
+      }),
+    ]);
     expect(rows[0].adminSessionId).not.toBe(sessionId); // Actor is the actual login session, not seeded fixture principal.
     expect(await payment.paymentTransaction.count({ where: { id: paymentId } })).toBe(1);
     expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(0);

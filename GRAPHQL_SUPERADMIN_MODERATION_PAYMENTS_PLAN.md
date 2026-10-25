@@ -2,7 +2,7 @@
 
 ## 1. Статус и правила ведения
 
-**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1–S3/P0/P1 объединены; P2 реализован и проверен локально. F не начат; итерация целиком не принята.** Дата: 25.10.2026, Europe/Kiev. Исходное исследование `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. P0 исследует `b5895d341cfdf278acfe5adc36ce15e5984969d6` в `docs/superadmin-payments-sync-contract` после merge S3; дерево до этого прохода чистое. P1a: ветка `feature/superadmin-payment-profile-sync`, база `462c554a2e6266dc31e7c07b8229fd9e2c87c8e1`, исходное дерево чистое. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
+**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1–S3/P0/P1 объединены; P2 объединён; F технически выполнен локально в согласованном сокращённом scope. Production/browser приёмка и буквальное полное выполнение исходного ТЗ не заявляются.** Дата: 25.10.2026, Europe/Kiev. Исходное исследование `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. P0 исследует `b5895d341cfdf278acfe5adc36ce15e5984969d6` в `docs/superadmin-payments-sync-contract` после merge S3; дерево до этого прохода чистое. P1a: ветка `feature/superadmin-payment-profile-sync`, база `462c554a2e6266dc31e7c07b8229fd9e2c87c8e1`, исходное дерево чистое. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
 
 **Уточнение 25.10.2026:** R1/R2 и продуктовые R4–R7 решены пользователем; выбор Payment read model и eventual consistency R8 принят. Visibility и создание comments/reactions отложены вне текущей реализации и не блокируют сокращённый scope. Последующим запросом пользователь утвердил эту редакцию и технические стартовые параметры; повторные продуктовые согласования для S1 не нужны.
 
@@ -263,7 +263,7 @@ Gateway одним локальным запросом читает User/Profile
 
 Числовые суммы/даты/enums использовать из существующих проверенных мапперов; неизвестный upstream enum/повреждённый ответ — ошибка, не выдуманное допустимое значение. Существующие product facts не объявляются исторически неизменными.
 
-## 6. API: фильтр опубликован, остальные дополнения ещё кандидат
+## 6. API: согласованные контракты moderation и Payments
 
 Продуктовые R1/R2/R4–R8 решены пользователем; технические имена/формы ниже проверяются при review этой версии плана. Не менять target/runtime SDL до реализованных resolvers/tests. Владельцы common SDL/guards/pagination/errors остаются Gateway integrator; Payment proto/generated — Payment+Gateway contract owner, один integration PR. S1 опубликовал additive banFilter в версии 1.3.0. S3 добавляет optional reason только существующему block в composition/target/runtime export **1.4.0**, без новых operations/response fields и breaking required reason. Общий Payments в runtime ещё не добавлен.
 
@@ -390,7 +390,7 @@ Root nullable для ошибки без потери других root data, у
 
 **Текущий маршрут:** technical review S0 → Users filter S1 → модель причины S2 → reason use case/GraphQL S3 → детализация sync P0 → подготовка Payments read model/sync P1 → общий RPC/GraphQL P2 → итоговая сверка F. V0/V1 отложены, не входят в зависимости этого маршрута. Причина/фильтр/общие платежи реализуются полноценно, не заглушками.
 
-Внутри вертикали: контракт → модели/миграции и repository → application → transport/wiring → узкие integration checks → документация. Не держать все направления в одном большом незавершённом PR. Выполнены S1–S3, документационный P0 и P1a–P1e; родительский P1 завершён технически по подэтапам. P2 выполнен локально; F и отложенные V0/V1 остаются с пустыми чекбоксами; production rollout не подтверждён.
+Внутри вертикали: контракт → модели/миграции и repository → application → transport/wiring → узкие integration checks → документация. Не держать все направления в одном большом незавершённом PR. Выполнены S1–S3, документационный P0 и P1a–P1e; родительский P1 завершён технически по подэтапам. P2 и F выполнены локально; отложенные V0/V1 остаются с пустыми чекбоксами; production rollout не подтверждён.
 
 ### S0 — review технической формы плана, без повторного Product-согласования
 
@@ -713,10 +713,163 @@ for (const file of ['apps/main-gateway-service/tsconfig.app.json', 'apps/micro-p
 
 ### F — итоговая сверка сокращённого согласованного объёма
 
-- [ ] Обновить прежний FE guide, target/runtime export/version, примеры и журнал; сверить filter/reason/global Payments вместе и прежний selected-user history.
+- [x] Обновить прежний FE guide, target/runtime export/version, примеры и журнал; сверить filter/reason/global Payments вместе и прежний selected-user history. Результат F и deployment gates ниже.
 - Gateway integrator + владельцы вертикалей. Зависимости — S1/S2/S3/P0/P1/P2 реально завершены; **V0/V1 не блокируют текущую приёмку**.
 - Завершение: согласованный сокращённый scope готов по автоматизированным доказательствам; исходная comments/reactions visibility явно остаётся отложенной/непроверенной. Не заявлять полное соответствие исходному UC-1.
-- Минимум: scoped regression в конце/при изменении общего механизма, Gateway/изменённый Payment build/typecheck/lint/format, schema/examples/diff checks. Изолированные миграции; без FE/production/вымышленных source readiness claims.
+- Минимум F по текущему запросу: один reused connected сценарий, schema/examples, scoped format/diff и typecheck изменённого теста. Без production-кода сборки/source checks успешно завершённого P2 не повторять; прежние isolated migration proofs переиспользовать. FE/production/source readiness не приписывать локальным fixtures.
+
+#### Результат F — локальная техническая сверка 25.10.2026
+
+Ветка `test/superadmin-moderation-payments-acceptance`, база `2e046dc160f0e4cc45ba205ebe353acaf1aba1d7` после merge P2; исходное дерево чистое. Прочитан единственный применимый корневой Agents.md. Production-код/контракт **1.5.0** не изменены. Технический сокращённый scope готов к review/merge; это не пользовательская/production-приёмка и не буквальное полное выполнение исходного ТЗ.
+
+| Требование                                            | Реализация                                                                                                             | Автоматизированное доказательство                                                                                                                                                                                                | Ограничение                                                                                                                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Users: последние 8, ALL/BLOCKED/NOT_BLOCKED           | GetSuperadminUsersQuery + PrismaSuperadminUsersQueryRepository, defaults 1/8; фильтр до count/page                     | S1: [users suite](apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts), legacy/newest-eight и state/filter/search/page cases; F: BLOCKED → NOT_BLOCKED по HTTP, pageSize=8                            | UI Not selected/Blocked/Not blocked отображает frontend; deleted исключены, email confirmation независимо                                                     |
+| BAD_BEHAVIOR / ADVERTISING_PLACEMENT / ANOTHER_REASON | normalizeUserBanReason, block optional reason, User + audit snapshot                                                   | S2/S3: тот же users suite и [storage suite](apps/main-gateway-service/test/superadmin/user-ban-reason-storage.integration-spec.ts); F: Another reason trim, сохранение текущей причины                                           | Текст 1–500 Unicode code points; стандартные причины не принимают непустой текст; read/edit reason API нет                                                    |
+| Legacy без reason; повтор не меняет причину           | ModerateUserUseCase, ALREADY_BLOCKED                                                                                   | S3 users suite: legacy omission/null, preserves winning reason on repeat, concurrent reasons                                                                                                                                     | Старым блокировкам причина не придумана; request deduplication не обещается                                                                                   |
+| Unblock очищает reason, audit хранит прежнюю          | Общая транзакция User/Sessions/audit/outbox                                                                            | S3 users suite; F: null/null после unblock и прежний reason в BLOCK/UNBLOCK audit                                                                                                                                                | Не восстанавливает сессии                                                                                                                                     |
+| Прекращение доступа и новый login после unblock       | Общие state/session checks, session revoke/access outbox                                                               | [enforcement suite](apps/main-gateway-service/test/superadmin/user-access-enforcement.integration-spec.ts), прежние REST/refresh/Google/WS доказательства; F: старый access запрещён после block и unblock, новый login работает | In-flight может завершиться; WS/realtime наборы здесь не повторялись, staging/two-pod остаётся открытым                                                       |
+| Общий Payments list по 6                              | GetSuperadminPaymentsPage RPC → P1e SQL → Gateway batch enrichment → superadminPayments                                | P1e 14/14 и P2 11/11 выше; F: реальный HTTP → gRPC → Payment DB, totalCount=7, pageSize=6                                                                                                                                        | READY/projection в F — fixtures, не полный rollout/bootstrap                                                                                                  |
+| Фото, username, дата, сумма/валюта, подписка, метод   | Snapshot username + текущий avatar; createdAt; amountMinor/currency; Product.name/billingInterval/count; STRIPE/PAYPAL | P1e/P2 mapping/enrichment fixtures; F: snapshot username, amountMinor и provider общей страницы                                                                                                                                  | Nullable username/avatar, missing/deleted платежи сохраняются; provider не card brand, Product не historical snapshot; все статусы, без FX                    |
+| Username search + 8 сортировок, stable ID/null-last   | Payment SQL literal substring и enum whitelist до count/page                                                           | P1e: 8 параметризованных sort cases, %/\_, ties/null-last; P2 transport; F: trim/case-insensitive search + AMOUNT_ASC + page=2                                                                                                   | Другие SQL сортировки не повторялись; collation evidence P1e en_US.utf8, другой installation порядок не обещается                                             |
+| UI подтверждение, No/крестик/закрытие                 | Frontend вызывает mutation только после Yes                                                                            | Backend-тесты проверяют только вызванные операции                                                                                                                                                                                | Меню/диалоги/redirect/таблицы и отсутствие вызова при отмене не проверены backend-тестами                                                                     |
+| Comments/reactions visibility                         | Отложено пользователем, source в проверенном репозитории не найден                                                     | Discovery/решение R3, V0/V1 остаются отложенными                                                                                                                                                                                 | Новая подсистема/фиктивные endpoints не создавались; скрытие/counts и будущая видимость после unblock сейчас не реализованы/не проверены                      |
+| Eventual consistency                                  | Versioned Payment projection + текущий Gateway enrichment                                                              | P1a–P1e/P2 доказательства выше                                                                                                                                                                                                   | Stale поиск/порядок/count согласованы; enrichment их не исправляет, общего snapshot двух DB/числового SLA нет                                                 |
+| FE контракт и прежние вопросы                         | Runtime SDL 1.5.0, единый API guide                                                                                    | F schema/examples validation; guide дополнен Advertising placement и актуальным списком operations/composition                                                                                                                   | profileUrl=null/маршрут неизвестен; реальные origins/HTTPS/cookies/provision/rotation, staging revoke и production delete/paid auto-renew политики не закрыты |
+
+**Одна связная проверка:** расширен существующий `F connected HTTP journey` в [Payments integration suite](apps/main-gateway-service/test/superadmin/superadmin-payments.integration-spec.ts), без новой инфраструктуры. Synthetic disposable User/Profile/session → реальный admin login/session/nonce → каталог по 8 и прежние детали/selected-user payments → block с ANOTHER_REASON → BLOCKED filter/отказ user token → unblock/null reason/NOT_BLOCKED → прежний token всё ещё запрещён → новый user login → общий Payments list → username search/AMOUNT_ASC/page2 → прежние delete/audit/logout проверки. Audit снимки BLOCK/UNBLOCK подтверждены; admin logout отзывает именно session реального login.
+
+Gateway и отдельная Payment DB — настоящий одноразовый PostgreSQL 16; настоящий Nest GraphQL HTTP/gRPC controller/query/repository, прежний authenticated REST history. Initial READY выставляет существующий beforeEach, projection v0 и 7 платежей созданы прямыми Prisma fixtures. Это **не** источник/source writer, bootstrap, broker delivery либо проверка оператора/revision. SQL history helpers готовят fixture baseline, не доказывают clean migrate deploy всей истории. Нет реальных аккаунтов/Stripe/общих DB. Новый reason+filter+Payments путь исполнялся, остальные guide-примеры проверены schema validation; визуальный frontend/браузер не использовался.
+
+**Команды F:** `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-payments.integration-spec.ts --testNamePattern 'F connected HTTP journey|validates every executable' --noStackTrace` — **2/2**, 33 намеренно skipped; runtime SDL канонически совпадает с GraphQLSchemaHost и исполняемые GraphQL-примеры guide валидны. Дополнительно проверены против runtime.graphql **12 операций guide и 1 PaymentsSmoke из runbook** (schema validation, не исполнение на реальном сервере). Нефатальный pg deprecation-warning сохранён вне scope. Целевой test typecheck (Gateway tsconfig.app.json + изменённый integration test, Compiler API noEmit/incremental=false) — **0 diagnostics**. Scoped ESLint `--max-warnings=0`, Prettier, ссылки и `git diff --check` — успешно. Сборки/source typechecks P2 переиспользованы; production-код здесь не менялся, повтор не требовался.
+
+#### Deployment runbook F — инструкция, сейчас не выполнялась
+
+Владелец — Operations совместно с Gateway/Payment owners; ниже только подготовка к будущему rollout. Перед любым запуском проверить назначение DB, schema/search_path, backup и baseline по `_prisma_migrations`. Не раскрывать URI/пароли в консоли/логах; не использовать reset/db push и не редактировать применённые migrations.
+
+**1. Миграции отдельно для каждой DB.** В этой итерации Gateway добавляет `20261025120000_add_user_ban_reasons` и `20261025130000_add_payment_user_profile_outbox`; Payment — `20261025130000_add_admin_user_projection`. Предшественники Gateway: AdminSession `20261018120000` → state/audit `20261018130000` → access-revoke outbox `20261018140000` (и прежний baseline). Все ранее объединённые Payment migrations также обязательны. S1/S3/P1b–P2 дополнительных migrations не добавляли.
+
+Команды выполняются из корня в **двух отдельных migration jobs/process environments**, а не последовательным переключением URI вслепую. В каждом окружении оператор/secret store заранее предоставляет `PRISMA_DB_URL_DIRECT` только соответствующей целевой DB и устанавливает `NODE_ENV=production`; оба [Prisma config](apps/main-gateway-service/src/core/prisma/prisma.config.ts)/[Payment config](apps/micro-payment-service/src/core/prisma/prisma.config.ts) читают эту переменную и service-specific dotenv без override уже заданного env. Не полагаться на default development env.
+
+```powershell
+# JOB Gateway: PRISMA_DB_URL_DIRECT — проверенная Gateway DB, уже provisioned.
+$env:NODE_ENV = 'production'
+pnpm exec prisma migrate status --config apps/main-gateway-service/src/core/prisma/prisma.config.ts
+pnpm exec prisma migrate deploy --config apps/main-gateway-service/src/core/prisma/prisma.config.ts
+pnpm exec prisma migrate status --config apps/main-gateway-service/src/core/prisma/prisma.config.ts
+```
+
+```powershell
+# ДРУГОЙ JOB Payment: собственный PRISMA_DB_URL_DIRECT — Payment DB.
+$env:NODE_ENV = 'production'
+pnpm exec prisma migrate status --config apps/micro-payment-service/src/core/prisma/prisma.config.ts
+pnpm exec prisma migrate deploy --config apps/micro-payment-service/src/core/prisma/prisma.config.ts
+pnpm exec prisma migrate status --config apps/micro-payment-service/src/core/prisma/prisma.config.ts
+```
+
+Pending status до deploy ожидаем; failed/divergent history, неизвестный baseline/назначение DB — остановка и согласование migration owner, не автоматический resolve. Старый Gateway history требует отдельной подтверждённой baseline-процедуры: isolated helpers ранее применяли старые SQL + resolve, это не разрешение повторять их на реальной DB и не доказательство fresh deploy. Проверить сохранность User/Profile/Sessions/audit/payment fixtures/data обычными безопасными checks владельца.
+
+**2. Generation/build — отдельная операция, не миграция DB.** В build environment с provisioned конфигурацией, из того же commit:
+
+```powershell
+pnpm run prisma:generate
+pnpm run prisma:payment:generate
+pnpm run build:main-gateway-service
+pnpm run build:micro-payment-service
+```
+
+Пересобрать/передеплоить **оба** сервиса: `main-gateway-service` (writers/relay/export/GraphQL) и `micro-payment-service` (consumer/bootstrap/read RPC). В [Gateway Dockerfile](apps/main-gateway-service/Dockerfile) generation/build выполняются при сборке, CMD ещё выполняет migrate deploy с `PRISMA_DB_URL_DIRECT="$PRISMA_DB_URL"`. У [Payment Dockerfile](apps/micro-payment-service/Dockerfile) prebuild генерирует клиент, CMD также вызывает migrate deploy с config/direct env. Не путать generation со schema deploy, проверить прямое назначение URL и сериализовать rollout/migration ownership; после отдельного job startup deploy должен быть идемпотентным no-op. Dockerfile/pipeline в этом этапе не исправлялись.
+
+**3. Конфигурация и сеть перед Gateway rollout.**
+
+| Сервис            | Необходимая конфигурация                                                                                                                       | Репозиторное доказательство / условие                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payment           | `PAYMENT_USER_PROJECTION_SYNC_ENABLED=true`, `GATEWAY_USER_SERVICE_GRPC_URL=<private-gateway-host>:50050`, `RABBITMQ_URL` того же broker/vhost | [PaymentConfig](apps/micro-payment-service/src/core/payment.config.ts); false-default сохранён: без включения нет consumer/export/worker, общий read недоступен |
+| Payment server/DB | Существующие `GRPC_HOST/GRPC_PORT`, `PRISMA_DB_URL`, отдельный direct migration URL и остальные штатные env сервиса                            | [Service](apps/micro-payment-service/service.yaml): TCP 50053; фактический bind/targetPort сверить с GRPC_PORT                                                  |
+| Gateway           | Существующие `PAYMENT_SERVICE_GRPC_URL=<private-payment-host>:50053`, `GATEWAY_GRPC_HOST/GATEWAY_GRPC_PORT`, `RABBITMQ_URL`, Gateway DB env    | [GatewayConfig](apps/main-gateway-service/src/core/gateway.config.ts), [Service](apps/main-gateway-service/service.yaml): TCP 50050 для внутреннего UserService |
+| Browser → Gateway | Реальный HTTPS Gateway origin/endpoint, exact frontend allow-list, cookies/SameSite/CSRF/proxy headers                                         | [FE guide](GRAPHQL_SUPERADMIN_FRONTEND_API.md); публичный URL неизвестен, `/superadmin` — frontend, не API                                                      |
+
+Из шаблонов Service подтверждены имена/порты, **не реальные production DNS/namespace/доступность**. В одном проверенном namespace возможны service DNS `main-gateway-service:50050` и `micro-payment-service:50053`; это условный internal пример, не утверждённый адрес. Payment должен достигать Gateway export TCP50050, Gateway — Payment TCP50053; оба — соответствующих DB и RabbitMQ того же vhost. Не публиковать эти gRPC через публичный ingress; caller authentication/mTLS/NetworkPolicy по репозиторию не доказаны, Operations/Security проверяют фактическую изоляцию.
+
+**Подтверждённый deployment gate:** [Payment deployment.yaml](apps/micro-payment-service/deployment.yaml) передаёт RABBITMQ_URL/GRPC/DB через Secret keys, но **не передаёт PAYMENT_USER_PROJECTION_SYNC_ENABLED и GATEWAY_USER_SERVICE_GRPC_URL**. Наличие keys в Secret само по себе недостаточно при явном env mapping. Доступного CI pipeline-файла для подтверждения иной injection в репозитории нет. Перед включением обеспечить передачу этих двух env утверждённым deployment-процессом (отдельная Operations задача). Defaults/`.env.example` не включат общий список; manifest/pipeline/секреты сейчас не менялись.
+
+**4. Сначала durable topology и работающий consumer, затем Gateway.** Развернуть новую Payment версию с env выше **до первого Gateway P1c relay/writers**. Существующий consumer при connect сам assert-ит topic exchange, durable non-exclusive/non-auto-delete queues и bindings. Для первоначального запуска оператор проверяет отсутствие подтверждённого rollout marker и не устанавливает его на этой стадии: worker baseline не стартует до marker даже при true; старый Gateway без export допустим только на этой промежуточной стадии. Это precondition, не утверждение о текущей production DB. Если marker уже есть, сначала проверить его достоверность и историю topology; при неизвестной полноте использовать fenced invalidation ниже.
+
+| Объект                                     | Binding/arguments для проверки оператором                                                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `common_exchange`                          | topic, durable=true, autoDelete=false                                                                                                                                               |
+| `payment.superadmin.user-profile.v1`       | durable=true, exclusive=false, autoDelete=false; key `payment.user-profile.changed.v1`                                                                                              |
+| `payment.superadmin.user-profile.v1.retry` | те же durability flags; key `payment.user-profile.retry.v1`; x-message-ttl=60000; x-dead-letter-exchange=common_exchange; x-dead-letter-routing-key=payment.user-profile.changed.v1 |
+| `payment.superadmin.user-profile.v1.dlq`   | те же durability flags; key `payment.user-profile.dead.v1`                                                                                                                          |
+
+Из существующего авторизованного broker-admin окружения проверить actual vhost, exchange/arguments/bindings и consumers≥1 основной queue (без вывода payload):
+
+```sh
+rabbitmqctl list_exchanges -p '<actual-vhost>' name type durable
+rabbitmqctl list_queues -p '<actual-vhost>' name durable auto_delete arguments consumers messages_ready messages_unacknowledged
+rabbitmqctl list_bindings -p '<actual-vhost>' source_name destination_name destination_kind routing_key
+```
+
+Сверить таблицу с [константами](libs/contracts/src/events/payment-user-profile-delivery.ts)/[consumer](apps/micro-payment-service/src/modules/payment/infrastructure/messaging/payment-user-profile.consumer.ts), не создавать несовместимую очередь поверх существующей. **Если consumer/env/topology не готовы — Gateway rollout остановить.** Flag false не создаёт queue. Broker не хранит публикации «в exchange» без подходящей queue. Confirm+mandatory защищают от unroutable publish, но не подтверждают binding именно Payment queue: сторонняя подходящая binding тоже может дать confirm без basic.return. Поэтому наличие конкретной durable queue/binding — отдельный проверяемый precondition.
+
+После проверки queue она переживает остановку Payment consumer: persistent события копятся, retries/duplicates безопасны. Не удалять queue и не убирать binding при рестарте/переключении Payment, не отключать Gateway relay и не очищать outbox. Начальная загрузка старых пользователей всё равно нужна. Если relay ранее работал при неизвестной topology, одного publishedAt/пустой queue недостаточно для доказательства полноты: после восстановления topology и всех writers заново выполнить fenced initial pass (сброс недостоверного READY по шагу отката ниже, затем P1d marker), а не утверждать отсутствие потерь.
+
+**5. Все Gateway writers и только затем marker.** Передеплоить Gateway с P1a–P2; штатный relay постоянно публикует сохранённый outbox (у него нет нового flag), очередь уже существует. Дождаться завершения rolling update **всех** replicas, убедиться, что старых writer images нет; проверить обычную регистрацию/Google/profile-create/rename/delete и avatar-narrow-write соответствующую revision, доступность export RPC. Из авторизованного kubectl окружения пример read-only проверки, placeholders заменить фактическими:
+
+```sh
+kubectl -n '<namespace>' rollout status deployment/'<gateway-deployment>'
+kubectl -n '<namespace>' get pods -l 'project=<gateway-project>' -o 'custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[*].image'
+```
+
+Одной ready pod/пустой queue недостаточно. Оператор фиксирует реальную общую revision (image digest/release ID и результаты сверки всех writers) парой `source_writers_confirmed_at/source_deployment_revision` — **точный psql UPDATE и fenced restart уже приведены в runbook P1d выше**, не дублировать альтернативную процедуру. Не выставлять phase=READY вручную. Marker имеет смысл лишь при подключённом consumer и корректной private topology.
+
+**6. Наблюдение bootstrap/сверки.** В Payment DB безопасно читать progress без payload:
+
+```sql
+SELECT id, phase, mode, upper_user_id, cursor, source_empty,
+       last_batch_at, last_completed_at, next_run_at,
+       source_writers_confirmed_at, source_deployment_revision,
+       lease_owner, lease_until, lease_generation
+FROM admin_user_projection_sync WHERE id = 'payment-user-profile-v1';
+```
+
+Ожидать NOT_READY→LOADING→READY, завершённый pass/last_completed_at, IDLE и next_run_at примерно +24h. В RECONCILE phase остаётся READY. ≤500/batch, попытки не чаще 1/s; export UNIMPLEMENTED retry≥60s, transport backoff≤5min. Отсутствие export, connection failure или lag не исправляются ручной установкой READY. Для дополнительного прохода использовать P1d `next_run_at=clock_timestamp()` без сброса активного cursor; lease/restart — только fenced процедуру.
+
+В Gateway DB: `SELECT count(*) AS pending, min("createdAt") AS oldest_pending FROM "PaymentUserProfileOutbox" WHERE "publishedAt" IS NULL;`. Контролировать safe codes storage/publish/export/bootstrap, queue/retry/DLQ counts, lease expiry и продвижение cursor. READY не обещает lag=0; диагностика/ежедневный проход не дают числового SLA.
+
+**7. Безопасный smoke — только read.** После admin login/session из guide, с credentials и разрешённым Origin, вызвать на **фактическом Gateway** `/api/v1/graphql`:
+
+```graphql
+query PaymentsSmoke {
+  superadminPayments(input: {}) {
+    totalCount
+    pageInfo {
+      page
+      pageSize
+      pagesCount
+      hasNextPage
+    }
+  }
+}
+```
+
+Ожидать отсутствие errors и pageSize=6; totalCount=0 допустим только как успешный READY read, не как замена ошибки. Ни реальные оплаты, ни block/delete существующих пользователей для smoke не нужны. При UPSTREAM_UNAVAILABLE: проверить ошибку/path, флаг и адреса именно в **окружении процесса**; availability/migrations обеих DB; consumer/topology/vhost; singleton/marker/READY/progress; internal RPC revision/порты/изоляцию; timeout и queue/retry/DLQ/outbox. Не выводить raw URI/token/payload. UNAUTHENTICATED лечится login/session/cookie, Origin/CSRF — размещением/headers, а не отключением guards.
+
+**Откат/неизвестная полнота:** старый Gateway writer не возвращать с действующим утверждением «все writers обновлены». Перед таким откатом закрыть общий read, инвалидировать lease и marker; additive таблицы/платежи/queue/outbox не удалять. Одно операторское UPDATE в Payment DB (только после оценки инцидента; здесь не выполнялось):
+
+```sql
+UPDATE admin_user_projection_sync
+SET phase = 'NOT_READY', mode = 'IDLE',
+    source_writers_confirmed_at = NULL, source_deployment_revision = NULL,
+    lease_generation = lease_generation + 1, lease_owner = NULL, lease_until = NULL,
+    pass_id = NULL, upper_user_id = NULL, cursor = NULL, source_empty = false,
+    next_run_at = clock_timestamp()
+WHERE id = 'payment-user-profile-v1';
+```
+
+После возврата всех корректных writers повторно подтвердить revision и пройти initial bootstrap. Это короткая operator процедура существующего singleton/fencing, не новая rollback-подсистема. Обычный reconcile при READY не требует такого сброса.
+
+**Статус F:** локальная техническая сверка согласованного scope завершена; решений/внешних секретов за пользователя не принимали. Production migrations/rollout/network/READY, browser/FE, source rollout marker в реальном окружении и staging/two-pod **не выполнялись и не отмечены выполненными**. Deployment env mapping — известное обязательное действие Operations перед включением; не дефект готовых backend функций и не основание ослаблять false-default. Следующий шаг — review пользователя и отдельно авторизованный deployment/browser этап, не новая кодовая итерация этого плана.
 
 ## 8. Реестр решений и только оставшиеся технические уточнения
 
@@ -734,7 +887,7 @@ for (const file of ['apps/main-gateway-service/tsconfig.app.json', 'apps/micro-p
 
 **Оставшееся — не повторные продуктовые блокеры:** технические имена/типы/version encoding/batch/lease/retry/readiness и RPC/GraphQL-кандидат определены P0.1–P0.8; несовместимых вариантов выбора не осталось. Их реализация и реальные isolated tests — P1/P2, не выполненный P0 runtime. Перед deployment Operations/Security проверяют private RPC exposure/network restrictions, фактический internal address/namespace, source revisions всех Gateway и rollout marker; назначение этих условий не является доказательством их выполнения. Актуальные прежние environment/product вопросы R9 сохранены. Authenticated caller/mTLS/NetworkPolicy не подтверждены кодом. Не требуются новая IAM-платформа, source comments/reactions либо повторный выбор архитектуры: R1–R8 в указанном объёме уже решены.
 
-Пользователь утвердил план, включая технические стартовые параметры; S1–S3/P0 объединены, P0 принят для P1a. **P1 и P2 технически выполнены по чекбоксам; следующий F не начат.** Не требуется заново согласовывать принятые продуктовые решения; production end-to-end sync, rollout и environment условия не объявляются выполненными. Production-приёмка не проводилась.
+Пользователь утвердил план, включая технические стартовые параметры; S1–S3/P0 объединены, P0 принят для P1a. **S1–S3/P0/P1/P2/F технически выполнены в согласованном сокращённом scope; следующего кодового этапа в этом плане нет.** Не требуется заново согласовывать принятые продуктовые решения; production end-to-end sync, rollout и environment условия не объявляются выполненными. Production-приёмка не проводилась.
 
 ## 9. Правила реализации и обновления прогресса
 
@@ -768,3 +921,5 @@ for (const file of ['apps/main-gateway-service/tsconfig.app.json', 'apps/micro-p
 - [x] 25.10.2026 — **P1e выполнен локально** в `feature/superadmin-payments-read-model` на `4a83ed00ce7121a63692c50bcc8f08761d7efd8d`: Payment application query/port и один SQL readiness/search/sort/count/page; Gateway bounded profile lookup и чистый enrichment. Новый real PostgreSQL набор 14/14, затронутая selected-user GraphQL/gRPC/REST регрессия 2/2; build обоих сервисов, source/test typecheck, scoped lint/format/links/diff успешны. P1a–P1e и родительский P1 технически завершены; **следующий P2, не начат**. Новый Payments API не опубликован; production rollout не подтверждён. Commit/push/merge/deploy не выполнялись.
 
 - [x] 25.10.2026 — **P2 выполнен локально** в `feature/superadmin-payments-api`, база `183437925f010ecf3aa5cf21a608a7058630490a`: GetSuperadminPaymentsPage по прежнему gRPC channel и защищённый root superadminPayments; contract/runtime/target **1.5.0**, единый FE guide. Целевой HTTP→gRPC→изолированные Gateway/Payment PostgreSQL набор **11/11** (24 skipped), включая негативные сценарии/отмену timeout/schema/examples и прежнюю selected-user/REST историю. Сборки, source/test typechecks, scoped lint/format/links/diff прошли. **Следующий F, не начат**; итерация не объявлена целиком принятой, production rollout не подтверждён. Миграций/dependencies/env/deployment изменений и commit/push/merge/deploy нет.
+
+- [x] 25.10.2026 — **F выполнен технически в согласованном сокращённом scope** в `test/superadmin-moderation-payments-acceptance`, база `2e046dc160f0e4cc45ba205ebe353acaf1aba1d7`: расширен один прежний connected HTTP сценарий reason/filter/global Payments, добавлены компактная acceptance matrix и deployment runbook в этот план, устранены точечные пробелы единого FE guide. Выбранный journey + schema/examples **2/2**, targeted test typecheck **0 diagnostics**, scoped lint/format/links/diff успешны. Production-код/schema/runtime 1.5.0 не менялись; builds P2 не повторялись. READY/projection — изолированные fixtures, не rollout/bootstrap. Известный deployment gate: Payment manifest не передаёт два sync env, нужен отдельный Operations шаг; production/browser/полное исходное visibility требование не объявлены принятыми. Следующего кодового этапа в этом плане нет; дальше review и отдельно авторизованные deployment/browser действия. Commit/push/merge/deploy не выполнялись.
