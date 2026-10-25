@@ -50,3 +50,7 @@ export type EnrichedSuperadminPayment = Omit<SuperadminPaymentRecord, 'userSnaps
 export type EnrichedSuperadminPaymentsPage = Omit<SuperadminPaymentsReadPage, 'items'> & {
   items: EnrichedSuperadminPayment[];
 };
+
+export type SuperadminPaymentsPage = Omit<EnrichedSuperadminPaymentsPage, 'items'> & {
+  items: (Omit<EnrichedSuperadminPayment, 'createdAt'> & { createdAt: string })[];
+};

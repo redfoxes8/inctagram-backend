@@ -80,6 +80,7 @@ enum PaymentStatus {
 }
 
 type Query {
+  superadminPayments(input: SuperadminPaymentsInput!): SuperadminPaymentsPage
   superadminSession: SuperadminSessionPayload!
   superadminUser(userId: ID!): SuperadminUser
   superadminUsers(input: SuperadminUsersInput!): SuperadminUsersPage!
@@ -140,6 +141,44 @@ type SuperadminLoginPayload {
 
 type SuperadminLogoutPayload {
   loggedOut: Boolean!
+}
+
+type SuperadminPaymentListItem {
+  amountMinor: Int!
+  avatarUrl: String
+  billingInterval: PaymentBillingInterval!
+  billingIntervalCount: Int!
+  createdAt: DateTime!
+  currency: String!
+  productName: String!
+  provider: PaymentProvider!
+  status: PaymentStatus!
+  transactionId: ID!
+  userId: ID!
+  username: String
+}
+
+input SuperadminPaymentsInput {
+  page: Int! = 1
+  searchUsername: String
+  sort: SuperadminPaymentsSort! = CREATED_AT_DESC
+}
+
+type SuperadminPaymentsPage {
+  items: [SuperadminPaymentListItem!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+enum SuperadminPaymentsSort {
+  AMOUNT_ASC
+  AMOUNT_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  PAYMENT_METHOD_ASC
+  PAYMENT_METHOD_DESC
+  USERNAME_ASC
+  USERNAME_DESC
 }
 
 type SuperadminSessionPayload {
