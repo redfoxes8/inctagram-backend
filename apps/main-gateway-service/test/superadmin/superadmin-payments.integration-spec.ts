@@ -1,3 +1,12 @@
+import type {
+  PaymentProvider as ProtoPaymentProvider,
+  SuperadminPaymentsSort as ProtoSuperadminPaymentsSort,
+} from '../../../../libs/contracts/src/generated/payment';
+import { GetSuperadminPaymentsPageHandler } from '../../../micro-payment-service/src/modules/payment/application/queries/get-superadmin-payments-page.query';
+import { ISuperadminPaymentsQueryPort } from '../../../micro-payment-service/src/modules/payment/application/ports/superadmin-payments-query.port';
+import { SuperadminPaymentsQueryRepository } from '../../../micro-payment-service/src/modules/payment/infrastructure/repositories/superadmin-payments.query-repository';
+import { PaymentConfig } from '../../../micro-payment-service/src/core/payment.config';
+import { assertSuperadminBudget } from '../../src/modules/superadmin/api/superadmin-query-budget';
 import { type INestApplication, Module, type INestMicroservice } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -13,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import {
   buildSchema,
   printType,
@@ -149,6 +158,7 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
   let app: INestApplication<Server>;
   let microservice: INestMicroservice;
   let history: GetPaymentHistoryHandler;
+  let globalPayments: GetSuperadminPaymentsPageHandler;
   let userId: string;
   let productId: string;
   let sessionId: string;
@@ -226,6 +236,9 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
       controllers: [PaymentGrpcController],
       providers: [
         GetPaymentHistoryHandler,
+        GetSuperadminPaymentsPageHandler,
+        { provide: ISuperadminPaymentsQueryPort, useClass: SuperadminPaymentsQueryRepository },
+        { provide: PaymentConfig, useValue: { userProjectionSyncEnabled: true } },
         { provide: IPaymentHistoryQueryPort, useClass: PaymentQueryRepository },
         { provide: PaymentPrismaService, useValue: payment },
       ],
@@ -251,6 +264,7 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     });
     await microservice.listen();
     history = paymentModule.get(GetPaymentHistoryHandler);
+    globalPayments = paymentModule.get(GetSuperadminPaymentsPageHandler);
     const module = await Test.createTestingModule({ imports: [PaymentsFixtureModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
@@ -282,6 +296,11 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
   });
 
   beforeEach(async () => {
+    await payment.adminUserProfileReadModel.deleteMany();
+    await payment.adminUserProjectionSync.update({
+      where: { id: 'payment-user-profile-v1' },
+      data: { phase: 'READY' },
+    });
     await payment.paymentTransaction.deleteMany();
     await payment.checkoutSession.deleteMany();
     await payment.subscription.deleteMany();
@@ -839,8 +858,256 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     ).toBe('UNAUTHENTICATED');
   });
 
+  const GLOBAL_QUERY = `query GlobalPayments($input: SuperadminPaymentsInput!) {
+    result: superadminPayments(input: $input) {
+      items { transactionId userId username avatarUrl createdAt amountMinor currency productName billingInterval billingIntervalCount provider status }
+      totalCount pageInfo { page pageSize pagesCount hasNextPage }
+    }
+  }`;
+  async function globalFixture(): Promise<void> {
+    await prisma.profile.create({
+      data: { userId, username: 'Fresh_Name', avatarUrl: 'https://avatar.example.test/current' },
+    });
+    await payment.adminUserProfileReadModel.create({
+      data: {
+        userId,
+        sourceVersion: 9007199254740993n,
+        username: 'Snapshot_Alpha',
+        profileExists: true,
+        isDeleted: false,
+      },
+    });
+    for (let index = 0; index < 7; index++)
+      await transaction({
+        amount: index + 100,
+        id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      });
+    const deletedId = randomUUID(),
+      missingId = randomUUID();
+    await prisma.user.create({
+      data: {
+        id: deletedId,
+        email: 'deleted-global@fixture.test',
+        deletedAt: new Date(NOW),
+        profile: {
+          create: { username: 'Deleted_Name', avatarUrl: 'https://avatar.example.test/deleted' },
+        },
+      },
+    });
+    for (const otherId of [deletedId, missingId]) {
+      await payment.adminUserProfileReadModel.create({
+        data: {
+          userId: otherId,
+          sourceVersion: 1n,
+          username: 'Stale_' + otherId,
+          profileExists: true,
+          isDeleted: false,
+        },
+      });
+      const id = await transaction({
+        id:
+          otherId === deletedId
+            ? 'ffffffff-ffff-4fff-8fff-fffffffffff1'
+            : 'ffffffff-ffff-4fff-8fff-fffffffffff2',
+      });
+      await payment.paymentTransaction.update({ where: { id }, data: { userId: otherId } });
+    }
+  }
+
+  it('P2 global page uses real HTTP/gRPC/DB, enriches once and suppresses deleted/missing user facts', async () => {
+    await globalFixture();
+    const rpc = jest.spyOn(globalPayments, 'execute');
+    const lookup = jest.spyOn(prisma, '$queryRaw');
+    const response = await post({ query: GLOBAL_QUERY, variables: { input: {} } });
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.result).toMatchObject({
+      totalCount: 9,
+      pageInfo: { page: 1, pageSize: 6, pagesCount: 2, hasNextPage: true },
+    });
+    expect(response.body.data.result.items).toHaveLength(6);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    // Other admin verification queries use Prisma models; this is the sole profile batch SELECT.
+    expect(lookup).toHaveBeenCalledTimes(1);
+    for (const item of response.body.data.result.items) {
+      if (item.userId === userId)
+        expect(item).toMatchObject({
+          username: 'Snapshot_Alpha',
+          avatarUrl: 'https://avatar.example.test/current',
+          productName: 'Fixture product',
+          billingInterval: 'MONTH',
+          billingIntervalCount: 2,
+          provider: 'STRIPE',
+          status: 'PENDING',
+        });
+      else expect(item).toMatchObject({ username: null, avatarUrl: null });
+    }
+    const combined = await post({
+      query: GLOBAL_QUERY,
+      variables: { input: { page: 2, searchUsername: ' snapshot_alpha ', sort: 'AMOUNT_ASC' } },
+    });
+    expect(combined.body.errors).toBeUndefined();
+    expect(combined.body.data.result).toMatchObject({
+      totalCount: 7,
+      pageInfo: { page: 2, hasNextPage: false },
+      items: [{ amountMinor: 106, username: 'Snapshot_Alpha' }],
+    });
+    expect(rpc.mock.calls[1][0].input).toMatchObject({
+      page: 2,
+      searchUsername: 'snapshot_alpha',
+      sort: 'AMOUNT_ASC',
+    });
+  });
+
+  it('P2 global auth/input fail before RPC; query needs no mutation CSRF and fixed-six budget is retained', async () => {
+    const rpc = jest.spyOn(globalPayments, 'execute');
+    for (const token of [null, app.get(JwtService).sign({ userId })]) {
+      const queryRequest = post({ query: GLOBAL_QUERY, variables: { input: {} }, cookie: '' });
+      if (token) queryRequest.set('Authorization', 'Bearer ' + token);
+      expect((await queryRequest).body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    }
+    for (const input of [
+      { page: 0 },
+      { searchUsername: 'x'.repeat(101) },
+      { sort: 'INVALID' },
+      { pageSize: 6 },
+    ]) {
+      const response = await post({ query: GLOBAL_QUERY, variables: { input } });
+      expect(['BAD_USER_INPUT', 'GRAPHQL_VALIDATION_FAILED']).toContain(
+        response.body.errors[0].extensions.code,
+      );
+    }
+    expect(rpc).not.toHaveBeenCalled();
+    // 30 item selections cost 180 with six rows, but would exceed 200 with an incorrect default 8.
+    const fields = Array.from({ length: 30 }, (_, index) => `a${index}: userId`).join(' ');
+    expect(() =>
+      assertSuperadminBudget({
+        document: parse(`{ alias: superadminPayments(input: {}) { items { ${fields} } } }`),
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertSuperadminBudget({
+        document: parse(
+          `{ alias: superadminPayments(input: {}) { items { ${fields} extra1:userId extra2:userId extra3:userId extra4:userId } } }`,
+        ),
+      }),
+    ).toThrow();
+  });
+
+  it('P2 NOT_READY is null + UPSTREAM_UNAVAILABLE at alias path and preserves other roots', async () => {
+    await payment.adminUserProjectionSync.update({
+      where: { id: 'payment-user-profile-v1' },
+      data: { phase: 'NOT_READY' },
+    });
+    const response = await post({
+      query:
+        '{ superadminSession { authenticated } unavailable: superadminPayments(input: {}) { totalCount } }',
+      variables: {},
+    });
+    expect(response.body.data).toEqual({
+      superadminSession: { authenticated: true },
+      unavailable: null,
+    });
+    expect(response.body.errors).toEqual([
+      {
+        message: 'Service unavailable',
+        path: ['unavailable'],
+        extensions: { code: 'UPSTREAM_UNAVAILABLE' },
+      },
+    ]);
+  });
+
+  it('P2 malformed response is safe and rejected before enrichment', async () => {
+    await globalFixture();
+    const client = app.get(PaymentGrpcClient);
+    const baseline = await client.getSuperadminPaymentsPageWithTimeout({
+      request: { page: 1, sort: 0 },
+      timeoutMs: 3000,
+    });
+    const lookup = jest.spyOn(prisma, '$queryRaw');
+    const call = jest.spyOn(client, 'getSuperadminPaymentsPageWithTimeout');
+    for (const mode of ['enum', 'date', 'amount', 'snapshot', 'metadata', 'cap']) {
+      const corrupt = structuredClone(baseline);
+      if (mode === 'enum') corrupt.items[0].paymentProvider = 999 as ProtoPaymentProvider;
+      if (mode === 'date') corrupt.items[0].createdAt = undefined;
+      if (mode === 'amount') corrupt.items[0].amountMinor = 2147483648;
+      if (mode === 'snapshot') corrupt.items[0].userSnapshot!.sourceVersion = '01';
+      if (mode === 'metadata') corrupt.pagesCount = 99;
+      if (mode === 'cap') corrupt.items.push(corrupt.items[0]);
+      call.mockResolvedValue(corrupt);
+      const response = await post({ query: GLOBAL_QUERY, variables: { input: {} } });
+      expect(response.body.data.result).toBeNull();
+      expect(response.body.errors).toEqual([
+        {
+          message: 'Service unavailable',
+          path: ['result'],
+          extensions: { code: 'UPSTREAM_UNAVAILABLE' },
+        },
+      ]);
+    }
+    expect(lookup).not.toHaveBeenCalled();
+    call.mockRejectedValue(new Error('private-programming-fixture'));
+    const unexpected = await post({ query: GLOBAL_QUERY, variables: { input: {} } });
+    expect(unexpected.body.errors).toEqual([
+      {
+        message: 'Internal server error',
+        path: ['result'],
+        extensions: { code: 'INTERNAL_SERVER_ERROR' },
+      },
+    ]);
+  });
+
+  it('P2 RPC rejects invalid page and unknown numeric sort, without bypassing query validation', async () => {
+    const client = app.get(PaymentGrpcClient);
+    await expect(
+      client.getSuperadminPaymentsPageWithTimeout({
+        request: { page: 0, sort: 0 },
+        timeoutMs: 3000,
+      }),
+    ).rejects.toMatchObject({ code: 400 });
+    await expect(
+      client.getSuperadminPaymentsPageWithTimeout({
+        request: { page: 1, sort: 999 as ProtoSuperadminPaymentsSort },
+        timeoutMs: 3000,
+      }),
+    ).rejects.toMatchObject({ code: 400 });
+  });
+
+  it('P2 timeout cancels the real unary call and preserves the nullable root', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let cancel!: () => void;
+    const cancellation = new Promise<void>((resolve) => {
+      cancel = resolve;
+    });
+    cancelled = cancel;
+    const execute = globalPayments.execute.bind(globalPayments);
+    jest.spyOn(globalPayments, 'execute').mockImplementation(async (query) => {
+      await held;
+      return execute(query);
+    });
+    jest.spyOn(app.get(SuperadminPaymentsConfig), 'timeoutMs', 'get').mockReturnValue(75);
+    try {
+      const response = await post({ query: GLOBAL_QUERY, variables: { input: {} } });
+      expect(response.body.data.result).toBeNull();
+      expect(response.body.errors[0]).toMatchObject({
+        path: ['result'],
+        extensions: { code: 'UPSTREAM_UNAVAILABLE' },
+      });
+      await cancellation;
+    } finally {
+      release();
+    }
+  });
+
   it('validates every executable FE guide GraphQL example and checks reproducible runtime export', () => {
     const schema = app.get(GraphQLSchemaHost).schema;
+    if (process.env.UPDATE_SUPERADMIN_RUNTIME === 'true')
+      writeFileSync(
+        join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/runtime.graphql'),
+        printSchema(lexicographicSortSchema(schema)) + '\n',
+      );
     const artifact = readFileSync(
       join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/runtime.graphql'),
       'utf8',
@@ -865,6 +1132,12 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
 
   it('handles a genuinely stopped gRPC server as null payments, not empty history', async () => {
     await microservice.close();
+    const global = await post({ query: GLOBAL_QUERY, variables: { input: {} } });
+    expect(global.body.data.result).toBeNull();
+    expect(global.body.errors[0]).toMatchObject({
+      path: ['result'],
+      extensions: { code: 'UPSTREAM_UNAVAILABLE' },
+    });
     const response = await post();
     expect(response.body.data.superadminUser).toMatchObject({ userId, payments: null });
     expect(response.body.errors).toEqual([

@@ -209,7 +209,53 @@ message GetCheckoutSessionStatusByProviderIdRequest {
   string provider_checkout_id = 3;
 }
 
+enum SuperadminPaymentsSort {
+  SUPERADMIN_PAYMENTS_SORT_UNSPECIFIED = 0;
+  USERNAME_ASC = 1;
+  USERNAME_DESC = 2;
+  CREATED_AT_ASC = 3;
+  CREATED_AT_DESC = 4;
+  AMOUNT_ASC = 5;
+  AMOUNT_DESC = 6;
+  PAYMENT_METHOD_ASC = 7;
+  PAYMENT_METHOD_DESC = 8;
+}
+message GetSuperadminPaymentsPageRequest {
+  int32 page = 1;
+  optional string search_username = 2;
+  SuperadminPaymentsSort sort = 3;
+}
+message AdminPaymentUserSnapshot {
+  string user_id = 1;
+  string source_version = 2;
+  optional string username = 3;
+  bool profile_exists = 4;
+  bool is_deleted = 5;
+}
+message SuperadminPaymentListItem {
+  string transaction_id = 1;
+  string user_id = 2;
+  AdminPaymentUserSnapshot user_snapshot = 3;
+  google.protobuf.Timestamp created_at = 4;
+  int32 amount_minor = 5;
+  string currency = 6;
+  string product_name = 7;
+  BillingInterval billing_interval = 8;
+  int32 billing_interval_count = 9;
+  PaymentProvider payment_provider = 10;
+  PaymentTransactionStatus status = 11;
+}
+message GetSuperadminPaymentsPageResponse {
+  repeated SuperadminPaymentListItem items = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 pages_count = 5;
+  bool has_next_page = 6;
+}
 service PaymentService {
+  rpc GetSuperadminPaymentsPage(GetSuperadminPaymentsPageRequest)
+      returns (GetSuperadminPaymentsPageResponse);
   rpc GetAvailableProducts(GetAvailableProductsRequest)
       returns (GetAvailableProductsResponse);
   rpc CreateCheckoutSession(CreateCheckoutSessionRequest)

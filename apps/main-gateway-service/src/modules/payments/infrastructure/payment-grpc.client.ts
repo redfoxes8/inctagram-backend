@@ -1,3 +1,7 @@
+import type {
+  GetSuperadminPaymentsPageRequest,
+  GetSuperadminPaymentsPageResponse,
+} from '../../../../../../libs/contracts/src/generated/payment';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { type ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom, timeout, TimeoutError } from 'rxjs';
@@ -79,6 +83,33 @@ export class PaymentGrpcClient implements OnModuleInit {
         });
       }
       throw GrpcErrorMapper.toDomainException(error);
+    }
+  }
+
+  async getSuperadminPaymentsPageWithTimeout(input: {
+    request: GetSuperadminPaymentsPageRequest;
+    timeoutMs: number;
+  }): Promise<GetSuperadminPaymentsPageResponse> {
+    try {
+      return await firstValueFrom(
+        this.paymentService
+          .getSuperadminPaymentsPage(input.request)
+          .pipe(timeout({ first: input.timeoutMs })),
+      );
+    } catch (error: unknown) {
+      if (error instanceof TimeoutError)
+        throw new DomainException({
+          code: DomainExceptionCode.GatewayTimeout,
+          message: 'Payments list timeout',
+        });
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        typeof error.code === 'number'
+      )
+        throw GrpcErrorMapper.toDomainException(error);
+      throw error;
     }
   }
 

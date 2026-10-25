@@ -10,6 +10,7 @@ import {
   type ValidationRule,
 } from 'graphql';
 import type { ApolloServerPlugin, BaseContext, GraphQLRequestListener } from '@apollo/server';
+import { SUPERADMIN_PAYMENTS_PAGE_SIZE } from '../../../../../../libs/common/types/superadmin-payments-list';
 
 export const SUPERADMIN_MAX_DEPTH = 8;
 export const SUPERADMIN_MAX_COMPLEXITY = 200;
@@ -44,10 +45,12 @@ export function assertSuperadminBudget(input: {
           const value: unknown = argument
             ? valueFromASTUntyped(argument.value, input.variables)
             : null;
-          const requestedSize =
+          let requestedSize =
             typeof value === 'object' && value !== null && 'pageSize' in value
               ? value.pageSize
               : options.pageSize;
+          if (selection.name.value === 'superadminPayments')
+            requestedSize = SUPERADMIN_PAYMENTS_PAGE_SIZE;
           const pageSize =
             typeof requestedSize === 'number' &&
             Number.isInteger(requestedSize) &&

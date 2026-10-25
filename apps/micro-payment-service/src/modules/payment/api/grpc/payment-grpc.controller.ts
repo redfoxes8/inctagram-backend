@@ -1,3 +1,12 @@
+import {
+  toSuperadminPaymentsQuery,
+  toSuperadminPaymentsResponse,
+} from './mappers/superadmin-payments-grpc.mapper';
+import type {
+  GetSuperadminPaymentsPageRequest,
+  GetSuperadminPaymentsPageResponse,
+} from '../../../../../../../libs/contracts/src/generated/payment';
+import type { SuperadminPaymentsReadPage } from '../../../../../../../libs/common/types/superadmin-payments-list';
 import { Controller, UseInterceptors } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
@@ -40,6 +49,15 @@ export class PaymentGrpcController implements PaymentServiceController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
   ) {}
+
+  public async getSuperadminPaymentsPage(
+    request: GetSuperadminPaymentsPageRequest,
+  ): Promise<GetSuperadminPaymentsPageResponse> {
+    const result = await this.queryBus.execute<SuperadminPaymentsReadPage>(
+      toSuperadminPaymentsQuery(request),
+    );
+    return toSuperadminPaymentsResponse(result);
+  }
 
   public async getAvailableProducts(
     request: GetAvailableProductsRequest,
