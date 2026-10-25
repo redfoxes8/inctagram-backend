@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { FileStatus, FileType } from '../../../../../../../libs/contracts/src/generated/file';
-import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { ITransactionManager } from '../../../../common/interfaces/transaction-manager.interface';
 import { FileGrpcClient } from '../../../files/infrastructure/file-grpc.client';
 import { ConfirmAvatarResponseDto } from '../../api/rest/dto/confirm-avatar-response.dto';
 import { AVATAR_DELETED_EVENT_TYPE } from '../../domain/constants/avatar-outbox.constants';
@@ -32,7 +32,7 @@ export class ConfirmAvatarHandler implements ICommandHandler<
     private readonly fileGrpcClient: FileGrpcClient,
     @Inject(IProfileRepository)
     private readonly userProfileRepository: IProfileRepository,
-    private readonly prismaService: PrismaService,
+    private readonly transactions: ITransactionManager,
   ) {}
 
   async execute(command: ConfirmAvatarCommand): Promise<ConfirmAvatarResponseDto> {
@@ -84,46 +84,33 @@ export class ConfirmAvatarHandler implements ICommandHandler<
       });
     }
 
-    const profile: ProfileEntity | null = await this.userProfileRepository.findByUserId(userId);
-
-    if (!profile) {
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Profile not found',
+    // File RPC is complete before taking DB locks. Read the current profile under User lock.
+    return this.transactions.execute(async (tx) => {
+      const profile: ProfileEntity | null = await this.userProfileRepository.lockByUserId({
+        userId,
+        transaction: tx,
       });
-    }
-
-    if (profile.avatarFileId === command.params.fileId) {
-      return { avatarUrl: profile.avatarUrl ?? file.fileUrl };
-    }
-
-    const previousFileId = profile.setAvatar(command.params.fileId, file.fileUrl);
-
-    this.logger.debug(`[ConfirmAvatar] transaction started userId=${userId} fileId=${fileId}`);
-
-    if (previousFileId !== null) {
-      this.logger.debug(
-        `[ConfirmAvatar] previous avatar detected userId=${userId} previousFileId=${previousFileId}`,
-      );
-    }
-
-    let eventCreated = false;
-    let outboxEventId: string | null = null;
-
-    await this.prismaService.$transaction(async (tx) => {
-      await this.userProfileRepository.save(profile, tx);
-
-      this.logger.debug(
-        `[ConfirmAvatar] userProfile updated userId=${userId} avatarFileId=${profile.avatarFileId} avatarUrl=${profile.avatarUrl}`,
-      );
-
+      if (!profile) {
+        throw new DomainException({
+          code: DomainExceptionCode.NotFound,
+          message: 'Profile not found',
+        });
+      }
+      if (profile.avatarFileId === fileId) return { avatarUrl: profile.avatarUrl ?? file.fileUrl };
+      const previousFileId = profile.setAvatar(fileId, file.fileUrl);
+      await this.userProfileRepository.updateAvatar({
+        userId,
+        avatarFileId: profile.avatarFileId,
+        avatarUrl: profile.avatarUrl,
+        updatedAt: profile.updatedAt,
+        transaction: tx,
+      });
       if (previousFileId !== null) {
-        outboxEventId = randomUUID();
         await tx.outboxEvent.create({
           data: {
             type: AVATAR_DELETED_EVENT_TYPE,
             payload: {
-              eventId: outboxEventId,
+              eventId: randomUUID(),
               userId,
               previousAvatarFileId: previousFileId,
               occurredOn: new Date().toISOString(),
@@ -131,17 +118,8 @@ export class ConfirmAvatarHandler implements ICommandHandler<
             status: 'PENDING',
           },
         });
-        eventCreated = true;
-        this.logger.log(
-          `[ConfirmAvatar] outbox event created userId=${userId} previousFileId=${previousFileId} eventId=${outboxEventId} eventType=${AVATAR_DELETED_EVENT_TYPE}`,
-        );
       }
+      return { avatarUrl: profile.avatarUrl! };
     });
-
-    this.logger.log(
-      `[ConfirmAvatar] transaction committed userId=${userId} fileId=${fileId} eventCreated=${eventCreated}`,
-    );
-
-    return { avatarUrl: profile.avatarUrl! };
   }
 }

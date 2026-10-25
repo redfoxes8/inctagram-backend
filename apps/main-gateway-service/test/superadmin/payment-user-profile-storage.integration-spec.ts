@@ -187,7 +187,7 @@ describe('P1a storage/migrate deploy/apply on real isolated Gateway and Payment 
     );
     const created = await gateway.user.create({ data: { email: 'new-version@fixture.test' } });
     expect(created.paymentProfileVersion).toBe(0n);
-    expect(await gateway.paymentUserProfileOutbox.count()).toBe(0); // P1b source writers are absent.
+    expect(await gateway.paymentUserProfileOutbox.count()).toBe(0); // Raw Prisma fixtures/ordinary updates above are not projected-state commands.
   });
 
   it('applies versions exactly above MAX_SAFE_INTEGER, ignores stale/duplicates and reports conflicts', async () => {

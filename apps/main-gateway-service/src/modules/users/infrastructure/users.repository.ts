@@ -6,8 +6,9 @@ import { UserPrismaMapper, type UserRecord } from './mappers/user.prisma.mapper'
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { AccountType, PrismaClient } from '../../../core/prisma/client';
-import { Prisma } from '@prisma/client/extension';
-import TransactionClient = Prisma.TransactionClient;
+import { requireGatewayTransaction } from '../../../core/prisma/transactions/require-gateway-transaction';
+import { PrismaTransactionManager } from '../../../core/prisma/transactions/prisma.transaction.manager';
+import { writePaymentUserProfileSnapshot } from './payment-user-profile-snapshot.writer';
 
 type UserCreateData = {
   id: string;
@@ -34,11 +35,18 @@ type UserUpdateData = {
 export class PrismaUsersRepository implements IUsersRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  public async save(user: UserEntity, tx?: TransactionClient): Promise<UserEntity> {
-    const prisma = tx || this.prismaService;
+  public async save(user: UserEntity, tx?: unknown): Promise<UserEntity> {
+    if (tx === undefined) {
+      return new PrismaTransactionManager(this.prismaService).execute((transaction) =>
+        this.save(user, transaction),
+      );
+    }
+    const prisma = requireGatewayTransaction(tx);
     const createdUser = await prisma.user.create({
       data: this.toCreateData(user),
     });
+    // INSERT owns the new row; do not use a lock on a missing row as creation protection.
+    await writePaymentUserProfileSnapshot({ userId: createdUser.id, transaction: prisma });
 
     return UserPrismaMapper.toDomain(createdUser as UserRecord);
   }
