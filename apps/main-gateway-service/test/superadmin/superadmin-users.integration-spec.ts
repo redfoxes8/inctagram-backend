@@ -38,6 +38,7 @@ import { PaymentGrpcClient } from '../../src/modules/payments/infrastructure/pay
 import { SUPERADMIN_CONTRACT_VERSION } from '../../../../libs/contracts/src/graphql/superadmin/v1/common-type-defs';
 import * as followZero from '../../src/modules/superadmin/application/get-temporary-follow-zero';
 import { SuperadminUsersQueryRepository } from '../../src/modules/users/domain/interfaces/superadmin-users.query-repository';
+import { UserModerationRepository } from '../../src/modules/users/domain/interfaces/user-moderation.repository';
 
 const ORIGIN = 'https://catalogue.example.test';
 const PATH = '/api/v1/graphql';
@@ -492,7 +493,12 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
         'utf8',
       ),
     );
-    for (const name of ['SuperadminUsersBanFilter', 'SuperadminUsersInput']) {
+    for (const name of [
+      'SuperadminUsersBanFilter',
+      'SuperadminUsersInput',
+      'SuperadminBanReasonCode',
+      'SuperadminBanReasonInput',
+    ]) {
       expect(printType(schema.getType(name)!)).toBe(printType(target.getType(name)!));
     }
     expect(Object.keys(schema.getQueryType()!.getFields()).sort()).toEqual([
@@ -539,8 +545,8 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       };
     }
 
-    it('matches target 1.3.0 exactly, only userId item and no new root operations', () => {
-      expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.3.0');
+    it('matches target 1.4.0 exactly, only userId item and no new root operations', () => {
+      expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.4.0');
       const schema = app.get(GraphQLSchemaHost).schema;
       const target = buildSchema(
         readFileSync(
@@ -911,5 +917,277 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     expect(audit.every((row) => row.banReasonCode === null && row.banReasonText === null)).toBe(
       true,
     );
+  });
+  describe('S3 ban reason over existing GraphQL HTTP and PostgreSQL', () => {
+    function mutate(input: { userId: string; reason?: unknown; operation?: string }): request.Test {
+      const operation = input.operation ?? 'superadminBlockUser';
+      const isBlock = operation === 'superadminBlockUser';
+      return post({
+        query: isBlock
+          ? 'mutation($input:SuperadminUserIdInput!,$reason:SuperadminBanReasonInput){superadminBlockUser(input:$input,reason:$reason){userId outcome}}'
+          : 'mutation($input:SuperadminUserIdInput!){' +
+            operation +
+            '(input:$input){userId outcome}}',
+        variables: {
+          input: { userId: input.userId },
+          ...(isBlock ? { reason: input.reason } : {}),
+        },
+        cookie: 'superadminSession=' + TOKEN + '; superadminCsrf=s3-nonce',
+      }).set('X-Superadmin-CSRF', 's3-nonce');
+    }
+
+    it.each([
+      { reason: undefined, code: null, text: null },
+      { reason: null, code: null, text: null },
+      { reason: { code: 'BAD_BEHAVIOR', text: '  ' }, code: 'BAD_BEHAVIOR', text: null },
+      { reason: { code: 'ADVERTISING_PLACEMENT' }, code: 'ADVERTISING_PLACEMENT', text: null },
+      {
+        reason: { code: 'ANOTHER_REASON', text: '  literal <text>  ' },
+        code: 'ANOTHER_REASON',
+        text: 'literal <text>',
+      },
+      {
+        reason: { code: 'ANOTHER_REASON', text: ' x'.trim().repeat(500) },
+        code: 'ANOTHER_REASON',
+        text: 'x'.repeat(500),
+      },
+    ])(
+      'stores normalized reason and audit through HTTP (case %#)',
+      async ({ reason, code, text }) => {
+        const userId = await fixture();
+        expect((await mutate({ userId, reason })).body).toEqual({
+          data: { superadminBlockUser: { userId, outcome: 'BLOCKED' } },
+        });
+        expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+          isBanned: true,
+          banReasonCode: code,
+          banReasonText: text,
+        });
+        const audit = await prisma.adminUserActionAudit.findMany({
+          where: { targetUserId: userId },
+        });
+        expect(audit).toHaveLength(1);
+        const admin = await prisma.adminSession.findUniqueOrThrow({
+          where: { tokenHash: hashAdminToken(TOKEN) },
+        });
+        expect(audit[0]).toMatchObject({
+          action: 'BLOCK',
+          outcome: 'BLOCKED',
+          adminSessionId: admin.id,
+          banReasonCode: code,
+          banReasonText: text,
+        });
+        expect(await prisma.userAccessRevokeOutbox.count({ where: { userId } })).toBe(1);
+      },
+    );
+
+    it.each([
+      { code: 'ANOTHER_REASON' },
+      { code: 'ANOTHER_REASON', text: ' \t ' },
+      { code: 'ANOTHER_REASON', text: 'x'.repeat(501) },
+      { code: 'BAD_BEHAVIOR', text: 'forbidden' },
+      { code: 'UNKNOWN' },
+      { text: 'missing required code' },
+      { code: 'BAD_BEHAVIOR', text: 42 },
+    ])(
+      'rejects invalid nested input before any tx, also for repeated block (case %#)',
+      async (reason) => {
+        const userId = await fixture();
+        await mutate({ userId, reason: { code: 'BAD_BEHAVIOR' } });
+        const before = await prisma.user.findUnique({ where: { id: userId } });
+        const lock = jest.spyOn(app.get(UserModerationRepository), 'lockUser');
+        const response = await mutate({ userId, reason });
+        expect(response.body.errors[0].extensions.code).toBe('BAD_USER_INPUT');
+        expect(lock).not.toHaveBeenCalled();
+        expect(await prisma.user.findUnique({ where: { id: userId } })).toEqual(before);
+        expect(await prisma.adminUserActionAudit.count({ where: { targetUserId: userId } })).toBe(
+          1,
+        );
+        expect(await prisma.userAccessRevokeOutbox.count({ where: { userId } })).toBe(1);
+      },
+    );
+
+    it('preserves winning reason on repeat and snapshots it before unblock clears it', async () => {
+      const userId = await fixture();
+      const session = await prisma.session.create({
+        data: {
+          userId,
+          deviceId: randomUUID(),
+          deviceName: 'fixture',
+          ip: '192.0.2.1',
+          iat: 1,
+          exp: 2,
+        },
+      });
+      await mutate({ userId, reason: { code: 'ANOTHER_REASON', text: ' first reason ' } });
+      expect(
+        (await mutate({ userId, reason: { code: 'BAD_BEHAVIOR' } })).body.data.superadminBlockUser
+          .outcome,
+      ).toBe('ALREADY_BLOCKED');
+      expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+        banReasonCode: 'ANOTHER_REASON',
+        banReasonText: 'first reason',
+      });
+      expect(
+        (await mutate({ userId, operation: 'superadminUnblockUser' })).body.data
+          .superadminUnblockUser.outcome,
+      ).toBe('UNBLOCKED');
+      expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+        isBanned: false,
+        banReasonCode: null,
+        banReasonText: null,
+      });
+      expect(await prisma.userAccessRevokeOutbox.count({ where: { userId } })).toBe(1);
+      expect(
+        (await prisma.session.findUniqueOrThrow({ where: { id: session.id } })).deletedAt,
+      ).not.toBeNull();
+      expect(await prisma.session.count({ where: { userId } })).toBe(1);
+      const audit = await prisma.adminUserActionAudit.findMany({ where: { targetUserId: userId } });
+      expect(audit).toHaveLength(3);
+      expect(
+        audit.every(
+          (row) => row.banReasonCode === 'ANOTHER_REASON' && row.banReasonText === 'first reason',
+        ),
+      ).toBe(true);
+    });
+
+    it('serializes two different reasons; both snapshots describe the winning state', async () => {
+      const userId = await fixture();
+      const repository = app.get(UserModerationRepository);
+      const lockUser = repository.lockUser.bind(repository);
+      const locked = deferred();
+      const release = deferred();
+      let held = false;
+      jest.spyOn(repository, 'lockUser').mockImplementation(async (input) => {
+        const user = await lockUser(input);
+        if (input.userId === userId && !held) {
+          held = true;
+          locked.resolve();
+          await release.promise;
+        }
+        return user;
+      });
+      const first = mutate({ userId, reason: { code: 'BAD_BEHAVIOR' } }).then(
+        (response) => response,
+      );
+      await locked.promise;
+      const second = mutate({ userId, reason: { code: 'ADVERTISING_PLACEMENT' } }).then(
+        (response) => response,
+      );
+      try {
+        const deadline = Date.now() + 5000;
+        let observed = false;
+        while (Date.now() < deadline) {
+          const rows = await peer.$queryRaw<
+            { count: number }[]
+          >`SELECT count(*)::int AS count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%FROM "User" WHERE "id"%'`;
+          if (rows[0].count > 0) {
+            observed = true;
+            break;
+          }
+        }
+        expect(observed).toBe(true);
+      } finally {
+        release.resolve();
+      }
+      const results = await Promise.all([first, second]);
+      expect(results.map((response) => response.body.data.superadminBlockUser.outcome)).toEqual([
+        'BLOCKED',
+        'ALREADY_BLOCKED',
+      ]);
+      expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+        banReasonCode: 'BAD_BEHAVIOR',
+      });
+      const audit = await prisma.adminUserActionAudit.findMany({ where: { targetUserId: userId } });
+      expect(audit).toHaveLength(2);
+      expect(
+        audit.every((row) => row.banReasonCode === 'BAD_BEHAVIOR' && row.banReasonText === null),
+      ).toBe(true);
+      expect(await prisma.userAccessRevokeOutbox.count({ where: { userId } })).toBe(1);
+    });
+
+    it.each(['AdminUserActionAudit', 'UserAccessRevokeOutbox'])(
+      'rolls reason/state/session/audit/outbox back on %s failure',
+      async (table) => {
+        const userId = await fixture();
+        await prisma.session.create({
+          data: {
+            userId,
+            deviceId: randomUUID(),
+            deviceName: 'fixture',
+            ip: '192.0.2.1',
+            iat: 1,
+            exp: 2,
+          },
+        });
+        database.sql(
+          'ALTER TABLE "' + table + '" ADD CONSTRAINT "fixture_s3_failure" CHECK(false) NOT VALID',
+        );
+        try {
+          expect(
+            (await mutate({ userId, reason: { code: 'BAD_BEHAVIOR' } })).body.errors[0].extensions
+              .code,
+          ).toBe('INTERNAL_SERVER_ERROR');
+        } finally {
+          database.sql('ALTER TABLE "' + table + '" DROP CONSTRAINT "fixture_s3_failure"');
+        }
+        expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+          isBanned: false,
+          banReasonCode: null,
+          banReasonText: null,
+        });
+        expect(await prisma.session.count({ where: { userId, deletedAt: null } })).toBe(1);
+        expect(await prisma.adminUserActionAudit.count({ where: { targetUserId: userId } })).toBe(
+          0,
+        );
+        expect(await prisma.userAccessRevokeOutbox.count({ where: { userId } })).toBe(0);
+      },
+    );
+
+    it('keeps deleted/missing outcomes, delete and admin/CSRF checks compatible', async () => {
+      const userId = await fixture();
+      const args = { userId, reason: { code: 'BAD_BEHAVIOR' } };
+      expect(
+        (await mutate(args).set('X-Superadmin-CSRF', 'wrong')).body.errors[0].extensions.code,
+      ).toBe('FORBIDDEN');
+      expect(
+        (await mutate(args).set('Cookie', '').set('Authorization', 'Bearer ordinary-user-jwt')).body
+          .errors[0].extensions.code,
+      ).toBe('UNAUTHENTICATED');
+      expect((await mutate({ ...args, userId: 'invalid' })).body.errors[0].extensions.code).toBe(
+        'BAD_USER_INPUT',
+      );
+      await mutate(args);
+      expect(
+        (await mutate({ userId, operation: 'superadminDeleteUser' })).body.data.superadminDeleteUser
+          .outcome,
+      ).toBe('DELETED');
+      const deleted = await prisma.user.findUnique({ where: { id: userId } });
+      expect((await mutate(args)).body.data.superadminBlockUser.outcome).toBe('USER_DELETED');
+      expect(
+        (await mutate({ userId, operation: 'superadminUnblockUser' })).body.data
+          .superadminUnblockUser.outcome,
+      ).toBe('USER_DELETED');
+      expect(
+        (await mutate({ userId, operation: 'superadminDeleteUser' })).body.data.superadminDeleteUser
+          .outcome,
+      ).toBe('ALREADY_DELETED');
+      expect(await prisma.user.findUnique({ where: { id: userId } })).toEqual(deleted);
+      const missing = randomUUID();
+      expect(
+        (await mutate({ ...args, userId: missing })).body.data.superadminBlockUser.outcome,
+      ).toBe('NOT_FOUND');
+      expect(await prisma.user.findUnique({ where: { id: missing } })).toBeNull();
+      const audit = await prisma.adminUserActionAudit.findMany({
+        where: {
+          targetUserId: { in: [userId, missing] },
+          outcome: { in: ['USER_DELETED', 'NOT_FOUND', 'DELETED', 'ALREADY_DELETED'] },
+        },
+      });
+      expect(audit).toHaveLength(5);
+      expect(audit.every((row) => row.banReasonCode === null && row.banReasonText === null)).toBe(
+        true,
+      );
+    });
   });
 });

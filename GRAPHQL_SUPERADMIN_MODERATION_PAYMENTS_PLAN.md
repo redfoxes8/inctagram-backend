@@ -2,7 +2,7 @@
 
 ## 1. Статус и правила ведения
 
-**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1 объединён; S2 реализован и проверен, подготовлен к техническому review; S3 и дальнейшая реализация не начаты.** Дата: 25.10.2026, Europe/Kiev. Исследован `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
+**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1/S2 объединены; S3 реализован и проверен, подготовлен к техническому review. P0 и дальнейшая реализация не начаты.** Дата: 25.10.2026, Europe/Kiev. Исследован `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
 
 **Уточнение 25.10.2026:** R1/R2 и продуктовые R4–R7 решены пользователем; выбор Payment read model и eventual consistency R8 принят. Visibility и создание comments/reactions отложены вне текущей реализации и не блокируют сокращённый scope. Последующим запросом пользователь утвердил эту редакцию и технические стартовые параметры; повторные продуктовые согласования для S1 не нужны.
 
@@ -156,7 +156,7 @@ Gateway одним локальным запросом читает User/Profile
 
 ## 6. API: фильтр опубликован, остальные дополнения ещё кандидат
 
-Продуктовые R1/R2/R4–R8 решены пользователем; технические имена/формы ниже проверяются при review этой версии плана. Не менять target/runtime SDL до реализованных resolvers/tests. Владельцы common SDL/guards/pagination/errors остаются Gateway integrator; Payment proto/generated — Payment+Gateway contract owner, один integration PR. S1 уже опубликован в composition/target/runtime export версии 1.3.0: только additive banFilter, без новых operations/response fields. Reason и общий Payments в runtime не добавлены; последующие дополнения версионируются отдельно по фактической готовности, без breaking required reason.
+Продуктовые R1/R2/R4–R8 решены пользователем; технические имена/формы ниже проверяются при review этой версии плана. Не менять target/runtime SDL до реализованных resolvers/tests. Владельцы common SDL/guards/pagination/errors остаются Gateway integrator; Payment proto/generated — Payment+Gateway contract owner, один integration PR. S1 опубликовал additive banFilter в версии 1.3.0. S3 добавляет optional reason только существующему block в composition/target/runtime export **1.4.0**, без новых operations/response fields и breaking required reason. Общий Payments в runtime ещё не добавлен.
 
 ```graphql
 # Additive к существующему SuperadminUsersInput:
@@ -215,7 +215,7 @@ Timeout нового RPC — конечный существующий лими�
 
 **Текущий маршрут:** technical review S0 → Users filter S1 → модель причины S2 → reason use case/GraphQL S3 → детализация sync P0 → подготовка Payments read model/sync P1 → общий RPC/GraphQL P2 → итоговая сверка F. V0/V1 отложены, не входят в зависимости этого маршрута. Причина/фильтр/общие платежи реализуются полноценно, не заглушками.
 
-Внутри вертикали: контракт → модели/миграции и repository → application → transport/wiring → узкие integration checks → документация. Не держать все направления в одном большом незавершённом PR. Выполнен только S1; чекбоксы S2/S3/P0/P1/P2/F и отложенных V0/V1 остаются пустыми.
+Внутри вертикали: контракт → модели/миграции и repository → application → transport/wiring → узкие integration checks → документация. Не держать все направления в одном большом незавершённом PR. Выполнены S1–S3; чекбоксы P0/P1/P2/F и отложенных V0/V1 остаются пустыми.
 
 ### S0 — review технической формы плана, без повторного Product-согласования
 
@@ -284,10 +284,20 @@ process.exitCode=diagnostics.length?1:0;
 
 ### S3 — reason use case, GraphQL и wiring
 
-- [ ] Расширить прежний ModerateUserUseCase/Resolver optional reason с принятыми BLOCK/no-op/UNBLOCK/deleted правилами и atomic audit/outbox; **без read/edit-reason API**.
+- [x] Расширить прежний ModerateUserUseCase/Resolver optional reason с принятыми BLOCK/no-op/UNBLOCK/deleted правилами и atomic audit/outbox; **без read/edit-reason API**.
 - Gateway application → API/SDL/modules. Зависимость S2; старые block-вызовы без reason сохраняются, новая FE передаёт reason.
 - Завершение: валидный повтор даёт ALREADY_BLOCKED и не меняет причину; unblock очищает текущую и не оживляет sessions; одна завершённая команда/один audit result, без нового auth/revoke pipeline.
 - Проверки: 3 причины/условный текст и legacy omission; один repeat/unblock цикл, один controlled concurrent block с разными причинами, rollback audit/outbox; guard/CSRF smoke без повторения session suite. Затем docs/runtime/target version sync. Это завершает reason-часть сокращённого scope, не отложенную visibility UC-1.
+
+**Результат S3, 25.10.2026:** ветка `feature/superadmin-ban-reason-api` от `3b18ca198292615a4d3afa9c9c1c792048eb41c9` после merge S2; исходное дерево чистое.
+
+- [Resolver](apps/main-gateway-service/src/modules/superadmin/api/superadmin-moderation.resolver.ts) передаёт optional `reason` в прежний [ModerateUserUseCase](apps/main-gateway-service/src/modules/users/application/commands/moderate-user.usecase.ts). Schema-first coercion реально проверяет вложенные enum/required code/string; общая нормализация S2 проверяет условные правила **до транзакции**, включая no-op. TypeScript-тип не используется как замена runtime validation. Отдельный DTO ValidationPipe для nullable reason не нужен; прежний UUID DTO/guard/CSRF сохранены.
+- BLOCKED использует `setBannedWithReason` + прежние session revoke/outbox; ALREADY_BLOCKED сохраняет первоначальную причину в User и audit. UNBLOCKED использует `clearBanAndReason`, audit получает причину до очистки; старые sessions не восстанавливаются. Один прежний User row lock и один живой tx для всех записей. DELETE/NOT_FOUND/USER_DELETED не получают выдуманный snapshot; delete semantics сохранены.
+- Feature/target/runtime export синхронизированы в **1.4.0**: новый enum/input и nullable аргумент существующей mutation, без новых outputs/read/edit API. Legacy omission/explicit null поддержаны. FE guide содержит коды/UI labels, примеры стандартной/Another reason, validation и repeat/unblock semantics.
+- [Существующий catalogue HTTP/DB-набор](apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts): **65 уникальных тестов прошли**, включая 18 S3-сценариев на disposable PostgreSQL 16 и настоящем GraphQL HTTP/admin verifier. Покрыты 3 причины, legacy omission/null, trim/500/501, schema coercion, invalid repeated input без lock, repeat/unblock/audit, сохранение revoked session, управляемый concurrent block с наблюдением DB lock wait, rollback при реальных CHECK-сбоях audit/outbox, actor из principal, admin/CSRF/UUID, missing/deleted и delete/repeat. Нет mock storage; конкурентная синхронизация через управляемый barrier, не случайные sleep.
+- Команда: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts --noStackTrace`. Первоначально 64/65 прошли, обнаружена устаревшая runtime SDL artifact; после экспорта и сохранения описания DateTime повторены `--testNamePattern 'publishes implemented|matches target'` и отдельно `'publishes implemented'` — итоговая проверка прошла. После усиления session assertion повторён только `--testNamePattern 'preserves winning reason'` — успешно.
+- `pnpm run build:main-gateway-service` — успешно; source + изменённый test через TypeScript API с Gateway tsconfig — 0 diagnostics; scoped ESLint `--max-warnings=0`/Prettier и `git diff --check` — успешно. **11 исполняемых GraphQL-документов guide** прошли schema validation; это проверка примеров против schema, не исполнение их синтетических IDs на развёрнутом сервере. Runtime artifact дополнительно сравнен с настоящей Nest runtime schema.
+- Новых миграций/dependencies нет, schema БД и инфраструктура S2 не менялись. Auth/config/Payments/visibility не затронуты; полные session/WS/RabbitMQ suites не повторялись. **Следующий этап — P0, не начат.** Отложенная visibility не объявляется реализованной, прежние environment/product ограничения сохраняются.
 
 ### V0 — отложено: источник visibility, вне текущей итерации
 
@@ -345,7 +355,7 @@ process.exitCode=diagnostics.length?1:0;
 
 **Оставшееся — не повторные продуктовые блокеры:** review технических имён/типов/version encoding и параметров batches/периодичности раздела 5 (Gateway+Payment owners); проверить реальные private RPC exposure/network restrictions в окружении (Operations/Security); актуальные прежние environment/product вопросы R9. Authenticated caller/mTLS/NetworkPolicy не подтверждены кодом и не объявляются существующими. Не требуются новая IAM-платформа, source comments/reactions либо выбор между двумя архитектурами: R1–R8 в указанном объёме уже решены.
 
-Пользователь утвердил план, включая технические стартовые параметры; S1 объединён, S2 реализован и проверен. Продуктовые вопросы не блокируют следующий S3; новые этапы, в том числе P0, не объявляются выполненными утверждением плана. S2 готовится к техническому review, не production-приёмке.
+Пользователь утвердил план, включая технические стартовые параметры; S1/S2 объединены, S3 реализован и проверен. Следующий этап — P0; его выполнение не следует из утверждения плана или готовности S3. S3 готовится к техническому review, не production-приёмке.
 
 ## 9. Правила реализации и обновления прогресса
 
@@ -368,3 +378,4 @@ process.exitCode=diagnostics.length?1:0;
 - [x] 25.10.2026 — план утверждён пользователем, включая технические стартовые параметры. S0 согласован; выполнение P0 и других будущих этапов из этого не следует.
 - [x] 25.10.2026 — **S1 выполнен и проверен**, без миграции; contract 1.3.0, 46/46 catalogue integration tests. Подготовлен к техническому review, commit/push/merge не выполнялись. **Следующий шаг — S2**, не начат; затем S3 → P0 → P1 → P2 → F. V0/V1 остаются вне текущей реализации.
 - [x] 25.10.2026 — **S2 выполнен и проверен** после merge S1: migration `20261025120000_add_user_ban_reasons`, typed reason/current storage/audit snapshot и transactional repository; доказательства и команды в S2 выше. **Следующий шаг — S3**, не начат; GraphQL и ModerateUserUseCase без новой семантики, contract 1.3.0 сохранён. Commit/push/merge в этом проходе не выполнялись.
+- [x] 25.10.2026 — **S3 выполнен и проверен** после merge S2: optional block reason, atomic reason/revoke/audit/outbox и совместимый repeat/unblock; contract **1.4.0**, 65 уникальных catalogue/S3 HTTP/DB tests, build/typecheck/lint/format/schema/examples. Доказательства и команды в S3 выше. **Следующий шаг — P0, не начат**. Visibility отложена; commit/push/merge не выполнялись.
