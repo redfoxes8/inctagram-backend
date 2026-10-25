@@ -1,3 +1,5 @@
+import type { UserBanReason } from './user-ban-reason';
+
 export const ADMIN_USER_ACTION_OUTCOMES = {
   BLOCK: ['BLOCKED', 'ALREADY_BLOCKED', 'USER_DELETED', 'NOT_FOUND'],
   UNBLOCK: ['UNBLOCKED', 'ALREADY_ACTIVE', 'USER_DELETED', 'NOT_FOUND'],
@@ -17,4 +19,6 @@ export type AdminUserActionAuditEntry = AdminUserActionResult &
     targetUserId: string;
     occurredAt: Date;
     adminSessionId: string;
+    // Optional for pre-S3 callers; null is also a valid legacy snapshot.
+    reasonSnapshot?: UserBanReason | null;
   }>;

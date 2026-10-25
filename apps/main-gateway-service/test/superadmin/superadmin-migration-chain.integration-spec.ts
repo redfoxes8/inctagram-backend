@@ -48,6 +48,7 @@ describe('SA-GQL-09 official migrate deploy for AdminSession -> state/audit -> r
       { migration_name: '20261018120000_add_admin_sessions', finished: true },
       { migration_name: '20261018130000_add_user_state_audit', finished: true },
       { migration_name: '20261018140000_add_user_access_revoke_outbox', finished: true },
+      { migration_name: '20261025120000_add_user_ban_reasons', finished: true },
     ]);
   });
 });

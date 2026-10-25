@@ -877,4 +877,39 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       );
     }
   });
+
+  it('keeps legacy GraphQL block/unblock working without a reason argument after S2 storage migration', async () => {
+    const userId = await fixture();
+    const nonce = 'isolated-storage-regression';
+    for (const [operation, outcome] of [
+      ['superadminBlockUser', 'BLOCKED'],
+      ['superadminBlockUser', 'ALREADY_BLOCKED'],
+      ['superadminUnblockUser', 'UNBLOCKED'],
+      ['superadminUnblockUser', 'ALREADY_ACTIVE'],
+    ]) {
+      const result = await request(app.getHttpServer())
+        .post(PATH)
+        .set('Origin', ORIGIN)
+        .set('Cookie', 'superadminSession=' + TOKEN + '; superadminCsrf=' + nonce)
+        .set('X-Superadmin-CSRF', nonce)
+        .send({
+          query:
+            'mutation($input:SuperadminUserIdInput!){' +
+            operation +
+            '(input:$input){userId outcome}}',
+          variables: { input: { userId } },
+        });
+      expect(result.body).toEqual({ data: { [operation]: { userId, outcome } } });
+    }
+    expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({
+      isBanned: false,
+      banReasonCode: null,
+      banReasonText: null,
+    });
+    const audit = await prisma.adminUserActionAudit.findMany({ where: { targetUserId: userId } });
+    expect(audit).toHaveLength(4);
+    expect(audit.every((row) => row.banReasonCode === null && row.banReasonText === null)).toBe(
+      true,
+    );
+  });
 });

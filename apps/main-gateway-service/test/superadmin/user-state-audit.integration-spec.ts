@@ -118,6 +118,8 @@ describe('SA-GQL-04A state and transactional audit (real isolated PostgreSQL)', 
       passwordHash: 'isolated-user-digest',
       isConfirmed: true,
       isBanned: false,
+      banReasonCode: null,
+      banReasonText: null,
       accountType: 'BUSINESS',
       createdAt: new Date('2026-10-17T10:00:00Z'),
       updatedAt: new Date('2026-10-17T11:00:00Z'),
@@ -129,6 +131,8 @@ describe('SA-GQL-04A state and transactional audit (real isolated PostgreSQL)', 
       passwordHash: null,
       isConfirmed: false,
       isBanned: false,
+      banReasonCode: null,
+      banReasonText: null,
       accountType: 'PERSONAL',
       createdAt: new Date('2026-10-17T10:00:00Z'),
       updatedAt: new Date('2026-10-17T11:00:00Z'),
@@ -289,7 +293,7 @@ describe('SA-GQL-04A state and transactional audit (real isolated PostgreSQL)', 
       );
       expect(
         await prisma.adminUserActionAudit.findUniqueOrThrow({ where: { id: auditId } }),
-      ).toEqual({ id: auditId, ...entry });
+      ).toEqual({ id: auditId, ...entry, banReasonCode: null, banReasonText: null });
       if (result.outcome === 'NOT_FOUND')
         expect(await prisma.user.findUnique({ where: { id: targetUserId } })).toBeNull();
     }
@@ -437,7 +441,7 @@ describe('SA-GQL-04A state and transactional audit (real isolated PostgreSQL)', 
     );
   });
 
-  it('persists only the six audit fields and does not deduplicate separate writer calls', async (): Promise<void> => {
+  it('persists only audit fields/optional reason snapshot and does not deduplicate separate writer calls', async (): Promise<void> => {
     const first = await transactions.execute((transaction) =>
       writer.append({ entry: auditEntry(), transaction }),
     );
@@ -455,6 +459,8 @@ describe('SA-GQL-04A state and transactional audit (real isolated PostgreSQL)', 
       'outcome',
       'occurredAt',
       'adminSessionId',
+      'banReasonCode',
+      'banReasonText',
     ]);
     const constraints = await prisma.$queryRaw<{ constraint_type: string }[]>`
       SELECT constraint_type FROM information_schema.table_constraints WHERE table_name = 'AdminUserActionAudit'`;

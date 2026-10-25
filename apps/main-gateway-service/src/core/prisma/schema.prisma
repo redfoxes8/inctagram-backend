@@ -12,12 +12,20 @@ enum AccountType {
   BUSINESS
 }
 
+enum UserBanReasonCode {
+  BAD_BEHAVIOR
+  ADVERTISING_PLACEMENT
+  ANOTHER_REASON
+}
+
 model User {
   id                String             @id @default(uuid())
   email             String             @unique
   passwordHash      String?  
   isConfirmed       Boolean            @default(false)
   isBanned          Boolean            @default(false)
+  banReasonCode     UserBanReasonCode?
+  banReasonText     String?
 
   accountType       AccountType        @default(PERSONAL)
   
@@ -121,6 +129,9 @@ model AdminUserActionAudit {
   outcome        AdminUserActionOutcome
   occurredAt     DateTime
   adminSessionId String
+  // Historical snapshot, independent of the current User reason.
+  banReasonCode  UserBanReasonCode?
+  banReasonText  String?
 }
 
 // Bounded sliding-window timestamps, shared by all Gateway instances.
