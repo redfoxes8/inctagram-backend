@@ -9,7 +9,10 @@ ISO-8601 UTC timestamp
 scalar DateTime
 
 type Mutation {
-  superadminBlockUser(input: SuperadminUserIdInput!): SuperadminBlockUserPayload!
+  superadminBlockUser(
+    input: SuperadminUserIdInput!
+    reason: SuperadminBanReasonInput
+  ): SuperadminBlockUserPayload!
   superadminDeleteUser(input: SuperadminUserIdInput!): SuperadminDeleteUserPayload!
   superadminLogin(input: SuperadminLoginInput!): SuperadminLoginPayload!
   superadminLogout: SuperadminLogoutPayload!
@@ -80,6 +83,17 @@ type Query {
   superadminSession: SuperadminSessionPayload!
   superadminUser(userId: ID!): SuperadminUser
   superadminUsers(input: SuperadminUsersInput!): SuperadminUsersPage!
+}
+
+enum SuperadminBanReasonCode {
+  ADVERTISING_PLACEMENT
+  ANOTHER_REASON
+  BAD_BEHAVIOR
+}
+
+input SuperadminBanReasonInput {
+  code: SuperadminBanReasonCode!
+  text: String
 }
 
 enum SuperadminBlockOutcome {

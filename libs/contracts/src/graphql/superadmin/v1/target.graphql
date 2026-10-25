@@ -1,4 +1,4 @@
-# Target contract 1.3.0. Never load this file into runtime wholesale.
+# Target contract 1.4.0. Never load this file into runtime wholesale.
 scalar DateTime
 enum SuperadminUserSort {
   USERNAME_ASC
@@ -46,6 +46,15 @@ input SuperadminUsersInput {
 }
 input SuperadminUserIdInput {
   userId: ID!
+}
+enum SuperadminBanReasonCode {
+  BAD_BEHAVIOR
+  ADVERTISING_PLACEMENT
+  ANOTHER_REASON
+}
+input SuperadminBanReasonInput {
+  code: SuperadminBanReasonCode!
+  text: String
 }
 input PageInput {
   page: Int! = 1
@@ -166,6 +175,9 @@ type Mutation {
   superadminLogin(input: SuperadminLoginInput!): SuperadminLoginPayload!
   superadminLogout: SuperadminLogoutPayload!
   superadminDeleteUser(input: SuperadminUserIdInput!): SuperadminDeleteUserPayload!
-  superadminBlockUser(input: SuperadminUserIdInput!): SuperadminBlockUserPayload!
+  superadminBlockUser(
+    input: SuperadminUserIdInput!
+    reason: SuperadminBanReasonInput
+  ): SuperadminBlockUserPayload!
   superadminUnblockUser(input: SuperadminUserIdInput!): SuperadminUnblockUserPayload!
 }

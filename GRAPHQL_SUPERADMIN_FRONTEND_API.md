@@ -1,4 +1,4 @@
-# Superadmin GraphQL API — контракт 1.3.0
+# Superadmin GraphQL API — контракт 1.4.0
 
 ## Быстрое подключение для frontend
 
@@ -18,7 +18,7 @@
 4. После reload сначала выполнить `superadminSession` без cache; при успехе обновить nonce из header. `UNAUTHENTICATED` → форма входа; техническую ошибку не считать logout.
 5. Читать каталог/детали; в mutations передавать актуальный nonce. После logout очищать client cache/состояние.
 
-Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.3.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
+Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.4.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
 
 ### Backend checklist до браузерного подключения
 
@@ -49,7 +49,7 @@
 
 В текущем manifest четыре admin Secret key references помечены `optional:true`, timeout отдельно не подключён и использует default. Поэтому отсутствие **этих ключей** не препятствует запуску Node.js. Другие обязательные Secret/key references и инфраструктура остаются необходимыми: если весь существующий Secret или другой обязательный key отсутствует, Kubernetes может не запустить контейнер, и fallback приложения это не исправит. Pipeline/manifest этой задачей не меняются.
 
-Статус: runtime и целевой контракт **1.3.0**. Additive S1: в существующий superadminUsers добавлен banFilter с default ALL; старые запросы сохраняют поведение. Причина блокировки и общий Payments list ещё не опубликованы. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
+Статус: runtime и целевой контракт **1.4.0**. Additive S3: существующий superadminBlockUser принимает optional reason; legacy-вызовы сохраняются. S1 ранее добавил banFilter с default ALL в версии 1.3.0. Общий Payments list ещё не опубликован. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 **SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
 
@@ -59,7 +59,7 @@
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
-Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.3.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
+Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.4.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
 
 Для frontend tooling: **[экспорт фактически опубликованного runtime SDL](libs/contracts/src/graphql/superadmin/v1/runtime.graphql)**. Это отдельный артефакт, не target и не новая версия контракта. Тест SA-GQL-09 сравнивает его канонический SDL с реальным `GraphQLSchemaHost` всех production superadmin feature modules, а все executable GraphQL-блоки этого guide проходят parse/validate по этой schema. Связный HTTP-сценарий исполняет auth/catalog/все вкладки/moderation/logout; schema validation остальных примеров не объявляется их исполнением.
 
@@ -69,19 +69,19 @@
 
 **Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. **Реализовано — SA-GQL-06:** `SuperadminUser.payments`. **Реализовано — SA-GQL-08:** Followers/Following как временный hardcoded-zero API.
 
-| Operation                  | Input                                      | Output                                                                | Карточка                                             |
-| -------------------------- | ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------- |
-| `superadminLogin`          | `SuperadminLoginInput { email, password }` | `{ authenticated: Boolean! }`, HttpOnly cookie                        | **Реализовано — SA-GQL-02**                          |
-| `superadminLogout`         | нет                                        | `{ loggedOut: Boolean! }`                                             | **Реализовано — SA-GQL-02**                          |
-| `superadminSession`        | нет                                        | `SuperadminSessionPayload! { authenticated: Boolean! }`               | **Реализовано — SA-GQL-02**                          |
-| `superadminUsers`          | `SuperadminUsersInput!`                    | items, totalCount, pageInfo                                           | **Реализовано — SA-GQL-03**                          |
-| `superadminUser`           | `userId: ID!`                              | nullable SuperadminUser                                               | **Реализовано — SA-GQL-03**                          |
-| `superadminBlockUser`      | `{ userId: ID! }`                          | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED          | **Реализовано — SA-GQL-04B**                         |
-| `superadminUnblockUser`    | `{ userId: ID! }`                          | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED         | **Реализовано — SA-GQL-04B**                         |
-| `superadminDeleteUser`     | `{ userId: ID! }`                          | userId, DELETED / ALREADY_DELETED / NOT_FOUND                         | **Реализовано — SA-GQL-05**                          |
-| `SuperadminUser.payments`  | `PageInput!`                               | nullable PaymentConnection                                            | **Реализовано — SA-GQL-06**                          |
-| `SuperadminUser.followers` | `PageInput!`                               | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
-| `SuperadminUser.following` | `PageInput!`                               | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
+| Operation                  | Input                                       | Output                                                                | Карточка                                             |
+| -------------------------- | ------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `superadminLogin`          | `SuperadminLoginInput { email, password }`  | `{ authenticated: Boolean! }`, HttpOnly cookie                        | **Реализовано — SA-GQL-02**                          |
+| `superadminLogout`         | нет                                         | `{ loggedOut: Boolean! }`                                             | **Реализовано — SA-GQL-02**                          |
+| `superadminSession`        | нет                                         | `SuperadminSessionPayload! { authenticated: Boolean! }`               | **Реализовано — SA-GQL-02**                          |
+| `superadminUsers`          | `SuperadminUsersInput!`                     | items, totalCount, pageInfo                                           | **Реализовано — SA-GQL-03**                          |
+| `superadminUser`           | `userId: ID!`                               | nullable SuperadminUser                                               | **Реализовано — SA-GQL-03**                          |
+| `superadminBlockUser`      | `input: { userId: ID! }`, optional `reason` | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED          | **Реализовано — SA-GQL-04B + S3 reason**             |
+| `superadminUnblockUser`    | `{ userId: ID! }`                           | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED         | **Реализовано — SA-GQL-04B**                         |
+| `superadminDeleteUser`     | `{ userId: ID! }`                           | userId, DELETED / ALREADY_DELETED / NOT_FOUND                         | **Реализовано — SA-GQL-05**                          |
+| `SuperadminUser.payments`  | `PageInput!`                                | nullable PaymentConnection                                            | **Реализовано — SA-GQL-06**                          |
+| `SuperadminUser.followers` | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
+| `SuperadminUser.following` | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
 
 Followers/Following **реализованы как временный FOLLOW-ZERO-1** по решению пользователя от 19.10.2026; [ADR](docs/adr/SA_FOLLOW_DISCOVERY.md) сохраняет доказательства отсутствия пригодного source и отложенные предложения о настоящих связях. Оба поля всегда возвращают пустые items и нулевые metadata с page/pageSize из валидированного input. Это не чтение реальных отношений; публичные нулевые counters не изменены. FOLLOW-PREP-01/02 остаются отложенными. Приёмка карточки 9 начинается после технической приёмки/merge 8; только здесь разрешены постоянные нулевые ответы, не маскирующие ошибки Payments/других данных.
 
@@ -99,7 +99,7 @@ query CurrentSuperadminSession {
 
 ## Followers/Following — реализован временный FOLLOW-ZERO-1 (SA-GQL-08)
 
-Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.3.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
+Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.4.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
 
 ```graphql
 extend type SuperadminUser {
@@ -234,7 +234,7 @@ Aliases одного направления тоже независимы; reque
 
 List/detail: `userId`, `createdAt`, `state`, `isEmailConfirmed` non-null. `username`, `profileUrl`, `avatarUrl` nullable: Profile optional в текущей Prisma model. Detail без Profile возвращает null этих полей. Отсутствующий/deleted User — null detail. Public profile route не подтверждён, URL не выдумывать; дата создания берётся из User.
 
-Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; поля Payments без изменений сохраняются в API-контракте 1.3.0, Stripe lifecycle не меняется.
+Payments: реализованный `GetPaymentHistory(user_id,page,page_size)` adapter предоставляет transactionId, createdAt, paidAt, amountMinor (целые minor currency units), currency, productId/productName, billingInterval/Count, provider, kind, status, checkoutPurpose, subscriptionId/EndsAt. Optional paidAt/checkoutPurpose/subscriptionId/subscriptionEndsAt остаются nullable. При timeout/outage сохраняются основные данные пользователя: `payments: null` + error `UPSTREAM_UNAVAILABLE`, не ложный пустой список. Выбор отображаемых UI-колонок остаётся вопросом Product; поля Payments без изменений сохраняются в API-контракте 1.4.0, Stripe lifecycle не меняется.
 
 ## Pagination, search, sort и banFilter (SA-GQL-03 + S1)
 
@@ -470,6 +470,58 @@ mutation Unblock($input: SuperadminUserIdInput!) {
 
 Variables для каждой отдельной операции: `{"input":{"userId":"00000000-0000-4000-8000-000000000001"}}`. Синтетический пример ответа: `{"data":{"superadminBlockUser":{"userId":"00000000-0000-4000-8000-000000000001","outcome":"BLOCKED"}}}`. Если обе операции отправлены в одном GraphQL document, указывать соответствующий `operationName`; они не должны запускаться неявно вместе.
 
+### Причина блокировки — реализовано S3, контракт 1.4.0
+
+Только block принимает дополнительный nullable аргумент `reason: SuperadminBanReasonInput`.
+Input содержит `code: SuperadminBanReasonCode!` и `text: String`. Новый frontend передаёт причину;
+старый пример `Block` выше без аргумента остаётся допустимым. Omitted reason или `reason: null`
+создают legacy-блокировку с отсутствующей причиной; старым блокировкам причина не назначается.
+
+| Code                  | UI label              | Text                                                            |
+| --------------------- | --------------------- | --------------------------------------------------------------- |
+| BAD_BEHAVIOR          | Bad behavior          | Отсутствует/null/пустой после trim → null; непустой отклоняется |
+| ADVERTISING_PLACEMENT | Advertising placement | То же правило                                                   |
+| ANOTHER_REASON        | Another reason        | Обязателен после trim, 1–500 Unicode code points                |
+
+```graphql
+mutation BlockWithReason($input: SuperadminUserIdInput!, $reason: SuperadminBanReasonInput) {
+  superadminBlockUser(input: $input, reason: $reason) {
+    userId
+    outcome
+  }
+}
+```
+
+Стандартная причина, variables:
+
+```json
+{
+  "input": { "userId": "00000000-0000-4000-8000-000000000001" },
+  "reason": { "code": "BAD_BEHAVIOR" }
+}
+```
+
+Another reason, variables для той же операции:
+
+```json
+{
+  "input": { "userId": "00000000-0000-4000-8000-000000000001" },
+  "reason": { "code": "ANOTHER_REASON", "text": "  Synthetic moderation reason  " }
+}
+```
+
+Сохраняется `Synthetic moderation reason` как обычный текст, без HTML-преобразования.
+Неверный enum, пропущенный code, неверный тип text или нарушение code/text дают
+`BAD_USER_INPUT` до изменения данных, в том числе для повторной команды.
+Например, `{"code":"BAD_BEHAVIOR","text":"not allowed"}` и
+`{"code":"ANOTHER_REASON","text":"   "}` недопустимы.
+
+Валидный повтор возвращает `ALREADY_BLOCKED`, не меняет первоначальную причину и
+не повторяет revoke/outbox; audit фиксирует сохранённую причину. Unblock очищает текущую
+причину, audit сохраняет её значение до очистки. NOT_FOUND/USER_DELETED не придумывают
+snapshot. Причина не возвращается каталогом или деталями; read/edit API не добавлен.
+Unblock/delete не принимают reason. Видимость комментариев/реакций остаётся отложенной.
+
 | Состояние записи                 | Block outcome   | Unblock outcome |
 | -------------------------------- | --------------- | --------------- |
 | ACTIVE                           | BLOCKED         | ALREADY_ACTIVE  |
@@ -483,7 +535,7 @@ Variables для каждой отдельной операции: `{"input":{"u
 
 ### Транзакция, каналы и пределы гарантии
 
-`ModerateUserUseCase` через действующий transaction manager блокирует User row (`FOR UPDATE`), вычисляет outcome, при BLOCKED меняет `isBanned`, soft-revoke всех пользовательских Session (`deletedAt`) и создаёт `UserAccessRevokeOutbox`, затем пишет audit тем же живым tx. Unblock меняет только isBanned; audit записывается и для no-op/missing/deleted. Ошибка откатывает state/sessions/outbox/audit вместе. Поля audit: action, targetUserId, outcome, occurredAt, adminSessionId и id — без token/cookie/password/hash. Общая admin account не идентифицирует конкретного человека.
+`ModerateUserUseCase` через действующий transaction manager блокирует User row (`FOR UPDATE`), вычисляет outcome, при BLOCKED меняет `isBanned` и текущую причину, soft-revoke всех пользовательских Session (`deletedAt`) и создаёт `UserAccessRevokeOutbox`, затем пишет audit тем же живым tx. Unblock снимает isBanned и очищает причину; audit записывается и для no-op/missing/deleted. Ошибка откатывает reason/state/sessions/outbox/audit вместе. Поля audit: action, targetUserId, outcome, occurredAt, adminSessionId, id и optional snapshot причины (banReasonCode/banReasonText) — без token/cookie/password/hash. Общая admin account не идентифицирует конкретного человека.
 
 | Канал                                                                 | Проверка 4B                                                                                                                                                                                                                             |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

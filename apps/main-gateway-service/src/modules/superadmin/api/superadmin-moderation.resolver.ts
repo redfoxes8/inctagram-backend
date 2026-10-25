@@ -18,10 +18,13 @@ export class SuperadminModerationResolver {
   block(
     @Args('input') input: SuperadminUserIdInput,
     @Context() context: SuperadminContext,
+    // SDL coerces the nested shape; the use case applies S2 normalization, including legacy null.
+    @Args('reason') reason: unknown,
   ): Promise<{ userId: string } & UserModerationResult> {
     return this.moderation.execute({
       ...input,
       action: 'BLOCK',
+      reason,
       adminSessionId: this.sessionId(context),
     });
   }
