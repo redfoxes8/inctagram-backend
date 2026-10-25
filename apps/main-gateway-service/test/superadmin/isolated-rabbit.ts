@@ -5,6 +5,9 @@ import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { COMMON_RABBITMQ_EXCHANGE } from '../../src/core/gateway-rabbitmq.constants';
 
 export class IsolatedRabbit {
+  get url(): string {
+    return this.uri;
+  }
   readonly container = `sa-revoke-rabbit-${randomUUID()}`;
   private running = false;
   private uri = '';
@@ -88,6 +91,29 @@ export class IsolatedRabbit {
         { encoding: 'utf8' },
       ),
     ) as { name: string; consumers: number }[];
+  }
+
+  deliveryCounts(): { name: string; messages_ready: number; messages_unacknowledged: number }[] {
+    return JSON.parse(
+      execFileSync(
+        'docker',
+        [
+          'exec',
+          '-e',
+          'ERL_FLAGS=+S 1:1 +SDcpu 1 +SDio 1',
+          this.container,
+          'rabbitmqctl',
+          'list_queues',
+          'name',
+          'messages_ready',
+          'messages_unacknowledged',
+          '--quiet',
+          '--formatter',
+          'json',
+        ],
+        { encoding: 'utf8' },
+      ),
+    ) as { name: string; messages_ready: number; messages_unacknowledged: number }[];
   }
 
   pause(): void {
