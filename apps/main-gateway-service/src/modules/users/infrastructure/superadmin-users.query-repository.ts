@@ -3,6 +3,7 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { Prisma } from '../../../core/prisma/client';
 import {
   SuperadminUserSort,
+  SuperadminUsersBanFilter,
   type SuperadminUsersFilter,
 } from '../../../../../../libs/common/types/superadmin-users';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
@@ -42,6 +43,12 @@ export class PrismaSuperadminUsersQueryRepository extends SuperadminUsersQueryRe
       ? Prisma.sql`AND strpos(lower(profile."username"), lower(${input.searchUsername})) > 0`
       : Prisma.empty;
     const order = SORT_ORDER[input.sort];
+    let banFilter = Prisma.empty;
+    if (input.banFilter === SuperadminUsersBanFilter.Blocked) {
+      banFilter = Prisma.sql`AND account."isBanned" = ${true}`;
+    } else if (input.banFilter === SuperadminUsersBanFilter.NotBlocked) {
+      banFilter = Prisma.sql`AND account."isBanned" = ${false}`;
+    }
     // All user values are parameters; only the closed enum selects static ORDER BY fragments.
     // A single statement gives filtered count and selected rows the same MVCC snapshot even in RC.
     const rows = await this.prisma.$queryRaw<PageRow[]>(Prisma.sql`
@@ -50,7 +57,7 @@ export class PrismaSuperadminUsersQueryRepository extends SuperadminUsersQueryRe
         SELECT account."id" AS "userId", profile."username", account."createdAt",
                account."isBanned", account."isConfirmed" AS "isEmailConfirmed"
         FROM "User" AS account LEFT JOIN "Profile" AS profile ON profile."userId" = account."id"
-        WHERE account."deletedAt" IS NULL ${search}
+        WHERE account."deletedAt" IS NULL ${search} ${banFilter}
       ), selected AS (
         SELECT * FROM filtered ORDER BY ${order}
         LIMIT ${input.pageSize} OFFSET ${(input.page - 1) * input.pageSize}

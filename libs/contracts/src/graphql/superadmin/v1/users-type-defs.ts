@@ -2,11 +2,13 @@
 export const SUPERADMIN_USERS_TYPE_DEFS = `
   enum SuperadminUserSort { USERNAME_ASC USERNAME_DESC CREATED_AT_ASC CREATED_AT_DESC }
   enum SuperadminUserState { ACTIVE BLOCKED }
+  enum SuperadminUsersBanFilter { ALL BLOCKED NOT_BLOCKED }
   input SuperadminUsersInput {
     page: Int! = 1
     pageSize: Int! = 8
     searchUsername: String
     sort: SuperadminUserSort! = CREATED_AT_DESC
+    banFilter: SuperadminUsersBanFilter! = ALL
   }
   type SuperadminUserListItem {
     userId: ID!

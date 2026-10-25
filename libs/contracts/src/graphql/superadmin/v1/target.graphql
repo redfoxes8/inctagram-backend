@@ -1,4 +1,4 @@
-# Target contract 1.2.0. Never load this file into runtime wholesale.
+# Target contract 1.3.0. Never load this file into runtime wholesale.
 scalar DateTime
 enum SuperadminUserSort {
   USERNAME_ASC
@@ -9,6 +9,12 @@ enum SuperadminUserSort {
 enum SuperadminUserState {
   ACTIVE
   BLOCKED
+}
+
+enum SuperadminUsersBanFilter {
+  ALL
+  BLOCKED
+  NOT_BLOCKED
 }
 enum SuperadminDeleteOutcome {
   DELETED
@@ -36,6 +42,7 @@ input SuperadminUsersInput {
   pageSize: Int! = 8
   searchUsername: String
   sort: SuperadminUserSort! = CREATED_AT_DESC
+  banFilter: SuperadminUsersBanFilter! = ALL
 }
 input SuperadminUserIdInput {
   userId: ID!
