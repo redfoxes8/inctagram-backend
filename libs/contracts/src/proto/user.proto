@@ -26,7 +26,32 @@ message GetNotificationRecipientContextResponse {
   string user_name = 3;
 }
 
+message ExportPaymentUserProfilesRequest {
+  optional string after_user_id = 1;
+  optional string upper_user_id = 2;
+  int32 limit = 3;
+}
+
+message PaymentUserProfileSnapshot {
+  string user_id = 1;
+  string source_version = 2;
+  optional string username = 3;
+  bool profile_exists = 4;
+  bool is_deleted = 5;
+}
+
+message ExportPaymentUserProfilesResponse {
+  int32 protocol_version = 1;
+  optional string upper_user_id = 2;
+  bool source_empty = 3;
+  repeated PaymentUserProfileSnapshot items = 4;
+  optional string next_after_user_id = 5;
+  bool complete = 6;
+}
+
 service UserService {
+  rpc ExportPaymentUserProfiles(ExportPaymentUserProfilesRequest)
+      returns (ExportPaymentUserProfilesResponse);
   rpc GetUserById(GetUserByIdRequest)
       returns (GetUserByIdResponse);
   rpc GetNotificationRecipientContext(GetNotificationRecipientContextRequest)

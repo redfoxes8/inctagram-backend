@@ -1,3 +1,12 @@
+import {
+  IPaymentProfileExportClient,
+  IProjectionBootstrapRepository,
+  IProjectionConsumerState,
+} from './application/ports/payment-profile-bootstrap.port';
+import { PaymentProfileBootstrapService } from './application/services/payment-profile-bootstrap.service';
+import { PaymentProfileExportClient } from './infrastructure/grpc/payment-profile-export.client';
+import { ProjectionBootstrapRepository } from './infrastructure/repositories/projection-bootstrap.repository';
+import { PaymentProfileBootstrapWorker } from './infrastructure/schedulers/payment-profile-bootstrap.worker';
 import { Module } from '@nestjs/common';
 import { PaymentUserProfileConsumer } from './infrastructure/messaging/payment-user-profile.consumer';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -161,6 +170,11 @@ const subscriptionReminderFoundation = [
   imports: [CqrsModule],
   providers: [
     PaymentUserProfileConsumer,
+    { provide: IProjectionConsumerState, useExisting: PaymentUserProfileConsumer },
+    { provide: IPaymentProfileExportClient, useClass: PaymentProfileExportClient },
+    { provide: IProjectionBootstrapRepository, useClass: ProjectionBootstrapRepository },
+    PaymentProfileBootstrapService,
+    PaymentProfileBootstrapWorker,
     ...repositories,
     ...queries,
     ...providerStrategies,

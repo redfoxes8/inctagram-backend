@@ -2,7 +2,7 @@
 
 ## 1. Статус и правила ведения
 
-**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1–S3/P0/P1a объединены; P1b/P1c реализованы и проверены. Родительский P1, P1d–P1e/P2/F не завершены.** Дата: 25.10.2026, Europe/Kiev. Исходное исследование `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. P0 исследует `b5895d341cfdf278acfe5adc36ce15e5984969d6` в `docs/superadmin-payments-sync-contract` после merge S3; дерево до этого прохода чистое. P1a: ветка `feature/superadmin-payment-profile-sync`, база `462c554a2e6266dc31e7c07b8229fd9e2c87c8e1`, исходное дерево чистое. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
+**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1–S3/P0/P1a объединены; P1b/P1c объединены; P1d реализован и проверен локально. Родительский P1, P1e/P2/F не завершены.** Дата: 25.10.2026, Europe/Kiev. Исходное исследование `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. P0 исследует `b5895d341cfdf278acfe5adc36ce15e5984969d6` в `docs/superadmin-payments-sync-contract` после merge S3; дерево до этого прохода чистое. P1a: ветка `feature/superadmin-payment-profile-sync`, база `462c554a2e6266dc31e7c07b8229fd9e2c87c8e1`, исходное дерево чистое. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
 
 **Уточнение 25.10.2026:** R1/R2 и продуктовые R4–R7 решены пользователем; выбор Payment read model и eventual consistency R8 принят. Visibility и создание comments/reactions отложены вне текущей реализации и не блокируют сокращённый scope. Последующим запросом пользователь утвердил эту редакцию и технические стартовые параметры; повторные продуктовые согласования для S1 не нужны.
 
@@ -564,9 +564,88 @@ process.exitCode=diagnostics.length?1:0;
 
 #### P1d — export, bootstrap и reconciliation
 
-- [ ] Добавить scoped User export RPC/client и worker P0.4–P0.7 с fenced cursor/READY, resume и ежедневной сверкой.
+- [x] Добавить scoped User export RPC/client и worker P0.4–P0.7 с fenced cursor/READY, resume и ежедневной сверкой. Результат и ограничения — ниже.
 - Gateway read transport + Payment infrastructure/application; зависит от P1a–P1c и готового source-rollout gate. Завершение: shared apply в batch tx, trusted-only equal repair, stale worker не пишет, empty source/UUID позади cursor не теряются, RPC absence не ломает старый startup.
 - Минимум: controlled export/live rename/delete/create/old batch, empty/resume/rollback cursor, два worker/lease expiry, readiness/UNIMPLEMENTED backoff, missing revision repair и throttle. Real network/deployment подтверждается отдельно, не по local fixtures.
+
+##### Результат P1d — 25.10.2026
+
+Ветка `feature/superadmin-payment-profile-bootstrap`, исходное чистое дерево, база `275167d606939bb8088a4aa6292df1ab553bf961` (P1a/P1b/P1c). Реализация ограничена export/bootstrap/reconciliation; P1e/P2 не начаты, GraphQL **1.4.0** не изменён. Миграций, зависимостей, deployment/pipeline изменений нет.
+
+- [Export query/validation](apps/main-gateway-service/src/modules/users/application/queries/export-payment-user-profiles.query.ts), [SQL repository](apps/main-gateway-service/src/modules/users/infrastructure/payment-profile-export.query-repository.ts), [User controller](apps/main-gateway-service/src/modules/users/api/grpc/user.grpc.controller.ts) и [user.proto](libs/contracts/src/proto/user.proto): внутренний RPC P0.4, `items`, optional username, decimal-string version, TEXT IDs, deleted/v0 включены. Один statement boundary/page/LEFT JOIN, limit+1, keyset; пустой источник без sentinel; after=upper завершает проход, after>upper → INVALID_ARGUMENT. Генерация только user.proto; глобальный loader.longs не менялся.
+- [Общий page contract](libs/contracts/src/events/payment-user-profile-export.ts) и [Payment adapter](apps/micro-payment-service/src/modules/payment/infrastructure/grpc/payment-profile-export.client.ts): protocol=1, snapshot parser P1a, cap, consistent upper, unique IDs, cursor=последний item, продвижение и complete/empty проверяются до apply. **Уточнение границы проверки порядка:** фактические >after/≤upper/ORDER проверяет source SQL в collation User.id; адаптер проверяет структурную последовательность страницы, не повторяет collation через JS/UUID/Intl и не сортирует ответ. Независимой проверки произвольной source collation на клиенте текущий протокол не предоставляет. Сервер экспорта — доверенная внутренняя граница, а не внешний источник произвольных страниц. Omitted repeated items в protobuf соответствует [], absent username — null; это не маскировка транспортной ошибки.
+- [Orchestration](apps/micro-payment-service/src/modules/payment/application/services/payment-profile-bootstrap.service.ts), [progress repository](apps/micro-payment-service/src/modules/payment/infrastructure/repositories/projection-bootstrap.repository.ts), [worker](apps/micro-payment-service/src/modules/payment/infrastructure/schedulers/payment-profile-bootstrap.worker.ts): singleton P1a; claim — условный атомарный UPDATE с row lock PostgreSQL, fresh owner/generation, lease 30 s, persisted attempt start ≥1 s и rollout gate. Одна lease на одну страницу: после commit/retry освобождается, следующий claim увеличивает generation. Нужного отдельного lease-renew RPC нет: claim непосредственно предшествует каждому export; сеть вне tx. Повторное применение и progress — один tx с начальным FOR UPDATE и финальным CAS по owner/generation/`clock_timestamp()`; потеря lease откатывает всю страницу. Live consumer продолжает независимо. Старые версии не перезаписывают новые; trusted equal-version repair подключён только к export; tombstone→live запрещён. SOURCE_BEHIND/TRUSTED_REPAIR логируют только код/счётчик, без payload/PII.
+- После complete `nextRunAt=clock_timestamp()+24h`; READY сохраняется в периодической RECONCILE и при временной ошибке. Resume сохраняет passId/upper/cursor, новый проход только из IDLE. Каждая попытка проверяет connected существующего [consumer](apps/micro-payment-service/src/modules/payment/infrastructure/messaging/payment-user-profile.consumer.ts), перед commit проверяет снова; второй consumer не создаётся. Initial READY требует подтверждения всех writers и complete. Rabbit-соединение и DB commit не являются общей распределённой транзакцией: состояние соединения может измениться сразу после проверки; это не обещание нулевого lag.
+- Export timeout **5000 ms** — RxJS timeout/unsubscribe с `call.cancel()` существующего Nest unary клиента, не транспортный deadline; внутри вызова retries нет. UNIMPLEMENTED: сохранённый retry ≥60 s; прочие export failures: exponential 30..300 s, без advancement cursor; conflict/неожиданная ошибка — 60 s. Счётчик backoff локален экземпляру, назначенный nextRunAt durable. При недоступной DB worker не крутит hot loop: локальный retry 30 s. Процесс после restart/новый экземпляр продолжает durable progress; **kill-process/pod-crash тест не проводился**.
+
+**Включение:** `PAYMENT_USER_PROJECTION_SYNC_ENABLED=false` по умолчанию; export channel/consumer/worker не запускаются и адрес Gateway не требуется. При true [PaymentConfig](apps/micro-payment-service/src/core/payment.config.ts) требует `RABBITMQ_URL` и `GATEWAY_USER_SERVICE_GRPC_URL` (private host:port, без URL scheme/path и без публичного fallback). Настройка описана только комментариями в существующем [env example](apps/main-gateway-service/.env.example), в отдельном Payment MS only блоке; текущие значения Gateway сохранены. Адрес/порт сверить с Gateway `GATEWAY_GRPC_HOST/GATEWAY_GRPC_PORT` и Service до включения. Existing history/Stripe lifecycle не меняются.
+
+**Rollout:** применённые P1a migrations → Payment с enabled consumer/queue и export adapter → все Gateway writers P1b и новый export RPC → операторская проверка **всех** revisions → marker ниже → bootstrap → READY. До marker baseline не начинается. Старый Gateway без export даёт UNIMPLEMENTED/backoff, не горячий retry. Сетевая изоляция и реальный адрес не подтверждены локальными тестами; caller auth/mTLS не добавлены и не объявляются существующими.
+
+##### Операторский runbook P1d (только авторизованный оператор Payment DB)
+
+Не выполнять на основании запуска одного Gateway. Проверить DB/broker/private export и rollout всех writers; вместо placeholder указать реальную подтверждённую revision. Команды ниже — инструкция, в production агентом **не выполнялись**.
+
+```sql
+-- psql: только после подтверждения ВСЕХ Gateway writers оператором.
+\set confirmed_revision '<actual-confirmed-gateway-deployment-revision>'
+UPDATE admin_user_projection_sync
+SET source_writers_confirmed_at = clock_timestamp(),
+    source_deployment_revision = :'confirmed_revision',
+    next_run_at = clock_timestamp()
+WHERE id = 'payment-user-profile-v1'
+  AND length(btrim(:'confirmed_revision')) > 0;
+
+-- Внеплановый допустимый проход: не сбрасывать cursor активного pass.
+-- IDLE начнёт RECONCILE; незавершённый pass продолжится с cursor.
+UPDATE admin_user_projection_sync
+SET next_run_at = clock_timestamp()
+WHERE id = 'payment-user-profile-v1'
+  AND (lease_until IS NULL OR lease_until <= clock_timestamp());
+
+-- Явный cancel/restart: ОДИН атомарный UPDATE блокирует singleton,
+-- инвалидирует прежнюю generation и начинает новый bounded pass.
+-- Проверить причину рестарта; не сбрасывать generation или READY.
+UPDATE admin_user_projection_sync
+SET lease_generation = lease_generation + 1,
+    lease_owner = NULL, lease_until = NULL,
+    pass_id = gen_random_uuid(), upper_user_id = NULL, cursor = NULL,
+    source_empty = false,
+    mode = CASE WHEN phase = 'READY' THEN 'RECONCILE'::"AdminUserProjectionMode"
+                ELSE 'BOOTSTRAP'::"AdminUserProjectionMode" END,
+    next_run_at = clock_timestamp()
+WHERE id = 'payment-user-profile-v1';
+```
+
+Если worker уже держит lock при apply, операторский UPDATE ждёт commit, затем инвалидирует старую generation; snapshots и cursor не расходятся. Если worker ждёт export, его последующий apply отклоняется. `lastBatchAt` не очищается — persisted throttle сохраняется. Повторно READY не устанавливать SQL-командой; это результат fenced завершения pass с gate.
+
+**Проверки P1d:** [целевой набор](apps/main-gateway-service/test/superadmin/payment-user-profile-bootstrap.integration-spec.ts) — реальный UserGrpcController/query/repository и gRPC transport, disposable PostgreSQL 16 с двумя отдельными Gateway/Payment DB. Existing helper применяет исторические SQL migrations как fixture baseline; это **не** доказательство чистого migrate deploy всей истории (схема не менялась). Проверены pages/v0/large BigInt/tombstone/empty, bootstrap 500+1/resume другим объектом, persisted throttle/две claim, старый export против нового live apply, trusted repair, generation loss и expiry во время apply с rollback, rollout/consumer gates, 24h scheduling и bounded retry. Для прогресса/сбоев используются controlled DB clock fixture и точечная замена export результата; live apply вызывается реальным repository без повторения P1c consumer-тестов. Отдельный настоящий gRPC server без реализации нового метода подтверждает UNIMPLEMENTED и outage; это тест transport, не production Gateway. Подключение consumer в основном bootstrap-наборе — узкая state-замена; отдельные затронутые P1c delivery/disabled сценарии проверяют реальный RabbitMQ и `isConnected`. Не проводились ожидание суток, process-kill, staging, production address/network/rollout либо полная production module composition. Timeout cancellation подтверждена установленной реализацией Nest unary teardown; отдельный crash/timeout fault тест не заявляется.
+
+**Команды / результаты:**
+
+- `pnpm exec buf generate libs/contracts/src/proto --path libs/contracts/src/proto/user.proto` — успешно; generated user.ts форматирован по проекту.
+- `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/payment-user-profile-bootstrap.integration-spec.ts --noStackTrace` — **10/10**.
+- `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/payment-user-profile-delivery.integration-spec.ts --testNamePattern 'delivers saved snapshots|does not connect' --noStackTrace` — **2/2**; остальные 5 намеренно не запускались (нет повторения 60 s TTL/P1c fault ветвей).
+- `pnpm run build:main-gateway-service` и `pnpm run build:micro-payment-service` — успешно. Payment prebuild включает Prisma generation; для generate-only процесса выставлены `NODE_ENV=test` и `PRISMA_DB_URL_DIRECT=postgresql://127.0.0.1:1/generate_only`, подключения к БД сборка не выполняла.
+- Source + два затронутых test файла: TypeScript Compiler API по обоим `tsconfig.app.json`, `noEmit=true/incremental=false` — **0 diagnostics** для Gateway и Payment. Воспроизводимая команда ниже.
+- Scoped ESLint `--max-warnings=0` по изменённым TS (generated исключён), Prettier `--check` по изменённым TS/Markdown — успешно. Proto проверен генератором, env formatter не изменяет.
+- Все локальные ссылки плана существуют; `git diff --check` — успешно. У runtime/target GraphQL, Prisma schema/migrations, dependencies и deployment нет diff.
+
+```powershell
+@'
+const ts = require('typescript'), cp = require('child_process'), path = require('path');
+const tests = cp.execFileSync('git', ['ls-files', '--modified', '--others', '--exclude-standard'], {encoding:'utf8'})
+  .trim().split(/\r?\n/).filter(p => p.includes('/test/') && p.endsWith('.ts'));
+for (const file of ['apps/main-gateway-service/tsconfig.app.json', 'apps/micro-payment-service/tsconfig.app.json']) {
+  const cfg = ts.parseJsonConfigFileContent(ts.readConfigFile(file, ts.sys.readFile).config, ts.sys, path.dirname(file));
+  const errors = ts.getPreEmitDiagnostics(ts.createProgram([...cfg.fileNames, ...tests], {...cfg.options, noEmit:true, incremental:false}));
+  console.log(file, errors.length, 'diagnostics');
+  if (errors.length) { console.error(ts.formatDiagnosticsWithColorAndContext(errors, {getCurrentDirectory:()=>process.cwd(),getCanonicalFileName:p=>p,getNewLine:()=> '\n'})); process.exitCode=1; }
+}
+'@ | node
+```
+
+**Следующий шаг — P1e; родительский P1/P2 незавершён.**
 
 #### P1e — repositories общего списка и Gateway enrichment
 
@@ -604,7 +683,7 @@ process.exitCode=diagnostics.length?1:0;
 
 **Оставшееся — не повторные продуктовые блокеры:** технические имена/типы/version encoding/batch/lease/retry/readiness и RPC/GraphQL-кандидат определены P0.1–P0.8; несовместимых вариантов выбора не осталось. Их реализация и реальные isolated tests — P1/P2, не выполненный P0 runtime. Перед deployment Operations/Security проверяют private RPC exposure/network restrictions, фактический internal address/namespace, source revisions всех Gateway и rollout marker; назначение этих условий не является доказательством их выполнения. Актуальные прежние environment/product вопросы R9 сохранены. Authenticated caller/mTLS/NetworkPolicy не подтверждены кодом. Не требуются новая IAM-платформа, source comments/reactions либо повторный выбор архитектуры: R1–R8 в указанном объёме уже решены.
 
-Пользователь утвердил план, включая технические стартовые параметры; S1–S3/P0 объединены, P0 принят для P1a. **P1a–P1c выполнены; следующий P1d не начат. Родительский P1 и P2 остаются незавершёнными.** Не требуется заново согласовывать принятые продуктовые решения; end-to-end sync, rollout и environment условия не объявляются выполненными. Production-приёмка не проводилась.
+Пользователь утвердил план, включая технические стартовые параметры; S1–S3/P0 объединены, P0 принят для P1a. **P1a–P1d выполнены; следующий P1e не начат. Родительский P1 и P2 остаются незавершёнными.** Не требуется заново согласовывать принятые продуктовые решения; end-to-end sync, rollout и environment условия не объявляются выполненными. Production-приёмка не проводилась.
 
 ## 9. Правила реализации и обновления прогресса
 
@@ -632,3 +711,5 @@ process.exitCode=diagnostics.length?1:0;
 - [x] 25.10.2026 — **P1a выполнен** в `feature/superadmin-payment-profile-sync` на `462c554a2e6266dc31e7c07b8229fd9e2c87c8e1`: две additive миграции, snapshot/event contracts, transactional apply/repair; 56 уникальных проверок, generation/build/typecheck/lint/format/diff checks. Доказательства выше. **P1b–P1e, родительский P1 и P2 не завершены. Следующий шаг — P1b.** Startup/writers/доставка/workers/GraphQL не подключались; рабочей end-to-end синхронизации пока нет. Commit/push/merge не выполнялись.
 - [x] 25.10.2026 — **P1b выполнен** в `feature/superadmin-payment-profile-source` на `069e26bd81e325fca536800436a460a7ec74e7a4`: все source create/profile/rename/delete пути и общий transactional snapshot writer, защита avatar от stale overwrite; 104 уникальные проверки, Gateway build/typechecks/lint/format/diff checks. Доказательства и команды в P1b выше. **Следующий шаг — P1c, не начат; родительский P1, P1c–P1e и P2 не завершены.** Outbox не отправляется, end-to-end sync не включена. Новых миграций/dependencies/env/deployment/GraphQL изменений и commit/push/merge нет.
 - [x] 25.10.2026 — **P1c выполнен** в `feature/superadmin-payment-profile-delivery` на `697c515e6e9aa7c2a18070baa5b8cc70c33d266a`: source outbox relay/confirm publisher/Payment consumer, durable retry/DLQ и lifecycle. 10 проверок, включая реальный PostgreSQL/RabbitMQ/TTL и отдельно помеченный fault transport. Build/typecheck/lint/format/diff checks успешны. **Следующий шаг — P1d, не начат; родительский P1/P2 не завершён.** READY/bootstrap/reconciliation не включены; полнота read model не доказана. Commit/push/merge/deploy не выполнялись.
+
+- [x] 25.10.2026 — **P1d выполнен локально** в `feature/superadmin-payment-profile-bootstrap` на `275167d606939bb8088a4aa6292df1ab553bf961`: User export RPC, scoped Payment client, fenced bootstrap/resume/reconciliation и операторский runbook. Новый набор 10/10, затронутые real RabbitMQ delivery/disabled 2/2; обе сборки, source/test typechecks и scoped lint/format/diff успешны. Production сеть/rollout не подтверждены; следующий P1e, родительский P1/P2 не завершён. Commit/push/merge/deploy не выполнялись.

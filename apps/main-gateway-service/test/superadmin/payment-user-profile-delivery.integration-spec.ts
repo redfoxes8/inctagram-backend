@@ -144,7 +144,12 @@ describe('P1c real isolated source PostgreSQL -> RabbitMQ -> Payment PostgreSQL'
   });
 
   it('delivers saved snapshots, competes on one queue and ignores duplicate/out-of-order messages without declaring READY', async () => {
-    await Promise.all([consumer().connect(), consumer().connect()]);
+    const firstConsumer = consumer();
+    const secondConsumer = consumer();
+    expect(firstConsumer.isConnected()).toBe(false);
+    await Promise.all([firstConsumer.connect(), secondConsumer.connect()]);
+    expect(firstConsumer.isConnected()).toBe(true);
+    expect(secondConsumer.isConnected()).toBe(true);
     expect((await channel.checkQueue(topology.PAYMENT_PROFILE_QUEUE)).consumerCount).toBe(2);
     const { userId, rowId } = await source();
     const saved = await gateway.paymentUserProfileOutbox.findUniqueOrThrow({
@@ -180,6 +185,8 @@ describe('P1c real isolated source PostgreSQL -> RabbitMQ -> Payment PostgreSQL'
         where: { id: 'payment-user-profile-v1' },
       }),
     ).toMatchObject({ phase: 'NOT_READY', sourceWritersConfirmedAt: null });
+    await firstConsumer.onModuleDestroy();
+    expect(firstConsumer.isConnected()).toBe(false);
   });
 
   it('retains storage failures in the real 60000ms retry queue and applies after DB recovery', async () => {
