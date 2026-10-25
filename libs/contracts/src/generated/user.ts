@@ -5,11 +5,11 @@
 // source: user.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
-export const protobufPackage = "inctagram.user.v1";
+export const protobufPackage = 'inctagram.user.v1';
 
 export interface GetUserByIdRequest {
   userId: string;
@@ -35,9 +35,37 @@ export interface GetNotificationRecipientContextResponse {
   userName: string;
 }
 
-export const INCTAGRAM_USER_V1_PACKAGE_NAME = "inctagram.user.v1";
+export interface ExportPaymentUserProfilesRequest {
+  afterUserId?: string | undefined;
+  upperUserId?: string | undefined;
+  limit: number;
+}
+
+export interface PaymentUserProfileSnapshot {
+  userId: string;
+  sourceVersion: string;
+  username?: string | undefined;
+  profileExists: boolean;
+  isDeleted: boolean;
+}
+
+export interface ExportPaymentUserProfilesResponse {
+  protocolVersion: number;
+  upperUserId?: string | undefined;
+  sourceEmpty: boolean;
+  items: PaymentUserProfileSnapshot[];
+  nextAfterUserId?: string | undefined;
+  complete: boolean;
+}
+
+export const INCTAGRAM_USER_V1_PACKAGE_NAME = 'inctagram.user.v1';
 
 export interface UserServiceClient {
+  exportPaymentUserProfiles(
+    request: ExportPaymentUserProfilesRequest,
+    metadata?: Metadata,
+  ): Observable<ExportPaymentUserProfilesResponse>;
+
   getUserById(request: GetUserByIdRequest, metadata?: Metadata): Observable<GetUserByIdResponse>;
 
   getNotificationRecipientContext(
@@ -47,6 +75,14 @@ export interface UserServiceClient {
 }
 
 export interface UserServiceController {
+  exportPaymentUserProfiles(
+    request: ExportPaymentUserProfilesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ExportPaymentUserProfilesResponse>
+    | Observable<ExportPaymentUserProfilesResponse>
+    | ExportPaymentUserProfilesResponse;
+
   getUserById(
     request: GetUserByIdRequest,
     metadata?: Metadata,
@@ -63,17 +99,21 @@ export interface UserServiceController {
 
 export function UserServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["getUserById", "getNotificationRecipientContext"];
+    const grpcMethods: string[] = [
+      'exportPaymentUserProfiles',
+      'getUserById',
+      'getNotificationRecipientContext',
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("UserService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('UserService', method)(constructor.prototype[method], method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("UserService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('UserService', method)(constructor.prototype[method], method, descriptor);
     }
   };
 }
 
-export const USER_SERVICE_NAME = "UserService";
+export const USER_SERVICE_NAME = 'UserService';

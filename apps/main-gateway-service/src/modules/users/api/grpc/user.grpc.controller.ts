@@ -1,3 +1,9 @@
+import { ExportPaymentUserProfilesQuery } from '../../application/queries/export-payment-user-profiles.query';
+import type { PaymentProfileExportPage } from '../../../../../../../libs/contracts/src/events/payment-user-profile-export';
+import type {
+  ExportPaymentUserProfilesRequest,
+  ExportPaymentUserProfilesResponse,
+} from '../../../../../../../libs/contracts/src/generated/user';
 import { Controller, UseInterceptors } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 
@@ -21,6 +27,18 @@ import { GrpcExceptionInterceptor } from '../../../../../../../libs/common/src/e
 export class UserGrpcController implements UserServiceController {
   constructor(private readonly queryBus: QueryBus) {}
 
+  async exportPaymentUserProfiles(
+    request: ExportPaymentUserProfilesRequest,
+  ): Promise<ExportPaymentUserProfilesResponse> {
+    const page: PaymentProfileExportPage = await this.queryBus.execute(
+      new ExportPaymentUserProfilesQuery(request),
+    );
+    return {
+      ...page,
+      items: page.items.map((item) => ({ ...item, username: item.username ?? undefined })),
+    };
+  }
+
   async getUserById(request: GetUserByIdRequest): Promise<GetUserByIdResponse> {
     const user: UserGrpcDto = await this.queryBus.execute(new GetUserByIdGrpcQuery(request.userId));
 
@@ -30,7 +48,7 @@ export class UserGrpcController implements UserServiceController {
   async getNotificationRecipientContext(
     request: GetNotificationRecipientContextRequest,
   ): Promise<GetNotificationRecipientContextResponse> {
-    const context = await this.queryBus.execute(
+    const context: UserGrpcDto = await this.queryBus.execute(
       new GetNotificationRecipientContextQuery(request.userId),
     );
 

@@ -1,3 +1,8 @@
+import {
+  ExportPaymentUserProfilesHandler,
+  IPaymentProfileExportQueryRepository,
+} from './application/queries/export-payment-user-profiles.query';
+import { PaymentProfileExportQueryRepository } from './infrastructure/payment-profile-export.query-repository';
 import { Module } from '@nestjs/common';
 import { IUsersRepository } from './domain/interfaces/users.repository.interface';
 import { PrismaUsersRepository } from './infrastructure/users.repository';
@@ -40,6 +45,7 @@ const adapters = [
 ];
 
 const handlers = [
+  ExportPaymentUserProfilesHandler,
   GetAvatarUploadUrlHandler,
   ConfirmAvatarHandler,
   DeleteAvatarHandler,
@@ -53,6 +59,7 @@ const handlers = [
 ];
 
 const repositories = [
+  { provide: IPaymentProfileExportQueryRepository, useClass: PaymentProfileExportQueryRepository },
   { provide: IUsersRepository, useClass: PrismaUsersRepository },
   { provide: IUsersQueryRepository, useClass: PrismaUsersQueryRepository },
   { provide: IProfileRepository, useClass: ProfileRepository },

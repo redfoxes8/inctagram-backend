@@ -57,6 +57,13 @@ export class PaymentConfig {
   @IsBoolean({ message: 'PAYMENT_USER_PROJECTION_SYNC_ENABLED must be true or false' })
   userProjectionSyncEnabled: boolean;
 
+  @ValidateIf((config: PaymentConfig) => config.userProjectionSyncEnabled)
+  @IsString()
+  @Matches(/^[a-zA-Z0-9.-]+:[1-9][0-9]{0,4}$/, {
+    message: 'GATEWAY_USER_SERVICE_GRPC_URL must be an internal host:port',
+  })
+  gatewayUserServiceGrpcUrl: string | null;
+
   @IsString({ message: 'PAYMENT_OUTBOX_RELAY_CRON must be a string' })
   @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/, {
     message: 'PAYMENT_OUTBOX_RELAY_CRON must be a valid six-field cron expression',
@@ -172,6 +179,8 @@ export class PaymentConfig {
       this.configService.get('PAYMENT_USER_PROJECTION_SYNC_ENABLED') ?? 'false',
       'PAYMENT_USER_PROJECTION_SYNC_ENABLED',
     );
+    this.gatewayUserServiceGrpcUrl =
+      this.configService.get('GATEWAY_USER_SERVICE_GRPC_URL') ?? null;
     this.rabbitUrl = this.configService.get('RABBITMQ_URL') ?? null;
 
     this.outboxRelayCron = this.configService.get('PAYMENT_OUTBOX_RELAY_CRON');

@@ -35,6 +35,10 @@ export class PaymentUserProfileConsumer implements OnModuleInit, OnModuleDestroy
     private readonly config: PaymentConfig,
   ) {}
 
+  isConnected(): boolean {
+    return !this.stopped && this.session !== null && this.opening === null;
+  }
+
   onModuleInit(): void {
     if (this.config.userProjectionSyncEnabled) void this.connect();
   }

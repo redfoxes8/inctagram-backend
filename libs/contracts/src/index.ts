@@ -94,6 +94,9 @@ export { type Empty } from './generated/google/protobuf/empty';
 export { type Timestamp } from './generated/google/protobuf/timestamp';
 
 export {
+  type ExportPaymentUserProfilesRequest,
+  type ExportPaymentUserProfilesResponse,
+  type PaymentUserProfileSnapshot as PaymentUserProfileGrpcSnapshot,
   type GetUserByIdRequest,
   type GetUserByIdResponse,
   type GetNotificationRecipientContextRequest,
@@ -131,3 +134,10 @@ export {
   parsePaymentUserProfileChangedV1,
   type PaymentUserProfileChangedV1,
 } from './events/payment-user-profile-changed-v1.event';
+
+export {
+  normalizePaymentProfileExportPage,
+  validatePaymentProfileExportRequest,
+  type PaymentProfileExportRequest,
+  type PaymentProfileExportPage,
+} from './events/payment-user-profile-export';
