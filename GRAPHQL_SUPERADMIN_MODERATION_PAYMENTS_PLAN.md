@@ -2,7 +2,7 @@
 
 ## 1. Статус и правила ведения
 
-**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1 реализован и проверен, подготовлен к техническому review; S2 и дальнейшая реализация не начаты.** Дата: 25.10.2026, Europe/Kiev. Исследован `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
+**APPROVED PLAN — утверждён пользователем 25.10.2026, включая технические стартовые параметры. S1 объединён; S2 реализован и проверен, подготовлен к техническому review; S3 и дальнейшая реализация не начаты.** Дата: 25.10.2026, Europe/Kiev. Исследован `dev`, commit `0e122b3b0257abe6d6772cf5ebff1eb70a657109`. Исходное дерево чистое; создана ветка `docs/superadmin-moderation-payments-plan`. Прочитан корневой `Agents.md`, иных применимых AGENTS при ограниченном поиске не найдено.
 
 **Уточнение 25.10.2026:** R1/R2 и продуктовые R4–R7 решены пользователем; выбор Payment read model и eventual consistency R8 принят. Visibility и создание comments/reactions отложены вне текущей реализации и не блокируют сокращённый scope. Последующим запросом пользователь утвердил эту редакцию и технические стартовые параметры; повторные продуктовые согласования для S1 не нужны.
 
@@ -265,10 +265,22 @@ process.exitCode=diagnostics.length?1:0;
 
 ### S2 — модель причины и transactional repositories
 
-- [ ] Добавить nullable текущую причину и audit snapshot, новую неразрушительную миграцию, typed ports/mappers/writer и tx запись под прежним User lock; проверить ordinary save/stale entity.
+- [x] Добавить nullable текущую причину и audit snapshot, новую неразрушительную миграцию, typed ports/mappers/writer и tx запись под прежним User lock; проверить ordinary save/stale entity.
 - Gateway Users/domain/application ports/Prisma infrastructure; E6/E7, прежний transaction manager. Зависимость — S1 по маршруту и technical review формы R1/R2; бизнес-решения приняты.
 - Завершение: legacy rows без выдуманной причины, Profile/Session/AdminSession/audit/outbox сохранены; reason/state/audit используют тот же handle, domain/application без Prisma типов. Нет новых public read полей причины.
 - Проверки: migrate deploy на изолированной предыдущей схеме; reason mapping/validation boundary, rollback User+reason+audit и один stale-entity regression. Не shared DB/reset/редактирование старых миграций.
+
+**Результат S2, 25.10.2026:** ветка `feature/superadmin-ban-reason-storage` от `4deabc244b65877de6fc7ce963906bbda69dfa9c` (S1 уже в базе), исходное дерево чистое.
+
+- [Миграция 20261025120000_add_user_ban_reasons](apps/main-gateway-service/src/core/prisma/migrations/20261025120000_add_user_ban_reasons/migration.sql): nullable enum/text в User и AdminUserActionAudit, CHECK совместимых пар и нормализованного текста 1–500 Unicode code points. Старые rows остаются с null/null; индексов по причине нет. CHECK намеренно не связывает reason с isBanned: прежний setBanned остаётся совместим до S3.
+- [UserBanReason](libs/common/types/user-ban-reason.ts) — union стандартного code + null text либо ANOTHER_REASON + string; null означает legacy отсутствие. [normalizeUserBanReason](libs/common/src/validation/normalize-user-ban-reason.ts) централизует trim/валидацию с безопасным DomainException 400. DB constraints защищают запись в обход writer.
+- [Moderation port](apps/main-gateway-service/src/modules/users/domain/interfaces/user-moderation.repository.ts): `lockUser` возвращает `banReason` под прежним User row lock; `setBannedWithReason` атомарно устанавливает ban/reason, `clearBanAndReason` очищает оба. Все требуют действующий handle прежнего transaction manager, без autocommit fallback. Caller обязан удерживать lock и координировать остальные записи. Прежние `setBanned`, session revoke/outbox и ModerateUserUseCase не изменены.
+- Причина не добавлена в обычный UserEntity: это moderation metadata, типизированно читаемая административным repository. Обычные mapper/update whitelist её не записывают, stale update не сбрасывает ban/reason и не восстанавливает deletedAt. Обычные DTO причины не принимают.
+- [Audit writer](apps/main-gateway-service/src/modules/users/domain/interfaces/admin-user-action-audit.writer.ts) принимает optional `reasonSnapshot` в прежнем tx; старые вызовы сохраняют null/null и прежнюю action/outcome validation. Для S3 предусмотрены сохранённая причина BLOCK/ALREADY_BLOCKED и причина до очистки UNBLOCK; сами use cases пока snapshot не заполняют.
+- [Новый DB-набор](apps/main-gateway-service/test/superadmin/user-ban-reason-storage.integration-spec.ts) — **9/9**, настоящий disposable PostgreSQL 16: representative User/Profile/Session/AdminSession/audit/outbox сохранены, commit/rollback User+reason+audit, все причины/null, CHECK, stale entity и запрет root/completed tx. Предыдущая история подготовлена существующим helper через SQL + `prisma migrate resolve --applied`; **новая миграция применена штатным `prisma migrate deploy`**. Это не чистый deploy всей старой истории.
+- [Нормализация](apps/main-gateway-service/test/unit/user-ban-reason.spec.ts) — **13/13**; прежние [state/audit](apps/main-gateway-service/test/superadmin/user-state-audit.integration-spec.ts), [migration chain](apps/main-gateway-service/test/superadmin/superadmin-migration-chain.integration-spec.ts) и [catalogue](apps/main-gateway-service/test/superadmin/superadmin-users.integration-spec.ts) — **61/61** вместе. Catalogue дополнен реальным GraphQL BLOCK/repeat/UNBLOCK/repeat без reason argument. Всего **83 уникальные проверки**; ошибочная expiry fixture нового набора исправлена, затем его 9 тестов прошли.
+- Команды: `pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath <пять указанных test-файлов> --noStackTrace`; после исправления fixture повторены только два новых файла. `NODE_ENV=test PRISMA_DB_URL_DIRECT=postgresql://127.0.0.1:1/generate_only pnpm run prisma:generate` (в PowerShell переменные через `$env:`, подключение для generation не требуется); `pnpm run build:main-gateway-service`; `pnpm exec tsc -p apps/main-gateway-service/tsconfig.app.json --noEmit --incremental false`. Дополнительно TypeScript API проверяет source + изменённые test-файлы с тем же tsconfig, scoped ESLint/Prettier и `git diff --check`.
+- Runtime/target SDL и опубликованный contract **1.3.0 не менялись**; GraphQL ещё не принимает причину. Нет dependencies, auth/config, deployment или Payment изменений. **Следующий шаг — S3, не начат.** P0 и последующие этапы остаются незавершёнными.
 
 ### S3 — reason use case, GraphQL и wiring
 
@@ -333,7 +345,7 @@ process.exitCode=diagnostics.length?1:0;
 
 **Оставшееся — не повторные продуктовые блокеры:** review технических имён/типов/version encoding и параметров batches/периодичности раздела 5 (Gateway+Payment owners); проверить реальные private RPC exposure/network restrictions в окружении (Operations/Security); актуальные прежние environment/product вопросы R9. Authenticated caller/mTLS/NetworkPolicy не подтверждены кодом и не объявляются существующими. Не требуются новая IAM-платформа, source comments/reactions либо выбор между двумя архитектурами: R1–R8 в указанном объёме уже решены.
 
-Пользователь утвердил план, включая технические стартовые параметры; реализован и проверен только S1. Продуктовые вопросы не блокируют S1; новые этапы, в том числе P0, не объявляются выполненными утверждением плана. S1 готовится к техническому review, не production-приёмке.
+Пользователь утвердил план, включая технические стартовые параметры; S1 объединён, S2 реализован и проверен. Продуктовые вопросы не блокируют следующий S3; новые этапы, в том числе P0, не объявляются выполненными утверждением плана. S2 готовится к техническому review, не production-приёмке.
 
 ## 9. Правила реализации и обновления прогресса
 
@@ -355,3 +367,4 @@ process.exitCode=diagnostics.length?1:0;
 - [x] Ранее готовые компоненты подтверждены кодом: admin infrastructure E1/E2, User state + tx moderation/audit/revoke E4/E6–E8, existing catalog и selected-user Payment history E5/E10/E12. На момент исследования новая причина, фильтр и общий Payments не были выполнены; последующий результат S1 зафиксирован отдельно, причина/общие Payments остаются впереди.
 - [x] 25.10.2026 — план утверждён пользователем, включая технические стартовые параметры. S0 согласован; выполнение P0 и других будущих этапов из этого не следует.
 - [x] 25.10.2026 — **S1 выполнен и проверен**, без миграции; contract 1.3.0, 46/46 catalogue integration tests. Подготовлен к техническому review, commit/push/merge не выполнялись. **Следующий шаг — S2**, не начат; затем S3 → P0 → P1 → P2 → F. V0/V1 остаются вне текущей реализации.
+- [x] 25.10.2026 — **S2 выполнен и проверен** после merge S1: migration `20261025120000_add_user_ban_reasons`, typed reason/current storage/audit snapshot и transactional repository; доказательства и команды в S2 выше. **Следующий шаг — S3**, не начат; GraphQL и ModerateUserUseCase без новой семантики, contract 1.3.0 сохранён. Commit/push/merge в этом проходе не выполнялись.

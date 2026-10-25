@@ -14,7 +14,15 @@ export function assertAdminUserActionAudit(
       string,
       unknown
     >;
-    const fields = ['action', 'outcome', 'targetUserId', 'occurredAt', 'adminSessionId'];
+    // The writer separately normalizes/validates the optional reasonSnapshot before INSERT.
+    const fields = [
+      'action',
+      'outcome',
+      'targetUserId',
+      'occurredAt',
+      'adminSessionId',
+      'reasonSnapshot',
+    ];
     if (
       typeof action === 'string' &&
       Object.hasOwn(ADMIN_USER_ACTION_OUTCOMES, action) &&
