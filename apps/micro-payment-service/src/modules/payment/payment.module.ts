@@ -1,3 +1,6 @@
+import { ISuperadminPaymentsQueryPort } from './application/ports/superadmin-payments-query.port';
+import { GetSuperadminPaymentsPageHandler } from './application/queries/get-superadmin-payments-page.query';
+import { SuperadminPaymentsQueryRepository } from './infrastructure/repositories/superadmin-payments.query-repository';
 import {
   IPaymentProfileExportClient,
   IProjectionBootstrapRepository,
@@ -92,6 +95,8 @@ const repositories = [
 ];
 
 const queries = [
+  GetSuperadminPaymentsPageHandler,
+  { provide: ISuperadminPaymentsQueryPort, useClass: SuperadminPaymentsQueryRepository },
   PaymentQueryRepository,
   { provide: ISubscriptionQueryPort, useExisting: PaymentQueryRepository },
   { provide: IPaymentHistoryQueryPort, useExisting: PaymentQueryRepository },
