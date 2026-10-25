@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
-import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { ITransactionManager } from '../../../../common/interfaces/transaction-manager.interface';
 import { AVATAR_DELETED_EVENT_TYPE } from '../../domain/constants/avatar-outbox.constants';
 import { IProfileRepository } from '../../domain/interfaces/user-profile.repository.interface';
 import { ProfileEntity } from '../../domain/profile.entity';
@@ -24,7 +24,7 @@ export class DeleteAvatarHandler implements ICommandHandler<DeleteAvatarCommand,
   constructor(
     @Inject(IProfileRepository)
     private readonly userProfileRepository: IProfileRepository,
-    private readonly prismaService: PrismaService,
+    private readonly transactions: ITransactionManager,
   ) {}
 
   async execute(command: DeleteAvatarCommand): Promise<void> {
@@ -32,30 +32,26 @@ export class DeleteAvatarHandler implements ICommandHandler<DeleteAvatarCommand,
 
     this.logger.debug(`[DeleteAvatar] started userId=${userId}`);
 
-    const profile: ProfileEntity | null = await this.userProfileRepository.findByUserId(userId);
-
-    if (!profile) {
-      this.logger.warn(`[DeleteAvatar] profile not found userId=${userId}`);
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Profile not found',
+    await this.transactions.execute(async (tx) => {
+      const profile: ProfileEntity | null = await this.userProfileRepository.lockByUserId({
+        userId,
+        transaction: tx,
       });
-    }
-
-    const previousFileId = profile.removeAvatar();
-
-    if (previousFileId === null) {
-      this.logger.log(`[DeleteAvatar] profile avatar is already deleted or not set userId=${userId}`);
-      return;
-    }
-
-    this.logger.debug(
-      `[DeleteAvatar] transaction started userId=${userId} previousFileId=${previousFileId}`,
-    );
-
-    await this.prismaService.$transaction(async (tx) => {
-      await this.userProfileRepository.save(profile, tx);
-
+      if (!profile) {
+        throw new DomainException({
+          code: DomainExceptionCode.NotFound,
+          message: 'Profile not found',
+        });
+      }
+      const previousFileId = profile.removeAvatar();
+      if (previousFileId === null) return;
+      await this.userProfileRepository.updateAvatar({
+        userId,
+        avatarFileId: profile.avatarFileId,
+        avatarUrl: profile.avatarUrl,
+        updatedAt: profile.updatedAt,
+        transaction: tx,
+      });
       await tx.outboxEvent.create({
         data: {
           type: AVATAR_DELETED_EVENT_TYPE,
@@ -69,9 +65,5 @@ export class DeleteAvatarHandler implements ICommandHandler<DeleteAvatarCommand,
         },
       });
     });
-
-    this.logger.log(
-      `[DeleteAvatar] transaction committed userId=${userId} previousFileId=${previousFileId}`,
-    );
   }
 }

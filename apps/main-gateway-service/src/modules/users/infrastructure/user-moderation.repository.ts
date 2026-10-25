@@ -3,6 +3,7 @@ import { requireGatewayTransaction } from '../../../core/prisma/transactions/req
 import { lockGatewayUser } from '../../../core/prisma/transactions/lock-gateway-user';
 import { normalizeUserBanReason } from '../../../../../../libs/common/src/validation/normalize-user-ban-reason';
 import type { UserBanReason } from '../../../../../../libs/common/types/user-ban-reason';
+import { writePaymentUserProfileSnapshot } from './payment-user-profile-snapshot.writer';
 import {
   UserModerationRepository,
   type ModeratedUser,
@@ -21,6 +22,7 @@ export class PrismaUserModerationRepository extends UserModerationRepository {
       where: { id: input.userId },
       data: { deletedAt: input.occurredAt, updatedAt: input.occurredAt },
     });
+    await writePaymentUserProfileSnapshot(input);
   }
   async lockUser(input: { userId: string; transaction: unknown }): Promise<ModeratedUser | null> {
     const transaction = requireGatewayTransaction(input.transaction);

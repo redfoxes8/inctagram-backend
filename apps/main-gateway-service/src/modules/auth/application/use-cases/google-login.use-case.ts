@@ -7,7 +7,7 @@ import {
 import { IUsersRepository } from '../../../users/domain/interfaces/users.repository.interface';
 import { IJwtService, AuthTokens, TokenPayload } from '../interfaces/jwt.service.interface';
 import { ISessionsRepository } from '../../../sessions/domain/interfaces/sessions.repository.interface';
-import { PrismaService } from '../../../../core/prisma/prisma.service';
+import { ITransactionManager } from '../../../../common/interfaces/transaction-manager.interface';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
 import { UserEntity } from '../../../users/domain/user.entity';
@@ -36,7 +36,7 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
     private readonly usersRepository: IUsersRepository,
     private readonly sessionsRepository: ISessionsRepository,
     private readonly jwtService: IJwtService,
-    private readonly prisma: PrismaService,
+    private readonly transactions: ITransactionManager,
     private readonly profileRepository: IProfileRepository,
     private readonly accessState: UserAccessStateQuery,
   ) {}
@@ -99,7 +99,7 @@ export class GoogleLoginUseCase implements ICommandHandler<GoogleLoginCommand, A
         });
       } else {
         // Step E: New User (with Transaction)
-        userId = await this.prisma.$transaction(async (tx): Promise<string> => {
+        userId = await this.transactions.execute(async (tx): Promise<string> => {
           // Generate unique username
           const finalUsername: string = await this.generateUniqueUsername(
             username || googleProfile.email.split('@')[0],
