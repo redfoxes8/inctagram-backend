@@ -24,6 +24,7 @@ model User {
   passwordHash      String?  
   isConfirmed       Boolean            @default(false)
   isBanned          Boolean            @default(false)
+  paymentProfileVersion BigInt         @default(0)
   banReasonCode     UserBanReasonCode?
   banReasonText     String?
 
@@ -39,6 +40,24 @@ model User {
   profile           Profile?
 
   @@index([email])
+}
+
+// Dedicated profile sync obligation; no FK to User and no startup worker in P1a.
+model PaymentUserProfileOutbox {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String
+  sourceVersion BigInt
+  payload       Json     @db.JsonB
+  createdAt     DateTime @default(now())
+  attempts      Int      @default(0)
+  availableAt   DateTime @default(now())
+  leaseId       String?  @db.Uuid
+  leaseUntil    DateTime?
+  publishedAt   DateTime?
+  lastErrorCode String?
+
+  @@unique([userId, sourceVersion])
+  @@index([publishedAt, availableAt])
 }
 
 model Profile {

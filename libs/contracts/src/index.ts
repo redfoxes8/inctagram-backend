@@ -117,3 +117,17 @@ export * from './events/payment-succeeded.event';
 export * from './events/payment-failed.event';
 export * from './events/payment-integration-events-v1.event';
 export * from './events/notification-events-v1.event';
+export {
+  MAX_PAYMENT_PROFILE_VERSION,
+  PaymentUserProfileContractError,
+  normalizePaymentUserProfileSnapshot,
+  parsePaymentProfileVersion,
+  type PaymentUserProfileSnapshot,
+} from './events/payment-user-profile-snapshot';
+export {
+  PAYMENT_USER_PROFILE_CHANGED_EVENT_TYPE,
+  PAYMENT_USER_PROFILE_CHANGED_ROUTING_KEY,
+  PAYMENT_USER_PROFILE_SCHEMA_VERSION,
+  parsePaymentUserProfileChangedV1,
+  type PaymentUserProfileChangedV1,
+} from './events/payment-user-profile-changed-v1.event';

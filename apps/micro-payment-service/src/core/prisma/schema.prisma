@@ -7,6 +7,48 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AdminUserProjectionPhase {
+  NOT_READY
+  LOADING
+  READY
+}
+
+enum AdminUserProjectionMode {
+  IDLE
+  BOOTSTRAP
+  RECONCILE
+}
+
+model AdminUserProfileReadModel {
+  userId        String  @id @map("user_id")
+  sourceVersion BigInt  @map("source_version")
+  username      String?
+  profileExists Boolean @map("profile_exists")
+  isDeleted     Boolean @map("is_deleted")
+
+  @@map("admin_user_profile_read_model")
+}
+
+model AdminUserProjectionSync {
+  id                         String                   @id @default("payment-user-profile-v1")
+  phase                      AdminUserProjectionPhase @default(NOT_READY)
+  mode                       AdminUserProjectionMode  @default(IDLE)
+  passId                     String?                  @map("pass_id") @db.Uuid
+  upperUserId                String?                  @map("upper_user_id")
+  cursor                     String?
+  sourceEmpty                Boolean                  @default(false) @map("source_empty")
+  lastBatchAt                DateTime?                @map("last_batch_at") @db.Timestamptz(3)
+  lastCompletedAt            DateTime?                @map("last_completed_at") @db.Timestamptz(3)
+  nextRunAt                  DateTime                 @default(now()) @map("next_run_at") @db.Timestamptz(3)
+  sourceWritersConfirmedAt    DateTime?                @map("source_writers_confirmed_at") @db.Timestamptz(3)
+  sourceDeploymentRevision   String?                  @map("source_deployment_revision")
+  leaseOwner                 String?                  @map("lease_owner") @db.Uuid
+  leaseUntil                 DateTime?                @map("lease_until") @db.Timestamptz(3)
+  leaseGeneration            BigInt                   @default(0) @map("lease_generation")
+
+  @@map("admin_user_projection_sync")
+}
+
 model Product {
   id                   String               @id @default(uuid()) @db.Uuid
   code                 String               @unique @db.VarChar(64)
