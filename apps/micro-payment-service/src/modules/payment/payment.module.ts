@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PaymentUserProfileConsumer } from './infrastructure/messaging/payment-user-profile.consumer';
 import { CqrsModule } from '@nestjs/cqrs';
 import { PaymentConfig } from '../../core/payment.config';
 import { PaymentGrpcController } from './api/grpc/payment-grpc.controller';
@@ -159,6 +160,7 @@ const subscriptionReminderFoundation = [
 @Module({
   imports: [CqrsModule],
   providers: [
+    PaymentUserProfileConsumer,
     ...repositories,
     ...queries,
     ...providerStrategies,

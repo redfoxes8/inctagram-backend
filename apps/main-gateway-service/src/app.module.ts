@@ -1,6 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GatewayConfig } from './core/gateway.config';
+import { PaymentUserProfileRelay } from './modules/users/infrastructure/outbox/payment-user-profile-relay';
 import { CoreModule } from '../../../libs/common/src/core.module';
 import { CommonModule } from '../../../libs/common/src';
 import { GatewayConfigModule } from './core/gateway-config.module';
@@ -94,6 +95,7 @@ export class AppModule {
         NotificationLiveEventConsumer,
         UserAccessRevokedConsumer,
         UserAccessRevokeRelay,
+        PaymentUserProfileRelay,
       ],
     };
   }

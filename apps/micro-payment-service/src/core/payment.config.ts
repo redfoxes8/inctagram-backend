@@ -42,7 +42,9 @@ export class PaymentConfig {
   prismaDbUrl: string;
 
   // RabbitMQ Configuration
-  @ValidateIf((config: PaymentConfig) => config.outboxRelayEnabled)
+  @ValidateIf(
+    (config: PaymentConfig) => config.outboxRelayEnabled || config.userProjectionSyncEnabled,
+  )
   @IsString({ message: 'Env variable RABBITMQ_URL must be a string' })
   @IsNotEmpty({
     message: 'Set Env variable RABBITMQ_URL, example: amqps://xxxxx',
@@ -51,6 +53,9 @@ export class PaymentConfig {
 
   @IsBoolean({ message: 'PAYMENT_OUTBOX_RELAY_ENABLED must be true or false' })
   outboxRelayEnabled: boolean;
+
+  @IsBoolean({ message: 'PAYMENT_USER_PROJECTION_SYNC_ENABLED must be true or false' })
+  userProjectionSyncEnabled: boolean;
 
   @IsString({ message: 'PAYMENT_OUTBOX_RELAY_CRON must be a string' })
   @Matches(/^(?:\*|\*\/[1-9]\d*|\d+)(?:\s+(?:\*|\*\/[1-9]\d*|\d+)){5}$/, {
@@ -163,6 +168,10 @@ export class PaymentConfig {
       'PAYMENT_OUTBOX_RELAY_ENABLED',
     );
 
+    this.userProjectionSyncEnabled = PaymentConfig.requiredBoolean(
+      this.configService.get('PAYMENT_USER_PROJECTION_SYNC_ENABLED') ?? 'false',
+      'PAYMENT_USER_PROJECTION_SYNC_ENABLED',
+    );
     this.rabbitUrl = this.configService.get('RABBITMQ_URL') ?? null;
 
     this.outboxRelayCron = this.configService.get('PAYMENT_OUTBOX_RELAY_CRON');

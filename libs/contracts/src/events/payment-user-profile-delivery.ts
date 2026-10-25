@@ -1,0 +1,9 @@
+export const PAYMENT_PROFILE_EXCHANGE = 'common_exchange';
+export const PAYMENT_PROFILE_ROUTING_KEY = 'payment.user-profile.changed.v1';
+export const PAYMENT_PROFILE_QUEUE = 'payment.superadmin.user-profile.v1';
+export const PAYMENT_PROFILE_RETRY_QUEUE = 'payment.superadmin.user-profile.v1.retry';
+export const PAYMENT_PROFILE_RETRY_ROUTING_KEY = 'payment.user-profile.retry.v1';
+export const PAYMENT_PROFILE_RETRY_TTL_MS = 60000;
+export const PAYMENT_PROFILE_DLQ = 'payment.superadmin.user-profile.v1.dlq';
+export const PAYMENT_PROFILE_DLQ_ROUTING_KEY = 'payment.user-profile.dead.v1';
+export const PAYMENT_PROFILE_RETRY_HEADER = 'x-payment-profile-retry-count';
