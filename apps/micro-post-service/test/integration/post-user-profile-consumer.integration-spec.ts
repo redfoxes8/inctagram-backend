@@ -72,7 +72,10 @@ describe('D2b Post consumer on real isolated PostgreSQL and RabbitMQ', () => {
   function consumer(): PostUserProfileConsumer {
     const instance = new PostUserProfileConsumer(
       post as PrismaService,
-      config({ POST_USER_PROJECTION_SYNC_ENABLED: 'true' }),
+      config({
+        POST_USER_PROJECTION_SYNC_ENABLED: 'true',
+        GATEWAY_USER_SERVICE_GRPC_URL: '127.0.0.1:50050',
+      }),
     );
     consumers.push(instance);
     return instance;

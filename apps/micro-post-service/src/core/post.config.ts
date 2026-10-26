@@ -27,6 +27,8 @@ export class PostConfig {
   @IsBoolean()
   userProjectionSyncEnabled: boolean;
 
+  readonly gatewayUserServiceGrpcUrl: string | null;
+
   @IsString({ message: 'FILE_SERVICE_GRPC_URL must be a string' })
   @IsNotEmpty({ message: 'Set Env variable FILE_SERVICE_GRPC_URL' })
   fileServiceGrpcUrl: string;
@@ -43,12 +45,22 @@ export class PostConfig {
       throw new Error('POST_USER_PROJECTION_SYNC_ENABLED must be true or false');
     }
     this.userProjectionSyncEnabled = syncEnabled.trim() === 'true';
+    this.gatewayUserServiceGrpcUrl =
+      this.configService.get('GATEWAY_USER_SERVICE_GRPC_URL')?.trim() || null;
     if (this.userProjectionSyncEnabled) {
       try {
         const address = new URL(this.rabbitUrl);
         if (address.protocol !== 'amqp:' && address.protocol !== 'amqps:') throw new Error();
       } catch {
         throw new Error('RABBITMQ_URL must be a valid AMQP URL when Post profile sync is enabled');
+      }
+      const address = this.gatewayUserServiceGrpcUrl;
+      if (!address || !/^(?:\[[0-9a-fA-F:]+\]|[^\s/:?#@]+):\d+$/.test(address)) {
+        throw new Error('GATEWAY_USER_SERVICE_GRPC_URL must be a private host:port');
+      }
+      const port = Number(address.slice(address.lastIndexOf(':') + 1));
+      if (port < 1 || port > 65535) {
+        throw new Error('GATEWAY_USER_SERVICE_GRPC_URL must contain a valid port');
       }
     }
 

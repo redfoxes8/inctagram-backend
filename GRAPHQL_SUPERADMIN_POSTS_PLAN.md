@@ -1,6 +1,6 @@
 # Третья итерация GraphQL суперадминки: Posts
 
-Статус: D0/D1 завершены документально; D2a/D2b реализованы и проверены на изолированных PostgreSQL/RabbitMQ 26.10.2026. Новые profile events доставляются в Post, начальная полнота проекции без bootstrap не обеспечена. Следующий этап D2c не начат. Внешняя production/browser готовность не подтверждена.
+Статус: D0/D1 завершены документально; D2a–D2c реализованы и локально проверены 26.10.2026. Post поддерживает доставку, initial bootstrap/resume и daily reconciliation; READY требует собственных consumer/marker/fenced complete gates. Реальный rollout не выполнен. Следующий этап D3 не начат. Внешняя production/browser готовность не подтверждена.
 
 Дата: 25.10.2026. Ветка: `docs/superadmin-posts-plan`. Исследованный commit: `76d3a5df1c1b6d7061ba2138efaea2643e40159f` (актуальные `dev` и `origin/dev` после успешного fetch). Начальное рабочее дерево чистое.
 
@@ -297,13 +297,13 @@ Frontend слушает close/error и запускает5.2; browser protocol f
 
 ## 7. Последовательные этапы и минимальные проверки
 
-Checkbox только после результата и проверки: команда/доказательство и следующий шаг. При блокере оставить пустым. Jira не создавать. Из implementation выполнены только D2a/D2b; остальные checkbox пусты. Результаты и ограничения каждого этапа записываются отдельно.
+Checkbox только после результата и проверки: команда/доказательство и следующий шаг. При блокере оставить пустым. Jira не создавать. Из implementation выполнены только D2a/D2b/D2c; остальные checkbox пусты. Результаты и ограничения каждого этапа записываются отдельно.
 
 - [x] D0 — ограниченное исследование и уточнение плана. Проверены Post source/read/outbox, session/GraphQL budget и реализация sync второй итерации. Четыре решения пользователя записаны; production-код не менялся, builds/application tests не запускались.
-- [x] D1 — контракт/продуктовые правила и технические параметры определены и сверены 26.10.2026. Доказательства: LEFT JOIN/query и event missing различены; готовый local lookup подтверждён кодом, адресного export repair нет; retries1/2/4s/отказный ack, heartbeat25/10/init5/sweep30, client max10/backoff и budget149/185/39 рассчитаны. Проверка только чтением кода/согласованностью документа, без исполнения нового API. D2a выполнен отдельным последующим проходом (результат ниже); D2b выполнен отдельным проходом ниже; следующий этап D2c не начат, production/browser условия отдельно.
+- [x] D1 — контракт/продуктовые правила и технические параметры определены и сверены 26.10.2026. Доказательства: LEFT JOIN/query и event missing различены; готовый local lookup подтверждён кодом, адресного export repair нет; retries1/2/4s/отказный ack, heartbeat25/10/init5/sweep30, client max10/backoff и budget149/185/39 рассчитаны. Проверка только чтением кода/согласованностью документа, без исполнения нового API. D2a выполнен отдельным последующим проходом (результат ниже); D2b выполнен отдельным проходом ниже; D2c выполнен отдельным проходом ниже; следующий этап D3 не начат, production/browser условия отдельно.
 - [x] D2a — Post projection storage/apply. Результат: additive PostAdminUserProfile + PostAdminUserProjectionSync, NOT_READY singleton; typed version guards/trusted repair. Слои: Post Prisma/migration/port/repository, shared parser reuse. Зависимость: завершённый D1, минимальная модель3.1 без isBanned. Проверки: isolated Post DB, legacy Post сохранены, BigInt>MAX_SAFE_INTEGER, concurrent/stale/duplicate/tombstone apply, rollback/repair. DoD: нет background startup/fake READY, Payment schema не меняется.
 - [x] D2b — независимый Post profile consumer. Результат: durable Post queue+retry/DLQ, ack после commit, feature-off lifecycle. Файлы: Post config/module/consumer, scoped topology libs/contracts. Зависимость D2a. Проверки: real Rabbit+Post DB, исходное событие независимо приходит в Post/Payment queues, Post retry не идёт Payment, unconfirmed retry не ack, disabled не стартует consumer. Не повторять весь P1c suite. DoD: новые snapshots доставляются, полнота загрузки ещё не заявляется.
-- [ ] D2c — Post export/bootstrap/reconciliation/readiness. Результат: Post client существующего ExportPaymentUserProfiles, singleton progress/resume/fencing/marker, READY gates и24h сверка. Зависимость D2b. Проверки: реальный User gRPC+isolated Gateway/Post DB; resume, UUID позади cursor через live event, stale batch/new live event, lost generation rollback, без marker/consumer нет READY, repair/outage retry. DoD: свой progress, без зависимости от Payment READY; existing RPC wire не меняется.
+- [x] D2c — Post export/bootstrap/reconciliation/readiness. Результат: Post client существующего ExportPaymentUserProfiles, singleton progress/resume/fencing/marker, READY gates и24h сверка. Зависимость D2b. Проверки: реальный User gRPC+isolated Gateway/Post DB; resume, UUID позади cursor через live event, stale batch/new live event, lost generation rollback, без marker/consumer нет READY, repair/outage retry. DoD: свой progress, без зависимости от Payment READY; existing RPC wire не меняется.
 - [ ] D3 — SQL read по проекции и application contract. Результат: Post query/repository, JOIN/visibility/search до LIMIT first+1, cursor/File batch; полного публичного API пока нет. Файлы: Post read-port/query/SQL, shared cursor/result types. Зависимости D1/D2c. Проверки: full first при достаточных совпадениях далеко за началом списка, literal %/\_, ties/удалённая cursor row/последняя пустая страница; NOT_READY/error, unknown projection LEFT JOIN без search/search exclusion, profile/tombstone null, confirmed missing не блокирует страницу, один bounded File batch. DoD: нет scan-pages/totalCount/N+1 или per-row Gateway query lookup; техническая initial неполнота не пустая лента.
 - [ ] D4 — отдельный published outbox/source relay. Результат: atomic Post+images+PostPublishedOutbox, сохранённый PostPublishedV1, lease/confirm/retry после commit. Файлы: Post create/repository, отдельная additive migration, новый relay/contracts. Зависимости D1/D3 для проверяемого read. Проверки: real DB rollback при outbox failure, broker confirm/return/lease recovery, стабильный payload/eventId; legacy delete relay не читает новую таблицу; чужой wildcard binding не считается Gateway delivery. DoD: public CRUD прежний кроме обязательного outbox; delete relay не меняется.
 - [ ] D5 — защищённый graphql-ws transport. Результат: discriminated context/guards, non-touch session checks/sweep, scoped budget/resources. Файлы: SuperadminModule/context/guard/filter/budget/session repository/bootstrap; прямые fixed dependencies при необходимости. Зависимости D1/D3 types. Проверки: настоящий WS cookie/Origin/user JWT/expiry/revoke/storage failure, aliases/fragments, iterator teardown, protocol ping25/pong10/init5 без session touch, timers cleanup, полные first5/image selection185 и aliases budget; один HTTP/Socket.IO smoke. DoD: HTTP security не объявлена WS security; обычная auth прежняя.
@@ -394,3 +394,87 @@ pnpm exec tsc --project apps/micro-post-service/tsconfig.app.json --noEmit --inc
 Итог Jest: **2 suites passed; 7 passed, 6 skipped, 127.675s** (6 D2b + 1 существующий unroutable regression). Post build/source typecheck успешны; TypeScript Compiler API с options Post tsconfig.app.json и новым test root/noEmit/incremental=false: **0 diagnostics**. Scoped ESLint/Prettier — consumer/test/config/module и два contracts/common файла; git diff --check. Новых migrations/dependencies нет; GraphQL1.5.0/public Posts CRUD/Gateway writers/Payment consumer/deployment не менялись. Контейнеры после тестов остановлены; shared/production подключения не использовались.
 
 **Новые события доставляются; initial полнота projection без bootstrap ещё не обеспечена.** Никакого READY/rollout confirmation, export client/worker/reconciliation, published events или новых RPC/GraphQL. Следующий этап — D2c, не начат. Commit/push/merge/deploy не выполнялись.
+
+### D2c — фактический результат 26.10.2026
+
+Ветка `feature/superadmin-post-profile-bootstrap`, база `c852f6843a76e7df36f75c27580e325519d4eac1`. Добавлены [application ports](apps/micro-post-service/src/modules/posts/application/ports/post-profile-bootstrap.port.ts), [orchestration](apps/micro-post-service/src/modules/posts/application/services/post-profile-bootstrap.service.ts), [export client](apps/micro-post-service/src/modules/posts/infrastructure/grpc/post-profile-export.client.ts), [progress repository](apps/micro-post-service/src/modules/posts/infrastructure/repositories/post-projection-bootstrap.repository.ts), [worker](apps/micro-post-service/src/modules/posts/infrastructure/schedulers/post-profile-bootstrap.worker.ts), [Nest wiring](apps/micro-post-service/src/modules/posts/posts.module.ts). Consumer state через useExisting PostUserProfileConsumer, без второго consumer. PostAdminUserProjectionSync/D2a apply+trusted repair и existing Gateway export/parser переиспользованы; миграций нет.
+
+При POST_USER_PROJECTION_SYNC_ENABLED=false consumer/export channel/worker не запускаются, Gateway address не требуется. При true [PostConfig](apps/micro-post-service/src/core/post.config.ts) проверяет existing Rabbit URL и GATEWAY_USER_SERVICE_GRPC_URL host:port (port1..65535, без URL path/credentials). Это синтаксическая валидация, не доказательство private network: адрес/изоляция проверяются при deployment. [.env.example](apps/micro-post-service/.env.example) дополнен main-gateway-service:50050; файл не настраивает контейнер, реальные env/pipeline/manifest не менялись.
+
+Export timeout5s — RxJS unsubscribe/cancel unary call, не переданный gRPC deadline, без внутренних retries. Empty repeated items корректно нормализуются в [] при текущем loader; loader.longs/wire не менялись, версии decimal-string/BigInt. Сеть вне Post transaction. Persisted claim ограничивает начало batch≤1/s, lease30s/generation; complete lock+snapshots+cursor одной tx, стартовый и финальный clock_timestamp fencing. Trusted equal-version repair не воскрешает tombstone, stale export не перезаписывает live newer. Consumer/marker/complete gates обязательны для READY. RECONCILE сохраняет достигнутую phase READY, но не обещает lag0; consumer disconnect прекращает новые проходы, live queue/retry/reconcile восстанавливают отставание.
+
+Daily nextRunAt=complete+24h, resume upper/cursor, UNIMPLEMENTED backoff≥60s, transport30..300s. Retry сохраняет cursor и освобождает только актуальный lease. Worker shutdown очищает timer/останавливает новые проходы, дожидается pending; остановленная orchestration не коммитит новую export-страницу. Изменён только D2b test config fixture для нового обязательного address при true, consumer runtime не менялся.
+
+[Целевой integration suite](apps/micro-post-service/test/integration/post-profile-bootstrap.integration-spec.ts): **7/7**, 15.025s, disposable PostgreSQL16 с раздельными Gateway/Post DB и **настоящий Nest UserGrpcController → CQRS ExportPaymentUserProfilesHandler → source repository**, реальный User gRPC/Post client. Проверены multi-page v0/BigInt/tombstone/TEXT IDs, empty source/gates/READY+24h, 500-row resume в новом service instance, сохранённый throttle, live newer/tombstone + trusted repair, takeover/expiry rollback страницы/cursor и запрет READY при disconnect, реальные UNIMPLEMENTED/outage и persisted retry, disabled config/channel/worker и shutdown timer. Исправлен обнаруженный пустым export тестом mapping отсутствующего repeated items; Gateway не менялся.
+
+**Границы доказательств:** consumer state заменён read-only stub; live snapshot введён через настоящий D2a repository как fixture, не тест RabbitMQ. Expiry внутри страницы смоделирован DB trigger с transaction_timestamp()+10ms и контролируемым pg_sleep(0.03): финальный clock_timestamp обязан откатить tx, now() этого не обеспечит. Scheduling time изменён в singleton fixtures, сутки не ожидались. Resume — новый service object со старым progress, не kill-pod/process-crash тест. Older empty-handler gRPC server используется только для UNIMPLEMENTED, настоящий source export проверен отдельно. Полный Gateway/Post root startup/production rollout этим suite не подтверждаются.
+
+Команды:
+
+```powershell
+$env:ENV_FILE_PATH = Join-Path $env:TEMP "inctagram-post-profile-bootstrap-no-env"
+pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --roots C:/_MY_DATA_/development/inctagram-backend/apps/micro-post-service/test --runInBand --runTestsByPath C:/_MY_DATA_/development/inctagram-backend/apps/micro-post-service/test/integration/post-profile-bootstrap.integration-spec.ts --noStackTrace
+pnpm run build:micro-post-service
+pnpm exec tsc --project apps/micro-post-service/tsconfig.app.json --noEmit --incremental false
+```
+
+Две непосредственно затронутые D2b regression проверки (independently routes/defaults off) прошли отдельной частью первоначального совместного запуска: `--runTestsByPath <D2c suite> <D2b suite> --testNamePattern "D2c|independently routes|defaults off"`. D2b TTL suite повторно не запускался. Post source+оба targeted test файла проверены через TypeScript Compiler API с Post tsconfig/noEmit/incremental=false: 0 diagnostics. Scoped ESLint/Prettier: новые bootstrap files и изменённые Post config/module/tests/план; git diff --check. Gateway build не запускался, его код не менялся. Новых dependencies/migrations/публичных RPC/GraphQL нет, контракт1.5.0 прежний; public Posts CRUD, Payment runtime, published outbox/subscription не затронуты.
+
+**D2c завершён локально, следующий этап D3 не начат.** Ни реальные operator markers/SQL, ни deployment, production addresses/network, browser acceptance не выполнялись/не подтверждены. Commit/push/merge/deploy не выполнялись.
+
+### D2c — короткий операторский SQL-runbook (не выполнялся агентом)
+
+Подключаться только к подтверждённой **Post DB**, с нужным search_path и операторскими правами. Сначала применить D2a migration штатно и отдельно пересобрать Post/сгенерировать клиент; настроить POST_USER_PROJECTION_SYNC_ENABLED=true, private GATEWAY_USER_SERVICE_GRPC_URL и existing RABBITMQ_URL. Проверить main Post durable consumer queue/bindings и подключения, private User gRPC50050 доступность. Сверить **все** Gateway source writers/export deployment revisions (не один pod/пустую queue), только затем marker. Никакого ручного SET phase=READY; не использовать Payment singleton.
+
+1. В psql ввести проверенную реальную revision (не placeholder), marker применяется только к исходному NOT_READY. Если UPDATE0 — исследовать progress/предыдущий marker, не перезаписывать его вслепую:
+
+```sql
+\prompt 'Verified Gateway writers deployment revision: ' gateway_revision
+BEGIN;
+UPDATE post_admin_user_projection_sync
+SET source_writers_confirmed_at=clock_timestamp(),
+    source_deployment_revision=:'gateway_revision',
+    lease_generation=lease_generation+1, lease_owner=NULL, lease_until=NULL,
+    next_run_at=clock_timestamp()
+WHERE id='post-user-profile-v1' AND phase='NOT_READY'
+  AND source_writers_confirmed_at IS NULL;
+COMMIT;
+```
+
+2. Наблюдение (не выводит credentials/payload):
+
+```sql
+SELECT id, phase, mode, pass_id, upper_user_id, cursor, source_empty,
+       last_batch_at, last_completed_at, next_run_at,
+       source_writers_confirmed_at, source_deployment_revision,
+       lease_owner, lease_until, lease_generation
+FROM post_admin_user_projection_sync WHERE id='post-user-profile-v1';
+```
+
+Ожидать NOT_READY→LOADING→READY, завершённый pass/last_completed_at и next_run_at примерно +24h. READY означает выполненный baseline, а не отсутствие lag: отдельно контролировать connected consumer, source pending/retry/DLQ и safe codes post.profile.export/bootstrap/reconcile. Consumer disconnect/export outage не устраняются ручным READY. UNIMPLEMENTED≥60s/transport≤300s должны сохранять upper/cursor.
+
+3. Дополнительная сверка завершённого READY pass без сброса данных/cursor активного прохода:
+
+```sql
+UPDATE post_admin_user_projection_sync SET next_run_at=clock_timestamp()
+WHERE id='post-user-profile-v1' AND phase='READY' AND mode='IDLE'
+  AND (lease_until IS NULL OR lease_until<=clock_timestamp());
+```
+
+Если проход активен — дождаться/resume, не обнулять cursor для обычной сверки. Текущее RECONCILE сохраняет READY.
+
+4. Явный restart baseline с fencing (например, после возврата корректных writers). Не удаляет Post/проекцию. Marker очищается: заново проверить все source revisions и выполнить шаг1:
+
+```sql
+BEGIN;
+UPDATE post_admin_user_projection_sync
+SET lease_generation=lease_generation+1, lease_owner=NULL, lease_until=NULL,
+    phase='NOT_READY', mode='IDLE', pass_id=NULL, upper_user_id=NULL, cursor=NULL,
+    source_empty=false, last_batch_at=NULL, last_completed_at=NULL,
+    source_writers_confirmed_at=NULL, source_deployment_revision=NULL,
+    next_run_at=clock_timestamp()
+WHERE id='post-user-profile-v1';
+COMMIT;
+```
+
+UPDATE ждёт уже захваченный row lock; после его commit новая generation не позволяет worker с незавершённым RPC записать старую страницу. Не повторять restart автоматически по расплывчатому признаку «долго не работало». Ручной recovery endpoint не создавался.
