@@ -4,6 +4,7 @@ import { PostEntity } from '../../domain/post.entity';
 import { PostMapper } from '../mappers/post.mapper';
 import { randomUUID } from 'crypto';
 import { parsePostPublishedV1 } from '../../../../../../../libs/contracts/src/events/post-published-v1.event';
+import { wakePostPublished } from '../post-published-wakeup';
 
 const logger = new Logger('PostCommandRepository');
 
@@ -39,6 +40,7 @@ export class PostCommandRepository {
         data: { id: event.eventId, postId: saved.id, payload: event },
       });
     });
+    wakePostPublished(this.prisma);
   }
 
   async updatePost(post: PostEntity): Promise<void> {

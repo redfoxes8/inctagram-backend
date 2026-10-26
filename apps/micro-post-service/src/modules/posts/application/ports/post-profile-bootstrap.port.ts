@@ -12,6 +12,7 @@ export abstract class PostProfileExport {
 }
 
 export abstract class PostProfileConsumerState {
+  onConnected?: (listener: () => void) => () => void;
   abstract isConnected(): boolean;
 }
 
@@ -22,6 +23,8 @@ export type PostProjectionLease = Readonly<{
 }>;
 
 export abstract class PostProjectionProgress {
+  // Scheduling hint from the last claim; never substitutes API readiness checks.
+  nextCheckAt = new Date(0);
   abstract claim(): Promise<PostProjectionLease | null>;
   abstract complete(input: {
     lease: PostProjectionLease;

@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { requireGatewayTransaction } from '../../../core/prisma/transactions/require-gateway-transaction';
+import {
+  requireGatewayTransaction,
+  wakeGatewayOutboxAfterCommit,
+} from '../../../core/prisma/transactions/require-gateway-transaction';
 import { lockGatewayUser } from '../../../core/prisma/transactions/lock-gateway-user';
 import { DomainException } from '../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../libs/common/src/exceptions/domain-exception-codes';
@@ -57,4 +60,5 @@ export async function writePaymentUserProfileSnapshot(input: {
       availableAt: occurredAt,
     },
   });
+  wakeGatewayOutboxAfterCommit({ transaction, outbox: 'PAYMENT_PROFILE' });
 }

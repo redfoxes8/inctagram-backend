@@ -18,6 +18,7 @@ type ClaimedProgress = {
   leaseGeneration: bigint;
   upperUserId: string | null;
   cursor: string | null;
+  nextCheckAt: Date;
 };
 
 @Injectable()
@@ -31,7 +32,7 @@ export class PostProjectionBootstrapRepository extends PostProjectionProgress {
   async claim(): Promise<PostProjectionLease | null> {
     // One persisted conditional update coordinates instances, resume and the 1s batch throttle.
     const rows = await this.prisma.$queryRaw<ClaimedProgress[]>`
-      UPDATE "post_admin_user_projection_sync"
+      WITH claimed AS (UPDATE "post_admin_user_projection_sync"
       SET "lease_owner" = ${randomUUID()}::uuid, "lease_generation" = "lease_generation" + 1,
           "lease_until" = clock_timestamp() + interval '30 seconds', "last_batch_at" = clock_timestamp(),
           "phase" = CASE WHEN "phase" = 'NOT_READY' THEN 'LOADING'::"PostAdminUserProjectionPhase" ELSE "phase" END,
@@ -49,9 +50,19 @@ export class PostProjectionBootstrapRepository extends PostProjectionProgress {
         AND "source_writers_confirmed_at" IS NOT NULL AND length(btrim("source_deployment_revision")) > 0
       RETURNING "lease_owner" AS "leaseOwner", "lease_generation" AS "leaseGeneration",
                 "upper_user_id" AS "upperUserId", "cursor"
+      )
+      SELECT claimed.*, CASE
+        WHEN state."source_writers_confirmed_at" IS NULL OR length(btrim(state."source_deployment_revision")) = 0
+          THEN clock_timestamp() + interval '20 minutes'
+        ELSE GREATEST(state."next_run_at", COALESCE(state."lease_until", clock_timestamp()),
+          COALESCE(state."last_batch_at" + interval '1 second', clock_timestamp()))
+      END AS "nextCheckAt"
+      FROM "post_admin_user_projection_sync" state LEFT JOIN claimed ON true WHERE state."id" = ${SYNC_ID}
     `;
     const row = rows[0];
-    if (!row) return null;
+    if (!row) throw new Error('PROFILE_SYNC_STATE_MISSING');
+    this.nextCheckAt = row.nextCheckAt;
+    if (!row.leaseOwner) return null;
     return {
       owner: row.leaseOwner,
       generation: row.leaseGeneration,

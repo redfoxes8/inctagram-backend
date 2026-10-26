@@ -1,3 +1,4 @@
+import { BACKGROUND_IDLE_MS } from '../../../../../../../libs/common/src/constants/background-polling';
 import { Injectable } from '@nestjs/common';
 import { DomainException } from '../../../../../../../libs/common/src/exceptions/domain-exception';
 import { DomainExceptionCode } from '../../../../../../../libs/common/src/exceptions/domain-exception-codes';
@@ -11,6 +12,15 @@ import {
 @Injectable()
 export class PostProfileBootstrapService {
   private failures = 0;
+  private waitingForConsumer = false;
+
+  onConsumerConnected(wake: () => void): () => void {
+    return (
+      this.consumer.onConnected?.(() => {
+        if (this.waitingForConsumer) wake();
+      }) ?? (() => {})
+    );
+  }
   private stopped = false;
 
   constructor(
@@ -23,21 +33,26 @@ export class PostProfileBootstrapService {
     this.stopped = true;
   }
 
-  async runOnce(): Promise<void> {
-    if (this.stopped || !this.consumer.isConnected()) return;
+  async runOnce(): Promise<Date> {
+    if (this.stopped || !this.consumer.isConnected()) {
+      this.waitingForConsumer = true;
+      return new Date(Date.now() + BACKGROUND_IDLE_MS);
+    }
+    this.waitingForConsumer = false;
     let lease: PostProjectionLease | null = null;
     try {
       lease = await this.progress.claim();
-      if (!lease) return;
+      if (!lease) return this.progress.nextCheckAt;
       const result = await this.exporter.exportPage(lease.request);
       if (result.outcome === 'UNAVAILABLE' || this.stopped) {
         this.failures += 1;
         const minimum = result.outcome === 'UNAVAILABLE' && result.unimplemented ? 60 : 30;
+        const delaySeconds = Math.min(300, minimum * 2 ** Math.min(this.failures - 1, 4));
         await this.progress.retry({
           lease,
-          delaySeconds: Math.min(300, minimum * 2 ** Math.min(this.failures - 1, 4)),
+          delaySeconds,
         });
-        return;
+        return new Date(Date.now() + delaySeconds * 1000);
       }
       await this.progress.complete({
         lease,
@@ -45,6 +60,7 @@ export class PostProfileBootstrapService {
         consumerConnected: () => !this.stopped && this.consumer.isConnected(),
       });
       this.failures = 0;
+      return new Date(Date.now() + (result.page.complete ? 24 * 60 * 60 * 1000 : 1000));
     } catch {
       if (lease) {
         await this.progress.retry({ lease, delaySeconds: 60 }).catch(() => undefined);

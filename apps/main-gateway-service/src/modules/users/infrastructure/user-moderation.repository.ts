@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { requireGatewayTransaction } from '../../../core/prisma/transactions/require-gateway-transaction';
+import {
+  requireGatewayTransaction,
+  wakeGatewayOutboxAfterCommit,
+} from '../../../core/prisma/transactions/require-gateway-transaction';
 import { lockGatewayUser } from '../../../core/prisma/transactions/lock-gateway-user';
 import { normalizeUserBanReason } from '../../../../../../libs/common/src/validation/normalize-user-ban-reason';
 import type { UserBanReason } from '../../../../../../libs/common/types/user-ban-reason';
@@ -112,5 +115,6 @@ export class PrismaUserModerationRepository extends UserModerationRepository {
         availableAt: input.occurredAt,
       },
     });
+    wakeGatewayOutboxAfterCommit({ transaction, outbox: 'ACCESS_REVOKE' });
   }
 }
