@@ -69,3 +69,7 @@ export type SuperadminPostPublishedRead =
 export type SuperadminPostPublishedView =
   | Readonly<{ outcome: 'FOUND'; post: SuperadminPost }>
   | SuperadminPostReadOutcome;
+
+export type SuperadminPostSubscriptionEvent =
+  | Readonly<{ kind: 'READY' | 'RESYNC_REQUIRED'; post: null }>
+  | Readonly<{ kind: 'POST_PUBLISHED'; post: Omit<SuperadminPost, 'userSnapshot'> }>;

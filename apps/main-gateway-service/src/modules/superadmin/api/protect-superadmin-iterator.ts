@@ -1,15 +1,14 @@
-import type { ExecutionResult } from 'graphql';
 import type { SuperadminWsContext } from './superadmin-context';
 
 // The final non-touch check also protects fields resolved without an explicit Nest ResolveField.
-export function protectSuperadminIterator(input: {
-  source: AsyncIterable<ExecutionResult>;
+export function protectSuperadminIterator<Value>(input: {
+  source: AsyncIterable<Value>;
   context: SuperadminWsContext;
-}): AsyncIterableIterator<ExecutionResult> {
+}): AsyncIterableIterator<Value> {
   const iterator = input.source[Symbol.asyncIterator]();
   let finished = false;
   let removeCleanup = (): void => {};
-  const finish = async (): Promise<IteratorResult<ExecutionResult>> => {
+  const finish = async (): Promise<IteratorResult<Value>> => {
     if (!finished) {
       finished = true;
       removeCleanup();
@@ -25,10 +24,10 @@ export function protectSuperadminIterator(input: {
     void finish().catch(() => undefined);
   });
   return {
-    [Symbol.asyncIterator](): AsyncIterableIterator<ExecutionResult> {
+    [Symbol.asyncIterator](): AsyncIterableIterator<Value> {
       return this;
     },
-    async next(): Promise<IteratorResult<ExecutionResult>> {
+    async next(): Promise<IteratorResult<Value>> {
       try {
         if (finished) return { done: true, value: undefined };
         const result = await iterator.next();

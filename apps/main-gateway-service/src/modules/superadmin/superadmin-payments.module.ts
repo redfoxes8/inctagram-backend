@@ -2,8 +2,7 @@ import { GetSuperadminPaymentsPageQuery } from './application/get-superadmin-pay
 import { SuperadminPaymentsPageReader } from './domain/superadmin-payments-page.port';
 import { GrpcSuperadminPaymentsPage } from './infrastructure/grpc-superadmin-payments-page';
 import { SuperadminPaymentsPageResolver } from './api/superadmin-payments-page.resolver';
-import { PaymentPageProfiles } from './domain/payment-page-profiles.port';
-import { PaymentPageProfilesQueryRepository } from './infrastructure/payment-page-profiles.query-repository';
+import { SuperadminProfileLookupModule } from './superadmin-profile-lookup.module';
 import { EnrichSuperadminPaymentsPageQuery } from './application/enrich-superadmin-payments-page';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -16,12 +15,11 @@ import { GetSuperadminPaymentsQuery } from './application/get-superadmin-payment
 import { SuperadminPaymentsResolver } from './api/superadmin-payments.resolver';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, PaymentGrpcClientModule],
+  imports: [ConfigModule, PrismaModule, PaymentGrpcClientModule, SuperadminProfileLookupModule],
   providers: [
     GetSuperadminPaymentsPageQuery,
     { provide: SuperadminPaymentsPageReader, useClass: GrpcSuperadminPaymentsPage },
     SuperadminPaymentsPageResolver,
-    { provide: PaymentPageProfiles, useClass: PaymentPageProfilesQueryRepository },
     EnrichSuperadminPaymentsPageQuery,
     SuperadminPaymentsConfig,
     { provide: SuperadminPaymentHistory, useClass: GrpcSuperadminPaymentHistory },

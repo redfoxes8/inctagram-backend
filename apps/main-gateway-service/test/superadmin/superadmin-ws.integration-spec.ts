@@ -539,6 +539,28 @@ describe('D5 protected graphql-transport-ws (test schema, isolated AdminSession 
     }
   });
 
+  it('bounds outbound WS buffering and closes only the slow connection', async () => {
+    const slow = await connected();
+    const slowStream = await subscription(slow);
+    const fast = await connected();
+    const fastStream = await subscription(fast);
+    const sockets = Reflect.get(
+      app.get(SuperadminSubscriptionServer),
+      'sockets',
+    ) as WebSocketServer;
+    const slowSocket = [...sockets.clients][0];
+    Object.defineProperty(slowSocket, 'bufferedAmount', {
+      configurable: true,
+      get: (): number => 1048576,
+    });
+    slowStream.emit();
+    expect(await slow.closed).toBe(1013);
+    await slowStream.returned;
+    fastStream.emit();
+    expect((await fast.next()).type).toBe('next');
+    expect(fast.socket.readyState).toBe(WebSocket.OPEN);
+  });
+
   it('requires matching protocol pong, cancels iterator/timers on timeout and shutdown, leaves other paths alone', async () => {
     const peer = await connected({ autoPong: false });
     const stream = await subscription(peer);

@@ -33,6 +33,7 @@ export const SUPERADMIN_WS_LIMITS = Object.freeze({
   sweepMs: 30000,
   initMs: 5000,
   maxPayload: 65536,
+  maxOutboundBytes: 1048576,
   connections: 100,
   sessionConnections: 5,
 });
@@ -133,7 +134,17 @@ export class SuperadminSubscriptionServer implements OnApplicationBootstrap, OnM
             return { errors: [this.safeError(error)] };
           }
         },
-        onNext: (_context, _id, _payload, _args, result) => this.safeResult(result),
+        onNext: ({ extra }, id, _payload, _args, result) => {
+          const safe = this.safeResult(result);
+          // graphql-ws awaits each ws.send callback (one operation/socket). Bound even a single
+          // oversized frame/queued transport write; do not add another send loop or heartbeat.
+          const bytes = Buffer.byteLength(JSON.stringify({ id, type: 'next', payload: safe }));
+          if (extra.socket.bufferedAmount + bytes > SUPERADMIN_WS_LIMITS.maxOutboundBytes) {
+            const connection = this.connections.get(extra.socket);
+            if (connection) this.close({ connection, code: 1013, reason: 'Refetch required' });
+          }
+          return safe;
+        },
         onError: ({ extra }, id, _payload, errors) => {
           this.complete({ socket: extra.socket, id });
           return errors.map((error) => this.safeError(error).toJSON());
