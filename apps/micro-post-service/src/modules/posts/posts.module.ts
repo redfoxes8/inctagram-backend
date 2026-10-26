@@ -40,6 +40,7 @@ import {
 import { SuperadminPostImagesMapper } from './application/mappers/superadmin-post-images.mapper';
 import { SuperadminPostsQueryRepository } from './infrastructure/repositories/superadmin-posts.query-repository';
 import { SuperadminPostFilesAdapter } from './infrastructure/grpc/superadmin-post-files.adapter';
+import { PostPublishedRelay } from './infrastructure/post-published.relay';
 
 const Handlers = [
   CreatePostHandler,
@@ -95,6 +96,7 @@ const Repositories = [
     { provide: SuperadminPostsRead, useClass: SuperadminPostsQueryRepository },
     { provide: SuperadminPostFiles, useClass: SuperadminPostFilesAdapter },
     SuperadminPostImagesMapper,
+    PostPublishedRelay,
     // Outbox relay
     OutboxRelayCron,
   ],

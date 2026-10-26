@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../core/prisma/prisma.service';
 import { PostEntity } from '../../domain/post.entity';
 import { PostMapper } from '../mappers/post.mapper';
 import { randomUUID } from 'crypto';
+import { parsePostPublishedV1 } from '../../../../../../../libs/contracts/src/events/post-published-v1.event';
 
 const logger = new Logger('PostCommandRepository');
 
@@ -12,7 +13,7 @@ export class PostCommandRepository {
 
   async createPost(post: PostEntity): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      await tx.post.create({
+      const saved = await tx.post.create({
         data: {
           id: post.id,
           ownerId: post.ownerId,
@@ -26,6 +27,16 @@ export class PostCommandRepository {
             })),
           },
         },
+      });
+      const event = parsePostPublishedV1({
+        schemaVersion: 1,
+        eventId: randomUUID(),
+        postId: saved.id,
+        ownerId: saved.ownerId,
+        publishedAt: saved.createdAt.toISOString(),
+      });
+      await tx.postPublishedOutbox.create({
+        data: { id: event.eventId, postId: saved.id, payload: event },
       });
     });
   }
