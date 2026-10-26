@@ -31,6 +31,15 @@ import {
 import { PostProfileExportClient } from './infrastructure/grpc/post-profile-export.client';
 import { PostProjectionBootstrapRepository } from './infrastructure/repositories/post-projection-bootstrap.repository';
 import { PostProfileBootstrapWorker } from './infrastructure/schedulers/post-profile-bootstrap.worker';
+import { GetSuperadminPostsPageHandler } from './application/queries/get-superadmin-posts-page.query';
+import { GetSuperadminPostPublishedViewHandler } from './application/queries/get-superadmin-post-published-view.query';
+import {
+  SuperadminPostsRead,
+  SuperadminPostFiles,
+} from './application/ports/superadmin-posts-read.port';
+import { SuperadminPostImagesMapper } from './application/mappers/superadmin-post-images.mapper';
+import { SuperadminPostsQueryRepository } from './infrastructure/repositories/superadmin-posts.query-repository';
+import { SuperadminPostFilesAdapter } from './infrastructure/grpc/superadmin-post-files.adapter';
 
 const Handlers = [
   CreatePostHandler,
@@ -40,6 +49,8 @@ const Handlers = [
   GetLatestPostsHandler,
   GetPostsCountByUserIdHandler,
   GetPostByIdHandler,
+  GetSuperadminPostsPageHandler,
+  GetSuperadminPostPublishedViewHandler,
 ];
 const Repositories = [
   PostCommandRepository,
@@ -81,6 +92,9 @@ const Repositories = [
     { provide: PostProjectionProgress, useClass: PostProjectionBootstrapRepository },
     PostProfileBootstrapService,
     PostProfileBootstrapWorker,
+    { provide: SuperadminPostsRead, useClass: SuperadminPostsQueryRepository },
+    { provide: SuperadminPostFiles, useClass: SuperadminPostFilesAdapter },
+    SuperadminPostImagesMapper,
     // Outbox relay
     OutboxRelayCron,
   ],
