@@ -57,6 +57,8 @@ export class PaymentProfileConfirmPublisher {
   constructor(private readonly url: string) {}
 
   async publish(input: {
+    // Optional default-exchange routing to a durable retry queue. Existing callers use common_exchange.
+    exchange?: '';
     routingKey: string;
     content: Buffer;
     messageId: string;
@@ -134,6 +136,7 @@ export class PaymentProfileConfirmPublisher {
   }
 
   private async send(input: {
+    exchange?: '';
     routingKey: string;
     content: Buffer;
     messageId: string;
@@ -162,7 +165,7 @@ export class PaymentProfileConfirmPublisher {
       channel.on('close', failed);
       try {
         channel.publish(
-          PAYMENT_PROFILE_EXCHANGE,
+          input.exchange ?? PAYMENT_PROFILE_EXCHANGE,
           input.routingKey,
           input.content,
           {
