@@ -1,0 +1,9 @@
+export const POST_PROFILE_EXCHANGE = 'common_exchange';
+export const POST_PROFILE_SOURCE_KEY = 'payment.user-profile.changed.v1';
+export const POST_PROFILE_QUEUE = 'post.superadmin.user-profile.v1';
+export const POST_PROFILE_RETRY_QUEUE = 'post.superadmin.user-profile.v1.retry';
+export const POST_PROFILE_RETRY_KEY = 'post.user-profile.retry.v1';
+export const POST_PROFILE_RETRY_TTL_MS = 60000;
+export const POST_PROFILE_DLQ = 'post.superadmin.user-profile.v1.dlq';
+export const POST_PROFILE_DLQ_KEY = 'post.user-profile.dead.v1';
+export const POST_PROFILE_RETRY_HEADER = 'x-post-profile-retry-count';

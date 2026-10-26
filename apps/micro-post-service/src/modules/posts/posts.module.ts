@@ -21,6 +21,7 @@ import { IPostQueryRepository } from './domain/interfaces/post-query-repository.
 import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
 import { FileGrpcClient } from './infrastructure/grpc/file-grpc.client';
 import { GrpcAdapter } from './infrastructure/grpc/grpc.adapter';
+import { PostUserProfileConsumer } from './infrastructure/messaging/post-user-profile.consumer';
 
 const Handlers = [
   CreatePostHandler,
@@ -65,9 +66,10 @@ const Repositories = [
     ...Handlers,
     FileGrpcClient,
     GrpcAdapter,
+    PostUserProfileConsumer,
     // Outbox relay
     OutboxRelayCron,
   ],
-  exports: [...Repositories],
+  exports: [...Repositories, PostUserProfileConsumer],
 })
 export class PostsModule {}
