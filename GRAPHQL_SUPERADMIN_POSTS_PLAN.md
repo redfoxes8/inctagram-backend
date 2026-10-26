@@ -1,6 +1,6 @@
 # Третья итерация GraphQL суперадминки: Posts
 
-Статус: D0/D1 завершены документально; D2a–D2c реализованы и локально проверены 26.10.2026. Post поддерживает доставку, initial bootstrap/resume и daily reconciliation; READY требует собственных consumer/marker/fenced complete gates. Реальный rollout не выполнен. D3 внутренний read реализован и проверен; новые RPC/GraphQL ещё не опубликованы. D4 atomic published outbox/confirm relay реализован и локально проверен; D5 защищённый WS transport реализован и проверен на test schema; production activation отложена до D6b. D6a Gateway delivery подготовлена и локально проверена; D6b RPC/GraphQL wiring и WS policy реализованы и локально проверены (1.6.0); следующий этап D7 не начат. Внешняя production/browser готовность не подтверждена.
+Статус: D0/D1 документально завершены; D2–D6 технически реализованы и локально проверены, D7 итоговая техническая приёмка завершена 26.10.2026. Post projection/bootstrap/reconcile, SQL read, atomic published outbox, Gateway delivery, RPC/GraphQL1.6.0 и WS activation подготовлены. READY требует собственных consumer/marker/fenced complete gates. Production rollout/browser/S3, публичные502/503 и обычный login остаются внешними незавершёнными задачами; их готовность не подтверждена. Исторические результаты этапов ниже сохраняются.
 
 Дата: 25.10.2026. Ветка: `docs/superadmin-posts-plan`. Исследованный commit: `76d3a5df1c1b6d7061ba2138efaea2643e40159f` (актуальные `dev` и `origin/dev` после успешного fetch). Начальное рабочее дерево чистое.
 
@@ -309,7 +309,7 @@ Checkbox только после результата и проверки: ко�
 - [x] D5 — защищённый graphql-ws transport (26.10.2026; test-schema proof и activation boundary ниже). Результат: discriminated context/guards, non-touch session checks/sweep, scoped budget/resources. Файлы: SuperadminModule/context/guard/filter/budget/session repository/bootstrap; прямые fixed dependencies при необходимости. Зависимости D1/D3 types. Проверки: настоящий WS cookie/Origin/user JWT/expiry/revoke/storage failure, aliases/fragments, iterator teardown, protocol ping25/pong10/init5 без session touch, timers cleanup, полные first5/image selection185 и aliases budget; один HTTP/Socket.IO smoke. DoD: HTTP security не объявлена WS security; обычная auth прежняя.
 - [x] D6a — published fan-out/local delivery (26.10.2026; DI boundary и доказательства ниже). Результат: ephemeral queue каждого Gateway, in-flight/completed, READY с projection gate; isolated slow-client close. Файлы: Gateway subscriber/local iterator/read adapter и механический export existing PaymentPageProfiles provider. Зависимости D2c–D5. Проверки: два local Gateway+real Rabbit, concurrent duplicate/после success/после transient error, no matching subscribers, partial client failure, overflow закрывает только slow subscription, broker loss завершает затронутых; unknown-author→local lookup, missing/profileless/deleted/storage error различены, ровно4 попытки1/2/4s и отказный ack без success/горячего requeue. DoD: нет обещания browser delivery/обязательного RESYNC_REQUIRED при разрыве.
 - [x] D6b — RPC/GraphQL wiring и единый FE contract (26.10.2026; результаты и ограничения ниже). Результат: API раздела4, PostService read RPC раздела4 через существующий channel, query/subscription, additive SDL/runtime export и единый FE guide. Зависимости D3/D6a. Проверки: real HTTP/gRPC/WS publish→subscription, одинаковый search query/event; NOT_READY→UPSTREAM_UNAVAILABLE без READY control, listener READY→buffer→query merge; reconnect/refetch без duplicates; frontend supervisor backoff/jitter/max10, без reset на ack/кратком READY, auth/forbidden не retry; NOT_READY не busy-loop. File/S3 doubles явно обозначить. DoD: настоящий Post API, local two Gateway не staging.
-- [ ] D7 — короткая итоговая приёмка/deployment runbook. Результат: UC/исключения, commands/results, Apollo examples/checklist. Зависимость D6b. Проверки: один disposable publish→query/subscription→block reason→user access denied; schema/examples, scoped Gateway/Post build/typecheck/lint/format/diff. Не повторять полные auth/Stripe/WS/Payments suites. DoD: локальная готовность отделена от реального rollout/browser acceptance.
+- [x] D7 — техническая приёмка/deployment runbook завершены локально 26.10.2026; результат и матрица ниже. Публичный HTTP publish→Post gRPC/DB/outbox→Rabbit→WS, search/cursor, HTTP block reason/CSRF→user access denied, retained Post, reconnect/refetch/dedupe/logout cleanup проверены. Runtime1.6.0/examples и scoped test typecheck/lint/format/diff проверены. Production-код не менялся: повторные builds и полные suites не нужны. Production rollout/browser/S3, публичные502/503 и login остаются невыполненными внешними задачами.
 
 Стиль: ясные имена/явные boundary types, тонкие resolvers, небольшие функции, простые условия, parameterized SQL, существующий DomainException/error mapping. Не копировать Payment service файлы механически/не импортировать чужую infrastructure и не строить universal sync framework.
 
@@ -326,10 +326,10 @@ Redeploy: Post MS (projection/consumer/export worker/read, отдельный pu
 Безопасный порядок:
 
 1. Штатно применить новые Post migrations; generation отдельно. Projection NOT_READY, новый published outbox пуст. Public CRUD остальных сервисов совместим.
-2. Развернуть Post profile consumer/worker с env/address и **отдельной durable Post queue/binding** для source key. Gateway relay уже работает: старые опубликованные события в новую queue не реплеятся; bootstrap обязателен. Payment bindings сохраняются. Source confirm не доказывает Post queue при подключённой Payment queue.
+2. Развернуть финальный Post image с env/address и **отдельной durable Post queue/binding** для source key. Этот image включает consumer/worker и опубликованный writer/relay вместе: не требуется несуществующий артефакт «только consumer». Gateway relay уже работает: старые опубликованные события в новую queue не реплеятся; bootstrap обязателен. Payment bindings сохраняются. Source confirm не доказывает Post queue при подключённой Payment queue.
 3. Проверить все Gateway writers/export revisions; оператор записывает marker в **Post singleton**. Bootstrap+live consumer → fenced READY, затем daily reconcile. Не копировать Payment READY и не выставлять phase вручную. Откат старого source writer требует инвалидировать утверждение готовности/fenced restart.
 4. Развернуть Gateway read/WS/fan-out, проверить на каждом экземпляре published ephemeral binding, Post readiness и WS handshake. Отсутствующий Gateway не получает сообщение, ушедшее в чужую queue; publishedAt не доказывает обратного.
-5. Обновить Post create+PostPublishedOutbox+relay, проверить disposable publish→subscriptions. Delete relay не обновляется, двухфазного переключения OutboxEvent нет. Если новые writers активны до Gateway bindings, недополученные realtime события покрывает новый subscribe/READY/refetch из Post DB, не фиктивный replay. Чужие wildcard bindings могут скрыть unroutable; topology проверяется отдельно.
+5. Проверить disposable publish→subscriptions на уже развёрнутом финальном Post image. Delete relay не обновляется, двухфазного переключения OutboxEvent нет. При cold rollout ранний published writer допустим: события до Gateway bindings покрывает новый subscribe/READY/refetch из Post DB, не фиктивный replay. Если bindings отсутствуют, mandatory return оставляет outbox для retry; чужие wildcard bindings могут дать confirm без доставки нужному Gateway. При rollout работающих subscriptions предусмотреть planned reconnect/refetch; topology проверяется отдельно.
 6. Подключить frontend после backend smoke, browser cookies/Origin/TLS/proxy проверить отдельно. Реальный rollout сейчас не выполняется.
 
 Proxy: exact WS path /api/v1/graphql, forwarding Origin/Cookie/Sec-WebSocket-Protocol/Upgrade/Connection, TLS/wss, idle timeout≥60s (protocol ping25s/pong10s), graceful drain/reconnect; ровно один graphql-ws upgrade/heartbeat owner5.1. Public wss URL неизвестен. Другой Gateway при reconnect допустим: fan-out/refetch, не sticky-delivery обещание. Сохранить /socket.io и HTTP GraphQL. SameSite=lax не доказывает cross-site совместимость; cookies сейчас не менять.
@@ -642,3 +642,118 @@ pnpm exec tsc --project apps/micro-post-service/tsconfig.app.json --noEmit --inc
 ```
 
 Builds/source/test typechecks и scoped lint/format/diff успешны. Новых migrations/dependencies/env/deployment изменений нет. Public Post CRUD, Payment runtime, source writers, projection wire protocol и delete relay не менялись. В коде production WS policy включена, но **реальный rollout не выполнен/не подтверждён**: нужны согласованные версии Gateway/Post, existing private POST_SERVICE_GRPC_URL/Rabbit connectivity, включённая Post projection и её настоящие marker/READY, proxy Upgrade/Cookie/Origin/Sec-WebSocket-Protocol и HTTPS/SameSite. Не заявлять caller authentication/mTLS сверх существующей внутренней сетевой границы. Public API/wss URL и browser integration пока неизвестны. Следующий этап D7; автоматически не начинать. Commit/push/merge/deploy не выполнялись.
+
+## D7 — итоговая техническая приёмка
+
+26.10.2026, ветка test/superadmin-posts-acceptance, база a0749121facacb6a51c8cc840f99d1e55789d203 (D6b), исходное дерево чистое. Изменены только план и существующий D6b test. Production-код не менялся. Технический объём проверен локально; production/browser acceptance не выполнена.
+
+### Матрица приёмки
+
+| Требование                                       | Реализация                                                                             | Доказательство                                                                                                                                                | Ограничение                                                                                                                             |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Реальные Post/images/description/дата            | D3 SQL/File batch, publishedAt=Post.createdAt, empty description допустим              | [D6b/D7 test](apps/main-gateway-service/test/superadmin/superadmin-posts-api.integration-spec.ts): Post/images/outbox, empty description/order0, nullable URL | File transport заменён, S3/browser не проверены                                                                                         |
+| Username search до pagination                    | SQL LEFT JOIN PostAdminUserProfile, literal case-insensitive substring                 | D7 TARGET*% через HTTP/gRPC; [D3 suite](apps/micro-post-service/test/integration/superadmin-posts-read.integration-spec.ts): дальние совпадения, %/*          | Поиск относительно проекции; eventual lag, свежий Gateway username не подставляется                                                     |
+| Infinite-scroll contract                         | first default4/max5; createdAt DESC/id DESC; opaque filter-bound tuple cursor          | D7 две cursor-страницы; D6b default/max/end; D3 ties/precision/удаление cursor row                                                                            | Визуальный scroll/anchor — frontend; totalCount нет                                                                                     |
+| Неудалённые Post blocked/deleted/missing авторов | Block не исключает Post; deleted/profileless/unknown username=null; userId сохраняется | D7 оба Post остаются после block; D6b missing-author roundtrip; D3 LEFT JOIN/tombstone/profileless                                                            | Unknown projection не доказывает missing User; search не включает null                                                                  |
+| GraphQL Subscription/новый Post без reload       | graphql-ws, READY после projection/listener/broker gates                               | D7 READY → public HTTP create → Post gRPC/DB/outbox → Rabbit → настоящий WS event                                                                             | READY fixture, не bootstrap/rollout; нет offline replay/browser ack                                                                     |
+| Block автора с reason/CSRF                       | Существующая HTTP mutation, admin cookie/CSRF, session revoke                          | D7 ANOTHER_REASON trim/isBanned, следующий protected POST401 без нового Post                                                                                  | Диалог/Yes/No/закрытие — frontend, backend-тестом не проверены                                                                          |
+| Reconnect/refetch/dedupe                         | Новая subscription/READY, query головы, merge по postId                                | D7 offline publication видна через refetch, Map без duplicates, disconnect/listeners=0/logout                                                                 | Актуальное окно, не вечный replay; cursor chain сбрасывается frontend                                                                   |
+| Scope/исключения                                 | Реальные posts/search/subscription и прежний block                                     | D2–D6 доказательства выше; текущий diff только test/docs                                                                                                      | Comments/reactions, realtime rename/edit/delete, admin Post delete вне scope; profileUrl/прежние внешние вопросы не объявлены решёнными |
+
+### Связный сценарий и результаты
+
+Расширен один D6b сценарий: admin login → WS READY → disposable User/Session/JWT fixture → настоящий public HTTP POST /api/v1/posts с JwtGuard/JwtStrategy/UserAccessCheck → Gateway create command → настоящий Post gRPC CreatePost/handler → атомарный Post/images/outbox → existing relay → настоящий Rabbit → WS. Затем search/cursor, HTTP block reason/CSRF, повторный protected POST401, Post остаётся в admin list; reconnect/refetch/dedupe, real missing-author flow, disconnect всех peers/listeners=0, logout и отказ старой admin cookie.
+
+User registration/login/upload не проверялись: User/Session/JWT созданы fixtures. FileService getFileStatus/GetFilesData заменены (UPLOADED/owner, URL map); File MS/S3 не проверены. Relay вызывается harness, production poll timing не проверялся заново. Projection READY/rows — fixtures, не bootstrap/source rollout. Настоящие disposable PostgreSQL16 с раздельными Gateway/Post logical DB и RabbitMQ3.13; gRPC/HTTP/WS настоящие, shared/production не использовались. Helper готовит предыдущую схему через явный baseline, это не новый proof чистого migrate deploy истории.
+
+Выбранный запуск также проверяет actual Nest GraphQLSchemaHost против runtime1.6.0/target и все GraphQL/gql examples единого [FE guide](GRAPHQL_SUPERADMIN_FRONTEND_API.md). Guide прочитан: endpoints из config, cookies/Origin/HTTP-CSRF, Apollo split, READY-buffer-query-merge, cursor/search reset, bounded retry/auth stop, nullable images/username, no replay описаны. Новых разрывов не найдено; guide не переписывался.
+
+```powershell
+$env:ENV_FILE_PATH = Join-Path $env:TEMP 'inctagram-posts-acceptance-no-env'
+pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --runInBand --runTestsByPath apps/main-gateway-service/test/superadmin/superadmin-posts-api.integration-spec.ts --testNamePattern 'D7|runtime/guide validation' --noStackTrace
+pnpm exec eslint apps/main-gateway-service/test/superadmin/superadmin-posts-api.integration-spec.ts
+pnpm exec prettier --check apps/main-gateway-service/test/superadmin/superadmin-posts-api.integration-spec.ts GRAPHQL_SUPERADMIN_POSTS_PLAN.md
+git diff --check
+```
+
+Jest: **2 passed, 1 skipped, 1 suite passed, 33.191s**. TypeScript Compiler API с Gateway tsconfig.app.json + изменённым spec как root/noEmit/incremental=false: **0 diagnostics**. Scoped lint/format/local links/diff проверены перед завершением. Builds не повторялись: production-код не менялся, успешные D6b builds остаются доказательством. D2–D6/full monorepo regression/load testing не запускались.
+
+### Deployment runbook — инструкция, не выполненные действия
+
+1. **Post migrations/build.** Подтвердить целевую Post DB/revision и штатный backup. Две additive migrations: [20261026120000_add_post_admin_user_projection](apps/micro-post-service/prisma/migrations/20261026120000_add_post_admin_user_projection/migration.sql) и [20261026130000_add_post_published_outbox](apps/micro-post-service/prisma/migrations/20261026130000_add_post_published_outbox/migration.sql). Старую историю не менять и не baseline-ить production вслепую. Из корня, DATABASE_URL передать через проверенный Post secret в окружение процесса, не печатать connection string:
+
+```powershell
+$env:NODE_ENV = 'production'
+pnpm exec prisma migrate status --config apps/micro-post-service/prisma/prisma.config.ts
+pnpm exec prisma migrate deploy --config apps/micro-post-service/prisma/prisma.config.ts
+# Generation — отдельный build step, не применение migrations:
+pnpm run prisma:post:generate
+pnpm run build:micro-post-service
+pnpm run build:main-gateway-service
+```
+
+[Prisma config](apps/micro-post-service/prisma/prisma.config.ts) выбирает Post schema.prisma/migrations и DATABASE_URL для CLI; dotenv читает .env.production при NODE_ENV=production, уже переданный DATABASE_URL не заменяется. [Post Dockerfile](apps/micro-post-service/Dockerfile) уже делает generation/build при сборке и migrate deploy с этим config перед start; предварительный deploy migrations и повторный startup deploy идемпотентны. Generation не заменяет migration. Ошибки history/drift разбирать отдельно, без reset/db push.
+
+2. **Operations/env/network.** Пересобрать/redeploy Post MS и ВСЕ Gateway на согласованные images. Payment/File redeploy без изменений не нужен. [Post deployment.yaml](apps/micro-post-service/deployment.yaml) передаёт explicit secretKeyRef: DATABASE_URL, RABBITMQ_URL, FILE_SERVICE_GRPC_URL, GRPC_HOST/GRPC_PORT, PORT, NODE_ENV. В нём **нет POST_USER_PROJECTION_SYNC_ENABLED/GATEWAY_USER_SERVICE_GRPC_URL и нет envFrom**. Operations обязаны обеспечить оба ключа в container env через manifest/pipeline; одного добавления secret keys недостаточно. Передача новых env pipeline не подтверждена репозиторием. [.env.example](apps/micro-post-service/.env.example) сам контейнер не настраивает:
+
+```text
+POST_USER_PROJECTION_SYNC_ENABLED=true
+GATEWAY_USER_SERVICE_GRPC_URL=main-gateway-service:50050
+```
+
+Это private host:port, проверить фактические namespace/DNS/NetworkPolicy, Gateway GATEWAY*GRPC_HOST/PORT. [Gateway service](apps/main-gateway-service/service.yaml) публикует50050, [Post service](apps/micro-post-service/service.yaml)50051; namespace/template требуют сверки на окружении. Gateway→Post: existing POST_SERVICE_GRPC_URL/50051; Post→File: existing FILE_SERVICE_GRPC_URL (config example50052, фактический service проверить); Gateway/Post используют существующий RABBITMQ_URL с согласованным broker/vhost. DB раздельные. [Gateway manifest](apps/main-gateway-service/deployment.yaml) содержит POST_SERVICE_GRPC_URL/RABBITMQ_URL/GATEWAY_GRPC*\*. Проверить текущие admin Origin/cookies без смены defaults/fallback credentials. Это сетевая граница, не утверждение mTLS/caller auth.
+
+3. **Durable profile queue/bootstrap.** Финальный Post image включает consumer/worker И published writer/relay одновременно. Запускать целиком после migrations с sync=true; артефакт «только consumer» не требуется. Проверить durable topic common_exchange; durable competing queue post.superadmin.user-profile.v1 с bindings payment.user-profile.changed.v1 + post.user-profile.retry.v1. Retry queue post.superadmin.user-profile.v1.retry: TTL60000, DLX common_exchange/post.user-profile.retry.v1; DLQ post.superadmin.user-profile.v1.dlq binding post.user-profile.dead.v1. Payment queue независима. До появления Post binding broker не хранит события для Post; bootstrap обязателен, confirm в чужую queue не доказывает доставку Post.
+
+Проверить revision **всех** Gateway source writers/export (registration/Google/profile/soft delete), доступность private ExportPaymentUserProfiles и connected Post consumer. Затем выполнить **D2c операторский SQL-runbook выше**: marker source_writers_confirmed_at/source_deployment_revision в post-user-profile-v1 с fencing; не копировать Payment READY/marker. Наблюдать phase/mode/cursor/upper/lease/last_completed_at/next_run_at до fenced READY и daily reconcile+24h, consumer/retry/DLQ. READY вручную не выставлять; disconnect не означает lag0. Операторские SQL здесь не выполнялись.
+
+4. **Gateway fan-out/rollout.** D6b включает один WS owner и D6a consumer на каждый Gateway. Проверить server-named exclusive auto-delete queue каждого экземпляра, binding common_exchange/post.published.v1 и активный consumer. Это не competing queue на все Gateway/не queue на браузер. READY требует projection+listener+broker generation. При cold rollout ранний published writer допустим: события до подключения ephemeral queue могут уйти в чужой binding и считаться опубликованными; будущие клиенты восстанавливают актуальные Post query/refetch, **без replay**. Без matching bindings mandatory return оставляет source outbox для retry. Для работающих subscriptions planned disconnect/reconnect → новый READY → refetch/reset cursor chain → merge/dedupe; uninterrupted/exactly-once не обещается.
+
+5. **Proxy/browser.** Точный путь /api/v1/graphql, subprotocol graphql-transport-ws на existing HTTP server. TLS/wss, forwarding Upgrade/Connection/Cookie/Origin/Sec-WebSocket-Protocol, idle timeout≥60s (protocol ping25s/pong10s), graceful drain. Сохранить HTTP GraphQL и /socket.io. Фактические public HTTP/wss URLs берутся из deployment config; ранее наблюдавшийся адрес не объявляется работающим endpoint. Exact SUPERADMIN_ALLOWED_ORIGINS не смешивать с REST CORS. Secure/SameSite/credentials проверить на реальных доменах; browser integration пока не выполнена.
+
+6. **Read-only smoke после rollout.** Действующая admin cookie + разрешённый Origin, фактический Gateway URL, без token URL/mutations:
+
+```graphql
+query PostsDeploymentSmoke {
+  superadminPosts(input: { first: 1 }) {
+    items {
+      postId
+      userId
+      username
+      publishedAt
+      images {
+        fileId
+        url
+        order
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+}
+subscription PostsDeploymentLiveSmoke {
+  superadminPostPublished(input: {}) {
+    kind
+    post {
+      postId
+      userId
+    }
+  }
+}
+```
+
+WS smoke: connection_init/connection_ack → subscription READY → complete/disconnect. Это readiness/transport, не proof новой публикации. Отдельный browser acceptance использует только disposable public Post/File flow при разрешении, сейчас production-операций нет.
+
+При UPSTREAM_UNAVAILABLE проверить nullable query root/operation error без READY; Post flag/container env, собственный singleton/marker/READY, consumer/retry/DLQ/export, Gateway→Post5s gRPC/network/version compatibility, Post DB/File batch, Gateway broker generation/queue/binding. Safe codes/metadata без payload/secrets, не заменять ошибку items=[] и не снимать guards. Missing File(url=null) отличается от File outage. **Публичные502/503 и обычный REST login — отложенная пользователем внешняя незавершённая задача**, не диагностировалась и не считается исправленной этой приёмкой.
+
+7. **Откат.** Не терять Post/projection/outbox/progress, не удалять таблицы/данные, не reset/db push. Совместимость RPC/images и planned reconnect/refetch проверить. Возврат старых Gateway source writers инвалидирует утверждение revision/готовности: прекратить выдачу feed как полного, применить D2c fenced restart/очистку marker, повторно проверить все revisions после восстановления; не оставлять ложный READY. Новая rollback-подсистема не создаётся.
+
+### Итоговый статус
+
+- [x] D7: техническая реализация/локальная приёмка/инструкции завершены; новых этапов агент не начинает.
+- [ ] Production migrations/rollout, реальные env/network/proxy/WS/browser/S3 acceptance.
+- [ ] Отдельная отложенная задача: публичные502/503 и восстановление обычного login.
+
+Frontend передать единый guide1.6.0 и runtime SDL: визуальный scroll/диалог/Yes/No/закрытие, cookies/CSRF, READY/query/merge, cursor/search reset, bounded retry/auth stop остаются интеграционной работой frontend. Буквальное полное выполнение исходного ТЗ с исключёнными comments/reactions не заявляется. Commit/push/merge/deploy не выполнялись.
