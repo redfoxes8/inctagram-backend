@@ -10,6 +10,7 @@ export abstract class IPaymentProfileExportClient {
   abstract exportPage(request: PaymentProfileExportRequest): Promise<PaymentProfileExportResult>;
 }
 export abstract class IProjectionConsumerState {
+  onConnected?: (listener: () => void) => () => void;
   abstract isConnected(): boolean;
 }
 export type ProjectionLease = Readonly<{
@@ -18,6 +19,8 @@ export type ProjectionLease = Readonly<{
   request: PaymentProfileExportRequest;
 }>;
 export abstract class IProjectionBootstrapRepository {
+  // Scheduling hint from the last claim; never substitutes API readiness checks.
+  nextCheckAt = new Date(0);
   abstract claim(): Promise<ProjectionLease | null>;
   abstract complete(input: {
     lease: ProjectionLease;

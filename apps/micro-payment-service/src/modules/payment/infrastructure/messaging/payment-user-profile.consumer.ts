@@ -29,6 +29,14 @@ export class PaymentUserProfileConsumer implements OnModuleInit, OnModuleDestroy
   private inflight: Promise<void> | null = null;
   private stopped = false;
   private failures = 0;
+  private readonly connectedListeners = new Set<() => void>();
+
+  onConnected(listener: () => void): () => void {
+    this.connectedListeners.add(listener);
+    return (): void => {
+      this.connectedListeners.delete(listener);
+    };
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -55,11 +63,21 @@ export class PaymentUserProfileConsumer implements OnModuleInit, OnModuleDestroy
       this.scheduleReconnect();
     } finally {
       this.opening = null;
+      if (this.isConnected()) {
+        for (const listener of this.connectedListeners) {
+          try {
+            listener();
+          } catch {
+            /* A wake-up cannot invalidate the consumer connection. */
+          }
+        }
+      }
     }
   }
 
   async onModuleDestroy(): Promise<void> {
     this.stopped = true;
+    this.connectedListeners.clear();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     const session = this.session;
     this.session = null;

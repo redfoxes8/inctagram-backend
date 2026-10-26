@@ -452,7 +452,7 @@ describe('D2c Post bootstrap with isolated Gateway/Post PostgreSQL and real User
     });
     expect(create).not.toHaveBeenCalled();
     const runner = bootstrap(client);
-    const run = jest.spyOn(runner, 'runOnce').mockResolvedValue(undefined);
+    const run = jest.spyOn(runner, 'runOnce').mockResolvedValue(new Date(Date.now() + 1200000));
     const background = new PostProfileBootstrapWorker(disabled, runner);
     background.onModuleInit();
     expect(run).not.toHaveBeenCalled();
@@ -460,7 +460,9 @@ describe('D2c Post bootstrap with isolated Gateway/Post PostgreSQL and real User
     jest.useFakeTimers();
     try {
       const activeRunner = bootstrap();
-      const activeRun = jest.spyOn(activeRunner, 'runOnce').mockResolvedValue(undefined);
+      const activeRun = jest
+        .spyOn(activeRunner, 'runOnce')
+        .mockResolvedValue(new Date(Date.now() + 1200000));
       const active = new PostProfileBootstrapWorker(config(), activeRunner);
       active.onModuleInit();
       await jest.advanceTimersByTimeAsync(1000);
