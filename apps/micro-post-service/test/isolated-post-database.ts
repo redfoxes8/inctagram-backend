@@ -6,11 +6,13 @@ import { PrismaClient } from '../src/core/prisma/client';
 import type { IsolatedAdminDatabase } from '../../main-gateway-service/test/superadmin/isolated-admin-database';
 
 export const POST_PROJECTION_MIGRATION = '20261026120000_add_post_admin_user_projection';
+export const POST_PUBLISHED_MIGRATION = '20261026130000_add_post_published_outbox';
 
 // Reuse the existing disposable container. Never read a Post .env or reset an application database.
 export function createIsolatedPostDatabase(input: {
   database: IsolatedAdminDatabase;
   beforeProjectionMigration: (sql: (statement: string) => void) => void;
+  beforePublishedMigration?: (sql: (statement: string) => void) => void;
 }): PrismaClient {
   const container = input.database.container;
   if (!/^sa-admin-test-[0-9a-f-]+$/.test(container)) {
@@ -74,11 +76,11 @@ export function createIsolatedPostDatabase(input: {
   const names = readdirSync(directory)
     .filter((name) => /^\d/.test(name))
     .sort();
-  if (names.at(-1) !== POST_PROJECTION_MIGRATION)
-    throw new Error('Unexpected Post migration chain');
+  if (names.at(-1) !== POST_PUBLISHED_MIGRATION) throw new Error('Unexpected Post migration chain');
   for (const name of names) {
-    if (name === POST_PROJECTION_MIGRATION) {
-      input.beforeProjectionMigration(sql);
+    if (name === POST_PROJECTION_MIGRATION) input.beforeProjectionMigration(sql);
+    if (name === POST_PUBLISHED_MIGRATION) {
+      input.beforePublishedMigration?.(sql);
       migrate(['deploy']);
     } else {
       // Explicit previous-schema baseline, not a clean migrate deploy of the complete history.

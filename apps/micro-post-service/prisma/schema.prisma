@@ -51,6 +51,19 @@ model OutboxEvent {
   @@index([status, createdAt])
 }
 
+model PostPublishedOutbox {
+  id            String    @id @db.Uuid
+  postId        String    @db.Uuid
+  payload       Json
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  availableAt   DateTime  @default(now()) @db.Timestamptz(3)
+  attempts      Int       @default(0)
+  leaseId       String?   @db.Uuid
+  leaseUntil    DateTime? @db.Timestamptz(3)
+  publishedAt   DateTime? @db.Timestamptz(3)
+  lastErrorCode String?   @db.VarChar(64)
+}
+
 model PostAdminUserProfile {
   userId        String  @id @map("user_id")
   sourceVersion BigInt  @map("source_version")
