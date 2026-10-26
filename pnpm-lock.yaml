@@ -125,6 +125,9 @@ importers:
       graphql:
         specifier: 16.14.2
         version: 16.14.2
+      graphql-ws:
+        specifier: 6.2.1
+        version: 6.2.1(graphql@16.14.2)(ws@8.21.3)
       handlebars:
         specifier: 4.7.9
         version: 4.7.9
@@ -167,6 +170,9 @@ importers:
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
+      ws:
+        specifier: 8.21.3
+        version: 8.21.3
     devDependencies:
       '@bufbuild/buf':
         specifier: ^1.69.0
@@ -210,6 +216,9 @@ importers:
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
       concurrently:
         specifier: 9.2.1
         version: 9.2.1

@@ -22,4 +22,16 @@ export class SessionAdminPrincipalVerifier extends AdminPrincipalVerifier {
     });
     return session ? { role: 'SUPERADMIN', sessionId: session.id } : null;
   }
+
+  override async verifyWithoutTouch(input: {
+    sessionToken: string | null;
+  }): Promise<AdminPrincipal | null> {
+    const token = readAdminToken(input.sessionToken);
+    if (!token) return null;
+    const session = await this.sessions.findActive({
+      tokenHash: hashAdminToken(token),
+      now: this.clock.now(),
+    });
+    return session ? { role: 'SUPERADMIN', sessionId: session.id } : null;
+  }
 }

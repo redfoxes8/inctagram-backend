@@ -1,5 +1,5 @@
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
-import type { SuperadminContext } from './superadmin-context';
+import type { SuperadminHttpContext } from './superadmin-context';
 import { SuperadminSessionException } from './superadmin.guard';
 import { SuperadminLoginInput } from './superadmin-login.input';
 import { AdminSessionCookies } from './admin-session-cookies';
@@ -16,7 +16,7 @@ export class SuperadminAuthResolver {
   ) {}
 
   @Query('superadminSession')
-  session(@Context() context: SuperadminContext): { authenticated: boolean } {
+  session(@Context() context: SuperadminHttpContext): { authenticated: boolean } {
     this.cookies.bootstrapCsrf(context.res);
     return { authenticated: true };
   }
@@ -25,7 +25,7 @@ export class SuperadminAuthResolver {
   @Mutation('superadminLogin')
   async signIn(
     @Args('input') input: SuperadminLoginInput,
-    @Context() context: SuperadminContext,
+    @Context() context: SuperadminHttpContext,
   ): Promise<{ authenticated: boolean }> {
     const result = await this.login.execute({
       ...input,
@@ -40,7 +40,7 @@ export class SuperadminAuthResolver {
 
   @SuperadminSessionException('logout')
   @Mutation('superadminLogout')
-  async signOut(@Context() context: SuperadminContext): Promise<{ loggedOut: boolean }> {
+  async signOut(@Context() context: SuperadminHttpContext): Promise<{ loggedOut: boolean }> {
     await this.logout.execute({ token: readAdminToken(context.req.cookies?.superadminSession) });
     this.cookies.clear(context.res);
     context.principal = null;

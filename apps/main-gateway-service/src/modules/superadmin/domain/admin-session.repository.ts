@@ -9,6 +9,7 @@ export type AdminSessionRecord = {
 };
 
 export abstract class AdminSessionRepository {
+  abstract findActive(input: { tokenHash: string; now: Date }): Promise<AdminSessionRecord | null>;
   abstract replace(input: {
     session: AdminSessionRecord;
     previousTokenHash: string | null;

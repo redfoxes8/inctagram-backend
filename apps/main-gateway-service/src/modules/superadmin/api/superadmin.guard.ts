@@ -4,7 +4,7 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 import { GraphQLError, OperationTypeNode, type GraphQLResolveInfo } from 'graphql';
 import { AdminPrincipalVerifier } from '../domain/admin-principal';
 import type { AdminPrincipal } from '../domain/admin-principal';
-import type { SuperadminContext } from './superadmin-context';
+import type { SuperadminContext, SuperadminHttpContext } from './superadmin-context';
 import { assertSuperadminCsrf } from './superadmin-http-security';
 
 const SESSION_EXCEPTION = 'superadmin:session-exception';
@@ -27,6 +27,12 @@ export class SuperadminGuard implements CanActivate {
       context.getHandler(),
     );
     const requestContext = graphql.getContext<SuperadminContext>();
+    if (requestContext.transport === 'ws') {
+      if (info.operation.operation !== OperationTypeNode.SUBSCRIPTION)
+        throw new GraphQLError('Access denied', { extensions: { code: 'FORBIDDEN' } });
+      requestContext.principal = await requestContext.lifecycle.assertAuthorized();
+      return true;
+    }
     if (
       info.parentType.name === 'Mutation' &&
       exception === 'login' &&
@@ -67,7 +73,7 @@ export class SuperadminGuard implements CanActivate {
     throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED' } });
   }
 
-  private checkCsrf(context: SuperadminContext): void {
+  private checkCsrf(context: SuperadminHttpContext): void {
     try {
       assertSuperadminCsrf(context.req);
     } catch {
