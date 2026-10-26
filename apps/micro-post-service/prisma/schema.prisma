@@ -4,31 +4,31 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 model Post {
-  id          String      @id @default(uuid()) @db.Uuid
-  ownerId     String      @db.Uuid
-  description String      @db.VarChar(500)
-  
-  images      PostImage[]
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
+  id          String @id @default(uuid()) @db.Uuid
+  ownerId     String @db.Uuid
+  description String @db.VarChar(500)
+
+  images PostImage[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([ownerId])
   @@index([createdAt])
 }
 
 model PostImage {
-  id        String   @id @default(uuid()) @db.Uuid
-  postId    String   @db.Uuid
-  fileId    String   @db.Uuid
-  order     Int
-  
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  postId String @db.Uuid
+  fileId String @db.Uuid
+  order  Int
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([postId, fileId])
   @@index([postId])
@@ -41,12 +41,54 @@ enum OutboxStatus {
 }
 
 model OutboxEvent {
-  id         String      @id @default(uuid()) @db.Uuid
-  type       String
-  payload    Json
-  status     OutboxStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
+  id          String       @id @default(uuid()) @db.Uuid
+  type        String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
   processedAt DateTime?
 
   @@index([status, createdAt])
+}
+
+model PostAdminUserProfile {
+  userId        String  @id @map("user_id")
+  sourceVersion BigInt  @map("source_version")
+  username      String?
+  profileExists Boolean @map("profile_exists")
+  isDeleted     Boolean @map("is_deleted")
+
+  @@map("post_admin_user_profile")
+}
+
+model PostAdminUserProjectionSync {
+  id                       String                       @id @default("post-user-profile-v1")
+  phase                    PostAdminUserProjectionPhase @default(NOT_READY)
+  mode                     PostAdminUserProjectionMode  @default(IDLE)
+  passId                   String?                      @map("pass_id") @db.Uuid
+  upperUserId              String?                      @map("upper_user_id")
+  cursor                   String?
+  sourceEmpty              Boolean                      @default(false) @map("source_empty")
+  lastBatchAt              DateTime?                    @map("last_batch_at") @db.Timestamptz(3)
+  lastCompletedAt          DateTime?                    @map("last_completed_at") @db.Timestamptz(3)
+  nextRunAt                DateTime                     @default(now()) @map("next_run_at") @db.Timestamptz(3)
+  sourceWritersConfirmedAt DateTime?                    @map("source_writers_confirmed_at") @db.Timestamptz(3)
+  sourceDeploymentRevision String?                      @map("source_deployment_revision")
+  leaseOwner               String?                      @map("lease_owner") @db.Uuid
+  leaseUntil               DateTime?                    @map("lease_until") @db.Timestamptz(3)
+  leaseGeneration          BigInt                       @default(0) @map("lease_generation")
+
+  @@map("post_admin_user_projection_sync")
+}
+
+enum PostAdminUserProjectionPhase {
+  NOT_READY
+  LOADING
+  READY
+}
+
+enum PostAdminUserProjectionMode {
+  IDLE
+  BOOTSTRAP
+  RECONCILE
 }

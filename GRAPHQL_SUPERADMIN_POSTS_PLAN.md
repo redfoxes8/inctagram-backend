@@ -1,6 +1,6 @@
 # Третья итерация GraphQL суперадминки: Posts
 
-Статус: исследование и D1 завершены документально. Продуктовые правила и архитектура определены по поручению пользователя 26.10.2026; план готов к финальному review. Реализация не начата. Внешняя production/browser готовность не подтверждена.
+Статус: D0/D1 завершены документально; D2a реализован и проверен на изолированном PostgreSQL 26.10.2026. Готовы только projection storage/apply; синхронизация не запущена. Следующий этап D2b не начат. Внешняя production/browser готовность не подтверждена.
 
 Дата: 25.10.2026. Ветка: `docs/superadmin-posts-plan`. Исследованный commit: `76d3a5df1c1b6d7061ba2138efaea2643e40159f` (актуальные `dev` и `origin/dev` после успешного fetch). Начальное рабочее дерево чистое.
 
@@ -297,11 +297,11 @@ Frontend слушает close/error и запускает5.2; browser protocol f
 
 ## 7. Последовательные этапы и минимальные проверки
 
-Checkbox только после результата и проверки: команда/доказательство и следующий шаг. При блокере оставить пустым. Jira не создавать. Все implementation checkbox пусты; разбиение не означает согласования оставшихся Product-вопросов.
+Checkbox только после результата и проверки: команда/доказательство и следующий шаг. При блокере оставить пустым. Jira не создавать. Из implementation выполнен только D2a; остальные checkbox пусты. Результаты и ограничения каждого этапа записываются отдельно.
 
 - [x] D0 — ограниченное исследование и уточнение плана. Проверены Post source/read/outbox, session/GraphQL budget и реализация sync второй итерации. Четыре решения пользователя записаны; production-код не менялся, builds/application tests не запускались.
-- [x] D1 — контракт/продуктовые правила и технические параметры определены и сверены 26.10.2026. Доказательства: LEFT JOIN/query и event missing различены; готовый local lookup подтверждён кодом, адресного export repair нет; retries1/2/4s/отказный ack, heartbeat25/10/init5/sweep30, client max10/backoff и budget149/185/39 рассчитаны. Проверка только чтением кода/согласованностью документа, без исполнения нового API. Следующий кодовый этап D2a, ещё не начат; production/browser условия отдельно.
-- [ ] D2a — Post projection storage/apply. Результат: additive PostAdminUserProfile + PostAdminUserProjectionSync, NOT_READY singleton; typed version guards/trusted repair. Слои: Post Prisma/migration/port/repository, shared parser reuse. Зависимость: завершённый D1, минимальная модель3.1 без isBanned. Проверки: isolated Post DB, legacy Post сохранены, BigInt>MAX_SAFE_INTEGER, concurrent/stale/duplicate/tombstone apply, rollback/repair. DoD: нет background startup/fake READY, Payment schema не меняется.
+- [x] D1 — контракт/продуктовые правила и технические параметры определены и сверены 26.10.2026. Доказательства: LEFT JOIN/query и event missing различены; готовый local lookup подтверждён кодом, адресного export repair нет; retries1/2/4s/отказный ack, heartbeat25/10/init5/sweep30, client max10/backoff и budget149/185/39 рассчитаны. Проверка только чтением кода/согласованностью документа, без исполнения нового API. D2a выполнен отдельным последующим проходом (результат ниже); следующий этап D2b ещё не начат, production/browser условия отдельно.
+- [x] D2a — Post projection storage/apply. Результат: additive PostAdminUserProfile + PostAdminUserProjectionSync, NOT_READY singleton; typed version guards/trusted repair. Слои: Post Prisma/migration/port/repository, shared parser reuse. Зависимость: завершённый D1, минимальная модель3.1 без isBanned. Проверки: isolated Post DB, legacy Post сохранены, BigInt>MAX_SAFE_INTEGER, concurrent/stale/duplicate/tombstone apply, rollback/repair. DoD: нет background startup/fake READY, Payment schema не меняется.
 - [ ] D2b — независимый Post profile consumer. Результат: durable Post queue+retry/DLQ, ack после commit, feature-off lifecycle. Файлы: Post config/module/consumer, scoped topology libs/contracts. Зависимость D2a. Проверки: real Rabbit+Post DB, исходное событие независимо приходит в Post/Payment queues, Post retry не идёт Payment, unconfirmed retry не ack, disabled не стартует consumer. Не повторять весь P1c suite. DoD: новые snapshots доставляются, полнота загрузки ещё не заявляется.
 - [ ] D2c — Post export/bootstrap/reconciliation/readiness. Результат: Post client существующего ExportPaymentUserProfiles, singleton progress/resume/fencing/marker, READY gates и24h сверка. Зависимость D2b. Проверки: реальный User gRPC+isolated Gateway/Post DB; resume, UUID позади cursor через live event, stale batch/new live event, lost generation rollback, без marker/consumer нет READY, repair/outage retry. DoD: свой progress, без зависимости от Payment READY; existing RPC wire не меняется.
 - [ ] D3 — SQL read по проекции и application contract. Результат: Post query/repository, JOIN/visibility/search до LIMIT first+1, cursor/File batch; полного публичного API пока нет. Файлы: Post read-port/query/SQL, shared cursor/result types. Зависимости D1/D2c. Проверки: full first при достаточных совпадениях далеко за началом списка, literal %/\_, ties/удалённая cursor row/последняя пустая страница; NOT_READY/error, unknown projection LEFT JOIN без search/search exclusion, profile/tombstone null, confirmed missing не блокирует страницу, один bounded File batch. DoD: нет scan-pages/totalCount/N+1 или per-row Gateway query lookup; техническая initial неполнота не пустая лента.
@@ -343,3 +343,31 @@ Proxy: exact WS path /api/v1/graphql, forwarding Origin/Cookie/Sec-WebSocket-Pro
 - 26.10.2026 — зафиксированы четыре принятых решения: Post username projection, отдельная PostPublishedOutbox, READY/fan-out/refetch, in-flight/completed и изолированный slow-client overflow. Проверены существующие Gateway events/export и Payment sync patterns без изменения wire/API. Все implementation checkbox пусты. Следующий шаг — повторный review, не реализация.
 
 - 26.10.2026 — окончательный docs-only review: visibility/username/images/date приняты; подтверждён local Gateway author lookup, event4 попытки1/2/4s и отказный ack/refetch; задан heartbeat25/10/init5 и reconnect max10. First default4/max5 выбран по budget149/185, все10 фото сохраняются. D1 выполнен документально, все implementation checkbox пусты. Следующий шаг — финальный review пользователя, без старта D2a.
+
+### D2a — фактический результат 26.10.2026
+
+Ветка `feature/superadmin-post-profile-storage`, база `033b377bc77aebf007f093c9545c0cd145b8dce5`. Добавлены [Post Prisma models](apps/micro-post-service/prisma/schema.prisma), [миграция 20261026120000_add_post_admin_user_projection](apps/micro-post-service/prisma/migrations/20261026120000_add_post_admin_user_projection/migration.sql), [application port](apps/micro-post-service/src/modules/posts/application/ports/post-admin-user-profile.port.ts) и [Post repository](apps/micro-post-service/src/modules/posts/infrastructure/repositories/post-admin-user-profile.repository.ts). Общие snapshot parser/types импортируются из libs/contracts; Gateway/Payment wire и реализации не менялись.
+
+`forTransaction({transaction,rootClient})` принимает handle вызывающей Post-транзакции, как существующая Payment граница; issuing root отклоняется. Нет standalone/autocommit fallback/nested transaction. Проверка по форме методов Prisma Proxy непригодна и исключена после реального DB-прогона. Atomic insert ON CONFLICT + row lock/CAS обеспечивают version guards; storage errors не становятся protocol conflict. Trusted repair отдельным методом использует snapshot.sourceVersion как expected version, не перезаписывает более новую row/не воскрешает tombstone. Миграция создаёт только пустую проекцию и singleton NOT_READY/IDLE без marker; старые Post/images/delete outbox сохраняются.
+
+[Целевой набор](apps/micro-post-service/test/integration/post-admin-user-profile.integration-spec.ts): **5/5** на настоящем disposable PostgreSQL16-alpine в контейнере existing IsolatedAdminDatabase helper и отдельной logical DB posts_fixture; helper не использует application DB URL/reset. Предыдущие две Post migrations применены SQL и отмечены `migrate resolve --applied`; representative fixtures созданы до новой миграции, затем **новая миграция через Prisma migrate deploy**. Это проверка поверх явного baseline, а не чистый migrate deploy полной истории. RabbitMQ/network doubles не требовались; контейнер остановлен helper-ом. Проверены fixture preservation/NOT_READY, TEXT ID/BigInt>MAX_SAFE_INTEGER, stale/duplicate/conflict/tombstone, concurrent insert/versions с управляемыми gates, rollback apply+repair+Post+progress и trusted repair/CAS.
+
+Команды:
+
+```powershell
+# CLI получает безопасный generate-only URL; NODE_ENV не загружает реальные service env.
+$env:NODE_ENV = "post-projection-isolated"
+$env:DATABASE_URL = "postgresql://127.0.0.1:1/post_generate_only"
+pnpm exec prisma format --config apps/micro-post-service/prisma/prisma.config.ts
+pnpm run prisma:post:generate
+pnpm run build:micro-post-service
+pnpm exec tsc --project apps/micro-post-service/tsconfig.app.json --noEmit --incremental false
+
+# Переиспользован Jest config Gateway, без загрузки service .env.test.
+$env:ENV_FILE_PATH = Join-Path $env:TEMP "inctagram-post-projection-no-env"
+pnpm exec jest --config apps/main-gateway-service/test/jest.config.ts --roots C:/_MY_DATA_/development/inctagram-backend/apps/micro-post-service/test --runInBand --runTestsByPath C:/_MY_DATA_/development/inctagram-backend/apps/micro-post-service/test/integration/post-admin-user-profile.integration-spec.ts --noStackTrace
+```
+
+Source + новый test/helper также проверены через TypeScript Compiler API с options Post tsconfig.app.json, noEmit/incremental=false и добавленным root test file: **0 diagnostics**. Scoped ESLint/Prettier — четыре новых TS файла, Prisma format — только Post schema; git diff --check. Итоговые результаты этих проверок успешны. Новых dependencies/env/deployment нет; форматирование schema не меняет прежние модели. GraphQL остаётся1.5.0, Public Posts CRUD не менялся.
+
+**Storage готов; end-to-end синхронизация не запущена.** Ни consumer/export/bootstrap/worker, ни published outbox/relay, ни новые RPC/GraphQL не подключены. Следующий этап — D2b, не начат. Commit/push/merge/deploy не выполнялись.
