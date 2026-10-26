@@ -31,6 +31,8 @@ import { SUPERADMIN_RUNTIME_TYPE_DEFS } from '../../../libs/contracts/src/graphq
 import { SuperadminUsersModule } from './modules/superadmin/superadmin-users.module';
 import { SuperadminPaymentsModule } from './modules/superadmin/superadmin-payments.module';
 import { SuperadminModerationModule } from './modules/superadmin/superadmin-moderation.module';
+import { SuperadminPostsDeliveryModule } from './modules/superadmin/superadmin-posts-delivery.module';
+import { parseSuperadminOrigins } from './modules/superadmin/api/superadmin-http-security';
 import { UserAccessModule } from './modules/sessions/user-access.module';
 import { UserAccessRevokedConsumer } from './modules/notifications/infrastructure/user-access-revoked.consumer';
 import { UserAccessRevokeRelay } from './modules/users/infrastructure/outbox/user-access-revoke-relay';
@@ -42,11 +44,16 @@ import { UserAccessRevokeRelay } from './modules/users/infrastructure/outbox/use
     SuperadminModule.withRuntime({
       typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
       production: process.env.NODE_ENV === 'production',
+      subscriptions: {
+        allowedOrigins: parseSuperadminOrigins(process.env.SUPERADMIN_ALLOWED_ORIGINS),
+        fields: ['superadminPostPublished'],
+      },
       imports: [
         SuperadminAuthModule,
         SuperadminUsersModule,
         SuperadminModerationModule,
         SuperadminPaymentsModule,
+        SuperadminPostsDeliveryModule,
       ],
       principalVerifier: {
         provide: AdminPrincipalVerifier,

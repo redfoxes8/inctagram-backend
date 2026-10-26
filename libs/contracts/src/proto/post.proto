@@ -94,6 +94,8 @@ message GetPostByIdResponse {
 }
 
 service PostService {
+  rpc GetSuperadminPostsPage(GetSuperadminPostsPageRequest) returns (GetSuperadminPostsPageResponse);
+  rpc GetSuperadminPostPublishedView(GetSuperadminPostPublishedViewRequest) returns (GetSuperadminPostPublishedViewResponse);
   rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
   rpc UpdatePost(UpdatePostRequest) returns (UpdatePostResponse);
   rpc DeletePost(DeletePostRequest) returns (DeletePostResponse);
@@ -102,4 +104,59 @@ service PostService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc GetPostsCountByUserId(GetPostsCountByUserIdRequest) returns (GetPostsCountByUserIdResponse);
   rpc GetPostById(GetPostByIdRequest) returns (GetPostByIdResponse);
+}
+
+message SuperadminPostAuthorSnapshot {
+  string user_id = 1;
+  string source_version = 2;
+  optional string username = 3;
+  optional bool profile_exists = 4;
+  optional bool is_deleted = 5;
+}
+message SuperadminPostImageView {
+  string file_id = 1;
+  optional string url = 2;
+  optional int32 order = 3;
+}
+message SuperadminPostView {
+  string post_id = 1;
+  string user_id = 2;
+  optional string username = 3;
+  optional string description = 4;
+  // Canonical persisted UTC milliseconds; no Timestamp/loader.longs conversion.
+  string published_at = 5;
+  repeated SuperadminPostImageView images = 6;
+  optional SuperadminPostAuthorSnapshot user_snapshot = 7;
+}
+message GetSuperadminPostsPageRequest {
+  optional int32 first = 1;
+  optional string after = 2;
+  optional string search_username = 3;
+}
+message SuperadminPostsPageInfo {
+  optional string end_cursor = 1;
+  optional bool has_next_page = 2;
+}
+message GetSuperadminPostsPageResponse {
+  repeated SuperadminPostView items = 1;
+  SuperadminPostsPageInfo page_info = 2;
+}
+enum SuperadminPostPublishedOutcome {
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_UNSPECIFIED = 0;
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_FOUND = 1;
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_NOT_FOUND = 2;
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_FILTERED = 3;
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_UNRESOLVED_AUTHOR = 4;
+}
+message GetSuperadminPostPublishedViewRequest {
+  string post_id = 1;
+  optional string search_username = 2;
+  bool author_missing_confirmed = 3;
+  optional string author_user_id = 4;
+}
+message GetSuperadminPostPublishedViewResponse {
+  SuperadminPostPublishedOutcome outcome = 1;
+  optional SuperadminPostView post = 2;
+  optional string post_id = 3;
+  optional string author_user_id = 4;
 }

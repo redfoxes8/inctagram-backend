@@ -5,12 +5,21 @@
 // source: post.proto
 
 /* eslint-disable */
-import type { Metadata } from "@grpc/grpc-js";
-import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
-import { Observable } from "rxjs";
-import { Timestamp } from "./google/protobuf/timestamp";
+import type { Metadata } from '@grpc/grpc-js';
+import { GrpcMethod, GrpcStreamMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import { Timestamp } from './google/protobuf/timestamp';
 
-export const protobufPackage = "inctagram.post.v1";
+export const protobufPackage = 'inctagram.post.v1';
+
+export enum SuperadminPostPublishedOutcome {
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_UNSPECIFIED = 0,
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_FOUND = 1,
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_NOT_FOUND = 2,
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_FILTERED = 3,
+  SUPERADMIN_POST_PUBLISHED_OUTCOME_UNRESOLVED_AUTHOR = 4,
+  UNRECOGNIZED = -1,
+}
 
 export interface PostImage {
   id: string;
@@ -102,18 +111,89 @@ export interface GetPostByIdResponse {
   post: Post | undefined;
 }
 
-export const INCTAGRAM_POST_V1_PACKAGE_NAME = "inctagram.post.v1";
+export interface SuperadminPostAuthorSnapshot {
+  userId: string;
+  sourceVersion: string;
+  username?: string | undefined;
+  profileExists?: boolean | undefined;
+  isDeleted?: boolean | undefined;
+}
+
+export interface SuperadminPostImageView {
+  fileId: string;
+  url?: string | undefined;
+  order?: number | undefined;
+}
+
+export interface SuperadminPostView {
+  postId: string;
+  userId: string;
+  username?: string | undefined;
+  description?: string | undefined;
+  /** Canonical persisted UTC milliseconds; no Timestamp/loader.longs conversion. */
+  publishedAt: string;
+  images: SuperadminPostImageView[];
+  userSnapshot?: SuperadminPostAuthorSnapshot | undefined;
+}
+
+export interface GetSuperadminPostsPageRequest {
+  first?: number | undefined;
+  after?: string | undefined;
+  searchUsername?: string | undefined;
+}
+
+export interface SuperadminPostsPageInfo {
+  endCursor?: string | undefined;
+  hasNextPage?: boolean | undefined;
+}
+
+export interface GetSuperadminPostsPageResponse {
+  items: SuperadminPostView[];
+  pageInfo: SuperadminPostsPageInfo | undefined;
+}
+
+export interface GetSuperadminPostPublishedViewRequest {
+  postId: string;
+  searchUsername?: string | undefined;
+  authorMissingConfirmed: boolean;
+  authorUserId?: string | undefined;
+}
+
+export interface GetSuperadminPostPublishedViewResponse {
+  outcome: SuperadminPostPublishedOutcome;
+  post?: SuperadminPostView | undefined;
+  postId?: string | undefined;
+  authorUserId?: string | undefined;
+}
+
+export const INCTAGRAM_POST_V1_PACKAGE_NAME = 'inctagram.post.v1';
 
 export interface PostServiceClient {
+  getSuperadminPostsPage(
+    request: GetSuperadminPostsPageRequest,
+    metadata?: Metadata,
+  ): Observable<GetSuperadminPostsPageResponse>;
+
+  getSuperadminPostPublishedView(
+    request: GetSuperadminPostPublishedViewRequest,
+    metadata?: Metadata,
+  ): Observable<GetSuperadminPostPublishedViewResponse>;
+
   createPost(request: CreatePostRequest, metadata?: Metadata): Observable<CreatePostResponse>;
 
   updatePost(request: UpdatePostRequest, metadata?: Metadata): Observable<UpdatePostResponse>;
 
   deletePost(request: DeletePostRequest, metadata?: Metadata): Observable<DeletePostResponse>;
 
-  getPostsByUserId(request: GetPostsByUserIdRequest, metadata?: Metadata): Observable<GetPostsByUserIdResponse>;
+  getPostsByUserId(
+    request: GetPostsByUserIdRequest,
+    metadata?: Metadata,
+  ): Observable<GetPostsByUserIdResponse>;
 
-  getLatestPosts(request: GetLatestPostsRequest, metadata?: Metadata): Observable<GetLatestPostsResponse>;
+  getLatestPosts(
+    request: GetLatestPostsRequest,
+    metadata?: Metadata,
+  ): Observable<GetLatestPostsResponse>;
 
   ping(request: PingRequest, metadata?: Metadata): Observable<PingResponse>;
 
@@ -126,6 +206,22 @@ export interface PostServiceClient {
 }
 
 export interface PostServiceController {
+  getSuperadminPostsPage(
+    request: GetSuperadminPostsPageRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetSuperadminPostsPageResponse>
+    | Observable<GetSuperadminPostsPageResponse>
+    | GetSuperadminPostsPageResponse;
+
+  getSuperadminPostPublishedView(
+    request: GetSuperadminPostPublishedViewRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetSuperadminPostPublishedViewResponse>
+    | Observable<GetSuperadminPostPublishedViewResponse>
+    | GetSuperadminPostPublishedViewResponse;
+
   createPost(
     request: CreatePostRequest,
     metadata?: Metadata,
@@ -144,19 +240,28 @@ export interface PostServiceController {
   getPostsByUserId(
     request: GetPostsByUserIdRequest,
     metadata?: Metadata,
-  ): Promise<GetPostsByUserIdResponse> | Observable<GetPostsByUserIdResponse> | GetPostsByUserIdResponse;
+  ):
+    | Promise<GetPostsByUserIdResponse>
+    | Observable<GetPostsByUserIdResponse>
+    | GetPostsByUserIdResponse;
 
   getLatestPosts(
     request: GetLatestPostsRequest,
     metadata?: Metadata,
   ): Promise<GetLatestPostsResponse> | Observable<GetLatestPostsResponse> | GetLatestPostsResponse;
 
-  ping(request: PingRequest, metadata?: Metadata): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
+  ping(
+    request: PingRequest,
+    metadata?: Metadata,
+  ): Promise<PingResponse> | Observable<PingResponse> | PingResponse;
 
   getPostsCountByUserId(
     request: GetPostsCountByUserIdRequest,
     metadata?: Metadata,
-  ): Promise<GetPostsCountByUserIdResponse> | Observable<GetPostsCountByUserIdResponse> | GetPostsCountByUserIdResponse;
+  ):
+    | Promise<GetPostsCountByUserIdResponse>
+    | Observable<GetPostsCountByUserIdResponse>
+    | GetPostsCountByUserIdResponse;
 
   getPostById(
     request: GetPostByIdRequest,
@@ -167,25 +272,27 @@ export interface PostServiceController {
 export function PostServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
-      "createPost",
-      "updatePost",
-      "deletePost",
-      "getPostsByUserId",
-      "getLatestPosts",
-      "ping",
-      "getPostsCountByUserId",
-      "getPostById",
+      'getSuperadminPostsPage',
+      'getSuperadminPostPublishedView',
+      'createPost',
+      'updatePost',
+      'deletePost',
+      'getPostsByUserId',
+      'getLatestPosts',
+      'ping',
+      'getPostsCountByUserId',
+      'getPostById',
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcMethod("PostService", method)(constructor.prototype[method], method, descriptor);
+      GrpcMethod('PostService', method)(constructor.prototype[method], method, descriptor);
     }
     const grpcStreamMethods: string[] = [];
     for (const method of grpcStreamMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
-      GrpcStreamMethod("PostService", method)(constructor.prototype[method], method, descriptor);
+      GrpcStreamMethod('PostService', method)(constructor.prototype[method], method, descriptor);
     }
   };
 }
 
-export const POST_SERVICE_NAME = "PostService";
+export const POST_SERVICE_NAME = 'PostService';
