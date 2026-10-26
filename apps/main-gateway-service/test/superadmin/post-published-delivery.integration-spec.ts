@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import { IsolatedRabbit } from './isolated-rabbit';
 import { GatewayConfig } from '../../src/core/gateway.config';
+import { PostGrpcClient } from '../../src/modules/posts/infrastructure/post-grpc.client';
+import { UnavailablePostPublishedReader } from '../../src/modules/superadmin/infrastructure/unavailable-post-published.reader';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { SuperadminPostsDeliveryModule } from '../../src/modules/superadmin/superadmin-posts-delivery.module';
 import { SuperadminPostPublishedReader } from '../../src/modules/superadmin/domain/superadmin-post-published-reader.port';
@@ -148,10 +150,16 @@ describe('D6a Gateway published delivery, real disposable RabbitMQ', () => {
       .useValue({ rabbitmqUrl: rabbit.url })
       .overrideProvider(PrismaService)
       .useValue({})
+      .overrideProvider(PostGrpcClient)
+      .useValue({})
       .overrideProvider(PaymentPageProfiles)
       .useValue(profiles);
     if (!input.unavailable)
       builder.overrideProvider(SuperadminPostPublishedReader).useValue(reader);
+    else
+      builder
+        .overrideProvider(SuperadminPostPublishedReader)
+        .useClass(UnavailablePostPublishedReader);
     const module = await builder.compile();
     modules.push(module);
     await module.init();

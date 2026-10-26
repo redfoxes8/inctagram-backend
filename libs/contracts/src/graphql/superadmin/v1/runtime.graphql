@@ -81,9 +81,14 @@ enum PaymentStatus {
 
 type Query {
   superadminPayments(input: SuperadminPaymentsInput!): SuperadminPaymentsPage
+  superadminPosts(input: SuperadminPostsInput!): SuperadminPostsConnection
   superadminSession: SuperadminSessionPayload!
   superadminUser(userId: ID!): SuperadminUser
   superadminUsers(input: SuperadminUsersInput!): SuperadminUsersPage!
+}
+
+type Subscription {
+  superadminPostPublished(input: SuperadminPostPublishedInput!): SuperadminPostPublishedEvent!
 }
 
 enum SuperadminBanReasonCode {
@@ -179,6 +184,52 @@ enum SuperadminPaymentsSort {
   PAYMENT_METHOD_DESC
   USERNAME_ASC
   USERNAME_DESC
+}
+
+type SuperadminPost {
+  description: String!
+  images: [SuperadminPostImage!]!
+  postId: ID!
+  publishedAt: DateTime!
+  userId: ID!
+  username: String
+}
+
+type SuperadminPostImage {
+  fileId: ID!
+  order: Int!
+  url: String
+}
+
+type SuperadminPostPublishedEvent {
+  kind: SuperadminPostPublishedEventKind!
+  post: SuperadminPost
+}
+
+enum SuperadminPostPublishedEventKind {
+  POST_PUBLISHED
+  READY
+  RESYNC_REQUIRED
+}
+
+input SuperadminPostPublishedInput {
+  searchUsername: String
+}
+
+type SuperadminPostsConnection {
+  items: [SuperadminPost!]!
+  pageInfo: SuperadminPostsPageInfo!
+}
+
+input SuperadminPostsInput {
+  after: String
+  first: Int! = 4
+  searchUsername: String
+}
+
+type SuperadminPostsPageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
 }
 
 type SuperadminSessionPayload {

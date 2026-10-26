@@ -41,6 +41,7 @@ import { SuperadminPostImagesMapper } from './application/mappers/superadmin-pos
 import { SuperadminPostsQueryRepository } from './infrastructure/repositories/superadmin-posts.query-repository';
 import { SuperadminPostFilesAdapter } from './infrastructure/grpc/superadmin-post-files.adapter';
 import { PostPublishedRelay } from './infrastructure/post-published.relay';
+import { SuperadminPostsGrpcController } from './api/superadmin-posts-grpc.controller';
 
 const Handlers = [
   CreatePostHandler,
@@ -80,7 +81,7 @@ const Repositories = [
       },
     ]),
   ],
-  controllers: [PostsController],
+  controllers: [PostsController, SuperadminPostsGrpcController],
   providers: [
     PrismaService,
     ...Repositories,

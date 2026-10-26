@@ -69,6 +69,8 @@ export class SuperadminSubscriptionServer implements OnApplicationBootstrap, OnM
   ) {}
 
   onApplicationBootstrap(): void {
+    // initAppModule uses a temporary configuration-only application context with no HTTP adapter.
+    if (!this.adapter.httpAdapter) return;
     const schema = this.schemaHost.schema;
     const root = schema.getSubscriptionType();
     if (

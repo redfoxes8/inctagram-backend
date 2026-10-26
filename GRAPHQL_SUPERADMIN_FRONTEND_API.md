@@ -1,4 +1,8 @@
-# Superadmin GraphQL API — контракт 1.5.0
+# Superadmin GraphQL API — контракт 1.6.0
+
+Posts query/subscription реализованы в D6b (1.6.0); production rollout, публичный wss URL и browser integration пока не подтверждены. Существующие login/session/CSRF, Payments и moderation ниже сохраняются.
+
+До включения Posts нужны согласованные Gateway/Post builds, существующие private Post gRPC/Rabbit подключения и настоящая initial READY Post projection после bootstrap/rollout marker. Proxy должен пропускать WS upgrade точного `/api/v1/graphql`, Cookie/Origin/Sec-WebSocket-Protocol, с idle timeout≥60с. Отсутствие этих условий возвращается ошибкой, не пустой лентой. Фактические адреса и готовность окружения проверяются при deployment.
 
 ## Быстрое подключение для frontend
 
@@ -18,7 +22,7 @@
 4. После reload сначала выполнить `superadminSession` без cache; при успехе обновить nonce из header. `UNAUTHENTICATED` → форма входа; техническую ошибку не считать logout.
 5. Читать каталог/детали; в mutations передавать актуальный nonce. После logout очищать client cache/состояние.
 
-Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.5.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
+Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.6.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
 
 ### Backend checklist до браузерного подключения
 
@@ -50,7 +54,7 @@
 
 В текущем manifest четыре admin Secret key references помечены `optional:true`, timeout отдельно не подключён и использует default. Поэтому отсутствие **этих ключей** не препятствует запуску Node.js. Другие обязательные Secret/key references и инфраструктура остаются необходимыми: если весь существующий Secret или другой обязательный key отсутствует, Kubernetes может не запустить контейнер, и fallback приложения это не исправит. Pipeline/manifest этой задачей не меняются.
 
-Статус: runtime и целевой контракт **1.5.0**. P2 добавил общий список superadminPayments. Additive S3: существующий superadminBlockUser принимает optional reason; legacy-вызовы сохраняются. S1 ранее добавил banFilter с default ALL в версии 1.3.0. Общий Payments list реализован в 1.5.0; deployment этой версии не подтверждён. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
+Статус: runtime и целевой контракт **1.6.0**. D6b добавил superadminPosts и superadminPostPublished; P2 ранее добавил общий список superadminPayments. Additive S3: существующий superadminBlockUser принимает optional reason; legacy-вызовы сохраняются. S1 ранее добавил banFilter с default ALL в версии 1.3.0. Общий Payments list реализован в 1.5.0; deployment этой версии не подтверждён. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. Открытый AC profileUrl карточки 3 и прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 **SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
 
@@ -60,7 +64,7 @@
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
-Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.5.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
+Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.6.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
 
 Для frontend tooling: **[экспорт фактически опубликованного runtime SDL](libs/contracts/src/graphql/superadmin/v1/runtime.graphql)**. Это отдельный артефакт, не target и не новая версия контракта. Тест SA-GQL-09 сравнивает его канонический SDL с реальным `GraphQLSchemaHost` всех production superadmin feature modules, а все executable GraphQL-блоки этого guide проходят parse/validate по этой schema. Связный HTTP-сценарий исполняет auth/catalog/все вкладки/moderation/logout; schema validation остальных примеров не объявляется их исполнением.
 
@@ -100,7 +104,7 @@ query CurrentSuperadminSession {
 
 ## Followers/Following — реализован временный FOLLOW-ZERO-1 (SA-GQL-08)
 
-Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.5.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
+Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.6.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
 
 ```graphql
 extend type SuperadminUser {
@@ -630,7 +634,7 @@ Login ограничен **5 попытками за скользящие 15 м�
 
 ### Общий browser transport: fetch и Apollo
 
-Код ниже выполняется **в браузере** (Next.js client-side), не в общем SSR singleton: нельзя смешивать cookies/cache/nonce разных посетителей. Одна transport instance на текущую browser session; не отправлять параллельно несколько login/session-bootstrap запросов, меняющих nonce. Не использовать BatchHttpLink, GET queries, subscriptions или автоматический retry mutations.
+Код ниже выполняется **в браузере** (Next.js client-side), не в общем SSR singleton: нельзя смешивать cookies/cache/nonce разных посетителей. Одна transport instance на текущую browser session; не отправлять параллельно несколько login/session-bootstrap запросов, меняющих nonce. Не использовать BatchHttpLink, GET queries или автоматический retry mutations. Posts subscription идёт через отдельную WS ветку split ниже, остальные операции остаются HTTP.
 
 `Origin` и `Cookie` устанавливает браузер; вручную подменять их не надо. Обе admin cookies HttpOnly: nonce берётся **только из response header**, а не из cookie другого hostname. Backend выставляет `Access-Control-Expose-Headers: X-Superadmin-CSRF`; proxy должен сохранить его.
 
@@ -870,7 +874,7 @@ GraphQL envelope `errors[]`: безопасное message, optional path, тол
 }
 ```
 
-Максимум body 256 KiB; depth 8, complexity 200. Каждый field и alias стоит единицу; fragment расширяется при каждом использовании, циклы отвергаются. Connection `items` умножает стоимость вложенных полей на pageSize (default 8). Бюджет проверяется при validation и заново с variables перед исполнением, суммарно для operations документа. HTTP batching запрещён; subscriptions не поддерживаются. В production introspection запрещена, IDE/landing page отключены во всех средах. REST маршруты и error format сохранены; общий список exposed headers дополнен только именем `X-Superadmin-CSRF`, чтобы общий CORS middleware не скрыл bootstrap header.
+Максимум body 256 KiB; depth 8, complexity 200. Каждый field и alias стоит единицу; fragment расширяется при каждом использовании, циклы отвергаются. Connection `items` умножает стоимость вложенных полей на pageSize (default 8). Бюджет проверяется при validation и заново с variables перед исполнением, суммарно для operations документа. HTTP batching и subscriptions через HTTP запрещены; Posts subscription поддерживается только через защищённый graphql-ws transport ниже. В production introspection запрещена, IDE/landing page отключены во всех средах. REST маршруты и error format сохранены; общий список exposed headers дополнен только именем `X-Superadmin-CSRF`, чтобы общий CORS middleware не скрыл bootstrap header.
 
 ## Подключение SA-GQL-02 и владение
 
@@ -1018,3 +1022,331 @@ Variables для того же query:
 ```
 
 Тот же `SUPERADMIN_PAYMENTS_TIMEOUT_MS`: fallback 3000 ms, диапазон 1..30000, без автоматических RPC retries. RxJS timeout отписывается от unary Observable и отменяет вызов; это client-side timeout, не propagated gRPC deadline. Для rollout нужны P1 migrations/consumer/export/bootstrap, подтверждение всех Gateway writers и READY marker согласно backend runbook. Реальные admin origins, HTTPS/SameSite, profileUrl, staging/two-pod revoke и production delete/auto-renew политики остаются открытыми.
+
+## Posts — query и GraphQL Subscription (D6b, 1.6.0)
+
+HTTP `superadminPosts` и WS `superadminPostPublished` требуют действующую admin cookie session. WS использует тот же **фактический** Gateway endpoint `/api/v1/graphql`, protocol `graphql-transport-ws`; HTTPS → wss, локальный HTTP → ws. Адрес задаётся deployment-конфигурацией приложения; frontend `/superadmin` не является API URL. Browser автоматически передаёт подходящие HttpOnly cookies и Origin: cookie/token не помещать в URL, Authorization или connectionParams. WS не требует mutation-CSRF. SameSite/Secure/Origin и proxy Upgrade должны соответствовать реальному размещению, произвольная cross-site комбинация не гарантируется.
+
+Первая страница (default first=4, bounds1..5), затем тот же документ с after=endCursor:
+
+```graphql
+query SuperadminPostsPage($input: SuperadminPostsInput!) {
+  superadminPosts(input: $input) {
+    items {
+      postId
+      userId
+      username
+      description
+      publishedAt
+      images {
+        fileId
+        url
+        order
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+}
+```
+
+Variables первой страницы: `{"input":{}}`. Поиск: `{"input":{"first":4,"searchUsername":"alice"}}`. Следующая страница: `{"input":{"first":4,"searchUsername":"alice","after":"<endCursor предыдущего ответа>"}}`. Cursor opaque, связан с нормализованным search; при смене поиска начать без after. Не формировать cursor вручную. Пустой конец: items=[], endCursor=null, hasNextPage=false. totalCount нет. SQL выполняет literal case-insensitive substring search (включая буквальные `%`/`_`) до cursor pagination; страницы полные относительно текущей Post username projection. При rename возможен lag до sync/refetch. Порядок publishedAt DESC, postId DESC; cursor продолжает работать после удаления граничного Post.
+
+Видны все неудалённые Post, включая blocked/deleted/missing авторов. Block не удаляет строку из admin feed. userId сохраняется; deleted/profileless/unknown/missing projection → username=null, непустому поиску null не подходит. Username приходит из той же projection, по которой искали, не заменяется свежим Gateway значением. Description может быть пустым; publishedAt — сохранённый createdAt. До10 реальных images в порядке order/id, первое — preview; отсутствующий File даёт url=null с сохранением fileId/order. Infrastructure failure не заменяется фото. Realtime rename/edit/delete отсутствуют. profileUrl и отложенные comments/reactions этим API не реализуются.
+
+```graphql
+subscription SuperadminPostsLive($input: SuperadminPostPublishedInput!) {
+  superadminPostPublished(input: $input) {
+    kind
+    post {
+      postId
+      userId
+      username
+      description
+      publishedAt
+      images {
+        fileId
+        url
+        order
+      }
+    }
+  }
+}
+```
+
+Variables: `{"input":{}}` либо `{"input":{"searchUsername":"alice"}}` — тот же search, что query. Первое событие READY с post=null, затем POST_PUBLISHED с Post. READY означает projection gate + регистрацию listener/broker binding, не browser ack и не snapshot двух сервисов. Initial NOT_READY/outage → UPSTREAM_UNAVAILABLE, без READY. При graphql-ws6 initial subscribe failure может прийти как **next с errors, затем complete**; validation errors также приходят через operation error. Обрабатывать оба пути, не только callback error. Query outage/timeout/malformed upstream → nullable superadminPosts=null + UPSTREAM_UNAVAILABLE; пустой успех не подставляется. Auth/input ошибки сохраняют свои коды, неожиданная программная ошибка — INTERNAL_SERVER_ERROR.
+
+Полные selection выше стоят149/185 для first4/5 и39 для subscription, без дополнительных fields. Apollo автоматически добавляет \_\_typename, aliases/fragments тоже учитываются: полная first5 selection с такими добавлениями может превысить budget200. Использовать default4 либо сократить selection, не повышать глобальный лимит. RESYNC_REQUIRED best-effort: не ждать его по переполненному/оборванному соединению; error/close/неожиданный complete запускают то же восстановление.
+
+Порядок подключения: subscribe → READY → буфер событий → HTTP query головы → merge/dedupe postId → scroll. Reconnect/overflow/broker gap/RESYNC_REQUIRED/неожиданный complete: новая subscription → новый READY → refetch головы **со сбросом cursor chain**, merge накопленных событий. Не просто продолжать старый after. Сервер не replay-ит все offline события; восстанавливается актуальное окно, более старые Post доступны infinite scroll. Event может быть задержан: вставлять по publishedAt/postId, не обязательно в голову. Window200 — рекомендация памяти frontend, не server depth limit; scroll controller может передвигать окно и продолжать cursor chain за пределы200.
+
+### Apollo Client4 + единственный bounded reconnect supervisor
+
+Split HTTP/WS соответствует [официальному подходу Apollo Client](https://www.apollographql.com/docs/react/data/subscriptions); конкретная browser-сборка приложения здесь не запускалась.
+
+Ниже browser-only пример для головы feed; он дополняет уже созданные выше `client`, `endpoint`, `transport`. Pagination использует тот же HTTP query и server cursor; scroll anchor/движущееся окно — frontend. При logout/unmount/search change вызвать stop. Новую серию start разрешать только явным Retry или после успешного login/session restore. HTTP mutations используют прежний transport.fetch с nonce header; WS к этому store не обращается. Не ставить Apollo RetryLink на эту subscription.
+
+```javascript
+import { HttpLink, split, gql } from '@apollo/client';
+import { CombinedGraphQLErrors } from '@apollo/client/errors';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { createClient } from 'graphql-ws';
+
+const POSTS_PAGE = gql`
+  query PostsHead($input: SuperadminPostsInput!) {
+    superadminPosts(input: $input) {
+      items {
+        postId
+        userId
+        username
+        description
+        publishedAt
+        images {
+          fileId
+          url
+          order
+        }
+      }
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+    }
+  }
+`;
+const POSTS_LIVE = gql`
+  subscription PostsLive($input: SuperadminPostPublishedInput!) {
+    superadminPostPublished(input: $input) {
+      kind
+      post {
+        postId
+        userId
+        username
+        description
+        publishedAt
+        images {
+          fileId
+          url
+          order
+        }
+      }
+    }
+  }
+`;
+
+function createPostsHeadFeed({ client, endpoint, transport, onItems, onState, onPageInfo }) {
+  const url = new URL(endpoint);
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid Gateway endpoint');
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  const http = new HttpLink({
+    uri: endpoint,
+    credentials: 'include',
+    useGETForQueries: false,
+    fetch: transport.fetch,
+  });
+  const delays = [1000, 2000, 4000, 8000, 16000, 30000];
+  let running = false,
+    generation = 0,
+    attempts = 0,
+    search = '';
+  let live, ws, retryTimer, startupTimer, stableTimer, fetchController;
+
+  function cleanup() {
+    generation++; // Ignore both close+error callbacks from this disposed attempt.
+    clearTimeout(retryTimer);
+    clearTimeout(startupTimer);
+    clearTimeout(stableTimer);
+    fetchController?.abort();
+    live?.unsubscribe();
+    void ws?.dispose();
+    live = ws = undefined;
+  }
+  function classify(error) {
+    const codes = CombinedGraphQLErrors.is(error)
+      ? error.errors.map((e) => e.extensions?.code)
+      : Array.isArray(error)
+        ? error.map((e) => e?.extensions?.code)
+        : [];
+    if (codes.includes('UNAUTHENTICATED')) return 'login';
+    if (
+      codes.some((code) =>
+        [
+          'FORBIDDEN',
+          'BAD_USER_INPUT',
+          'GRAPHQL_VALIDATION_FAILED',
+          'GRAPHQL_PARSE_FAILED',
+          'TOO_MANY_REQUESTS',
+          'INTERNAL_SERVER_ERROR',
+        ].includes(code),
+      )
+    )
+      return 'diagnostic';
+    return 'transient'; // Unknown network break is not proof of expired session/Origin.
+  }
+  function failed(kind, current) {
+    if (!running || generation !== current) return;
+    cleanup();
+    if (kind !== 'transient' || attempts >= 10) {
+      running = false;
+      onState(kind === 'transient' ? 'manual-retry-required' : kind);
+      return;
+    }
+    const base = delays[Math.max(0, Math.min(attempts - 1, delays.length - 1))];
+    retryTimer = setTimeout(begin, base * (0.8 + Math.random() * 0.4));
+    onState('reconnecting');
+  }
+  function begin() {
+    if (!running) return;
+    const current = ++generation;
+    attempts++; // Includes the first immediate attempt; no more than9 automatic retries.
+    onPageInfo?.(null); // The UI discards the old infinite-scroll cursor chain.
+    let ready = false,
+      loading = true;
+    const buffered = new Map(),
+      head = new Map();
+    const publishHead = () =>
+      onItems(
+        [...head.values()]
+          .sort(
+            (a, b) =>
+              b.publishedAt.localeCompare(a.publishedAt) || b.postId.localeCompare(a.postId),
+          )
+          .slice(0, 200),
+      );
+    ws = createClient({
+      url: url.href,
+      lazy: true,
+      retryAttempts: 0,
+      keepAlive: 0,
+      on: {
+        connected: () => {
+          if (current === generation)
+            startupTimer = setTimeout(() => failed('transient', current), 15000);
+        },
+        closed: (event) => {
+          const kind =
+            event.code === 4401
+              ? 'login'
+              : [4400, 4403, 4406, 4408, 4409, 4429, 4500, 4004, 4005].includes(event.code)
+                ? 'diagnostic'
+                : 'transient';
+          failed(kind, current);
+        },
+      },
+    });
+    client.setLink(
+      split(({ operationType }) => operationType === 'subscription', new GraphQLWsLink(ws), http),
+    );
+    const refreshHead = async () => {
+      fetchController = new AbortController();
+      const result = await client.query({
+        query: POSTS_PAGE,
+        variables: { input: { searchUsername: search } },
+        fetchPolicy: 'no-cache',
+        errorPolicy: 'all',
+        context: { fetchOptions: { signal: fetchController.signal } },
+      });
+      if (current !== generation) return;
+      if (result.error) {
+        failed(classify(result.error), current);
+        return;
+      }
+      const page = result.data?.superadminPosts;
+      if (!page) {
+        failed('transient', current);
+        return;
+      }
+      head.clear(); // Reset head and old cursor chain together.
+      for (const post of page.items) head.set(post.postId, post);
+      for (const post of buffered.values()) head.set(post.postId, post);
+      buffered.clear();
+      loading = false;
+      clearTimeout(startupTimer);
+      publishHead();
+      onPageInfo?.(page.pageInfo);
+      onState('ready');
+      // Ack/brief READY do not reset attempts. Require READY + successful query +30s stability.
+      stableTimer = setTimeout(() => {
+        if (current === generation) attempts = 0;
+      }, 30000);
+    };
+    live = client
+      .subscribe({
+        query: POSTS_LIVE,
+        variables: { input: { searchUsername: search } },
+        errorPolicy: 'all',
+      })
+      .subscribe({
+        next(result) {
+          if (current !== generation) return;
+          if (result.error || result.errors?.length) {
+            failed(classify(result.error ?? result.errors), current);
+            return;
+          }
+          const event = result.data?.superadminPostPublished;
+          if (!event) {
+            failed('transient', current);
+            return;
+          }
+          if (event.kind === 'READY' && !ready) {
+            ready = true;
+            void refreshHead().catch((error) => failed(classify(error), current));
+          } else if (event.kind === 'POST_PUBLISHED' && event.post && ready) {
+            (loading ? buffered : head).set(event.post.postId, event.post);
+            if (buffered.size > 200) {
+              failed('transient', current);
+              return;
+            }
+            if (!loading) {
+              // This sample retains a bounded head; a scroll window uses its own pager.
+              const retained = [...head.values()]
+                .sort(
+                  (a, b) =>
+                    b.publishedAt.localeCompare(a.publishedAt) || b.postId.localeCompare(a.postId),
+                )
+                .slice(0, 200);
+              head.clear();
+              for (const post of retained) head.set(post.postId, post);
+              publishHead();
+            }
+          } else {
+            failed('transient', current);
+          }
+        },
+        error: (error) => failed(classify(error), current),
+        complete: () => failed('transient', current),
+      });
+  }
+  return {
+    start(searchUsername = '') {
+      running = false;
+      cleanup();
+      attempts = 0;
+      search = searchUsername.trim();
+      running = true;
+      begin();
+    },
+    stop() {
+      running = false;
+      cleanup();
+      onState('stopped');
+    },
+  };
+}
+```
+
+Startup timer ограничивает ожидание READY/первого refetch; graphql-ws JSON heartbeat отключён. Server protocol ping25s/pong10s работает автоматически в браузере и не продлевает session. После10 последовательных неудач показать явную ошибку/ручной Retry; при login/diagnostic автоматические reconnect остановлены. При неизвестном разрыве классификация сначала transient; browser может скрыть upgrade403 как1006. Сам GraphQLWsLink/client не имеет второго retry-loop (`retryAttempts:0`), ack/open не сбрасывает supervisor budget. Внутренний `start` не вызывать автоматически из error callbacks.
+
+Block автора — прежняя **HTTP** mutation, после frontend Yes и выбора reason, через тот же client HTTP link/CSRF transport:
+
+```graphql
+mutation BlockPostAuthor($input: SuperadminUserIdInput!, $reason: SuperadminBanReasonInput) {
+  superadminBlockUser(input: $input, reason: $reason) {
+    outcome
+  }
+}
+```
+
+Variables: `{"input":{"userId":"<userId поста>"},"reason":{"code":"BAD_BEHAVIOR"}}`; Another reason: `{"code":"ANOTHER_REASON","text":"Текст после trim, 1–500 символов"}`. Advertising placement — `ADVERTISING_PLACEMENT`. Строка Post остаётся после block; отобразить существующий outcome. Новая mutation, WS mutation и realtime hide не добавляются.
