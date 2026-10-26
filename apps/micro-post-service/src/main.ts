@@ -31,7 +31,6 @@ async function bootstrap(): Promise<void> {
       options: grpcOptions,
     },
   });
-
   await app.startAllMicroservices();
   await app.listen(postConfig.port);
 
