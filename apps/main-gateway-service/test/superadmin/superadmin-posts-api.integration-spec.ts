@@ -2,6 +2,8 @@ import { Module, type INestApplication, type INestMicroservice, Logger } from '@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule, JwtService } from '@nestjs/jwt';
 import { GraphQLSchemaHost } from '@nestjs/graphql';
 import { Transport, type MicroserviceOptions, type ClientGrpc } from '@nestjs/microservices';
 import { createServer, type Server } from 'node:http';
@@ -24,6 +26,13 @@ import { GatewayConfig } from '../../src/core/gateway.config';
 import { PostConfig } from '../../../micro-post-service/src/core/post.config';
 import { SuperadminModule } from '../../src/modules/superadmin/superadmin.module';
 import { SuperadminAuthModule } from '../../src/modules/superadmin/superadmin-auth.module';
+import { SuperadminModerationModule } from '../../src/modules/superadmin/superadmin-moderation.module';
+import { UserAccessModule } from '../../src/modules/sessions/user-access.module';
+import { JwtStrategy } from '../../src/common/strategies/jwt.strategy';
+import { PostsController as GatewayPostsController } from '../../src/modules/posts/api/posts.controller';
+import { CreatePostHandler as GatewayCreatePostHandler } from '../../src/modules/posts/application/commands/create-post.command';
+import { PostGrpcClientModule } from '../../src/modules/posts/infrastructure/post-grpc-client.module';
+import { PostPublishedDelivery } from '../../src/modules/superadmin/application/post-published-delivery';
 import { SuperadminPostsDeliveryModule } from '../../src/modules/superadmin/superadmin-posts-delivery.module';
 import { SessionAdminPrincipalVerifier } from '../../src/modules/superadmin/infrastructure/session-admin-principal.verifier';
 import { AdminPrincipalVerifier } from '../../src/modules/superadmin/domain/admin-principal';
@@ -60,10 +69,15 @@ const SUB = `subscription Posts($input:SuperadminPostPublishedInput!){superadmin
 
 @Module({
   imports: [
+    CqrsModule,
+    PassportModule,
+    JwtModule.register({ secret: 'posts-acceptance-fixture-only' }),
+    UserAccessModule,
+    PostGrpcClientModule,
     SuperadminModule.withRuntime({
       typeDefs: SUPERADMIN_RUNTIME_TYPE_DEFS,
       production: true,
-      imports: [SuperadminAuthModule, SuperadminPostsDeliveryModule],
+      imports: [SuperadminAuthModule, SuperadminPostsDeliveryModule, SuperadminModerationModule],
       principalVerifier: {
         provide: AdminPrincipalVerifier,
         useExisting: SessionAdminPrincipalVerifier,
@@ -71,6 +85,8 @@ const SUB = `subscription Posts($input:SuperadminPostPublishedInput!){superadmin
       subscriptions: { allowedOrigins: [ORIGIN], fields: ['superadminPostPublished'] },
     }),
   ],
+  controllers: [GatewayPostsController],
+  providers: [GatewayCreatePostHandler, JwtStrategy],
 })
 class GatewayFixture {}
 
@@ -150,6 +166,7 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
   let relay: PostPublishedRelay;
   let create: CreatePostHandler;
   let cookie: string;
+  let csrf: string;
   let baseUrl: string;
   let author: string;
   const peers: Peer[] = [];
@@ -264,7 +281,11 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
       .overrideProvider(PrismaService)
       .useValue(prisma)
       .overrideProvider(GatewayConfig)
-      .useValue({ postServiceGrpcUrl: address, rabbitmqUrl: rabbit.url })
+      .useValue({
+        postServiceGrpcUrl: address,
+        rabbitmqUrl: rabbit.url,
+        jwtSecret: 'posts-acceptance-fixture-only',
+      })
       .overrideProvider(ConfigService)
       .useValue(
         new ConfigService({
@@ -300,6 +321,7 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
         'mutation {superadminLogin(input:{email:"posts@example.test",password:"fixture-only"}){authenticated}}',
     });
     expect(login.body.errors).toBeUndefined();
+    csrf = login.headers['x-superadmin-csrf'];
     cookie = (login.headers['set-cookie'] as unknown as string[])
       .map((value) => value.split(';')[0])
       .join('; ');
@@ -406,9 +428,39 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
     }
   });
 
-  it('delivers READY -> actual create/outbox/relay/Rabbit -> event, same search, reconnect/refetch merge, real missing author confirmation', async () => {
+  it('D7 accepts public HTTP publish -> READY/event/query/cursor -> block reason/access denial -> reconnect/refetch and logout cleanup', async () => {
     const peer = await ready({ search: 'TARGET_%' });
-    const id = await publishPost();
+    const deviceId = randomUUID();
+    const issuedAt = Math.floor(Date.now() / 1000);
+    await prisma.session.create({
+      data: {
+        userId: author,
+        deviceId,
+        deviceName: 'disposable-posts-acceptance',
+        ip: '192.0.2.1',
+        iat: issuedAt,
+        exp: issuedAt + 3600,
+      },
+    });
+    const access = app.get(JwtService).sign({
+      userId: author,
+      deviceId,
+      tokenType: 'ACCESS',
+      iat: issuedAt,
+      exp: issuedAt + 600,
+    });
+    const publish = (): request.Test =>
+      request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Origin', ORIGIN)
+        .set('Authorization', `Bearer ${access}`)
+        .send({ description: '', fileIds: [randomUUID(), randomUUID()] });
+    const created = await publish();
+    expect(created.status).toBe(201);
+    const id: string = created.body.post.id;
+    const stored = await post.post.findUniqueOrThrow({ where: { id }, include: { images: true } });
+    expect(stored.images).toHaveLength(2);
+    expect(await post.postPublishedOutbox.count({ where: { postId: id } })).toBe(1);
     await relay.relay();
     const delivery = await peer.next();
     expect(delivery).toMatchObject({
@@ -425,7 +477,9 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
       merged.set(item.postId, item);
     expect(merged.size).toBe(1);
     await peer.stop();
-    const offlineId = await publishPost();
+    const offline = await publish();
+    expect(offline.status).toBe(201);
+    const offlineId: string = offline.body.post.id;
     await relay.relay();
     const reconnected = await ready();
     const head = await page();
@@ -433,6 +487,39 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
       merged.set(item.postId, item);
     expect(merged.size).toBe(2);
     expect(merged.has(offlineId)).toBe(true);
+    const first = await page({ first: 1, searchUsername: 'TARGET_%' });
+    const second = await page({
+      first: 1,
+      searchUsername: 'TARGET_%',
+      after: first.body.data.feed.pageInfo.endCursor,
+    });
+    expect(
+      new Set([first.body.data.feed.items[0].postId, second.body.data.feed.items[0].postId]),
+    ).toEqual(new Set([id, offlineId]));
+    const block = await request(app.getHttpServer())
+      .post(PATH)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie)
+      .set('X-Superadmin-CSRF', csrf)
+      .send({
+        query:
+          'mutation($id:ID!){superadminBlockUser(input:{userId:$id},reason:{code:ANOTHER_REASON,text:"  D7 disposable fixture  "}){userId outcome}}',
+        variables: { id: author },
+      });
+    expect(block.body).toEqual({
+      data: { superadminBlockUser: { userId: author, outcome: 'BLOCKED' } },
+    });
+    expect(await prisma.user.findUniqueOrThrow({ where: { id: author } })).toMatchObject({
+      isBanned: true,
+      banReasonCode: 'ANOTHER_REASON',
+      banReasonText: 'D7 disposable fixture',
+    });
+    expect((await publish()).status).toBe(401);
+    expect(await post.post.count()).toBe(2);
+    const afterBlock = await page({ searchUsername: 'TARGET_%' });
+    expect(afterBlock.body.data.feed.items.map((item: { postId: string }) => item.postId)).toEqual(
+      expect.arrayContaining([id, offlineId]),
+    );
     const client = app.get(PostGrpcClient);
     const calls = jest.spyOn(client, 'getSuperadminPostPublishedView');
     const aliased = await open({
@@ -463,6 +550,20 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
         }),
       }),
     );
+    await Promise.all(peers.map((connection) => connection.stop()));
+    const deliveryService = app.get(PostPublishedDelivery);
+    const listeners = Reflect.get(deliveryService, 'listeners') as Map<number, unknown>;
+    for (let attempt = 0; listeners.size && attempt < 100; attempt++)
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(listeners.size).toBe(0);
+    const logout = await request(app.getHttpServer())
+      .post(PATH)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie)
+      .set('X-Superadmin-CSRF', csrf)
+      .send({ query: 'mutation {superadminLogout{loggedOut}}' });
+    expect(logout.body).toEqual({ data: { superadminLogout: { loggedOut: true } } });
+    expect((await page()).body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
   });
 
   it('initial NOT_READY gives no READY, malformed response/outage/timeout are safe, unexpected client bug stays INTERNAL', async () => {
