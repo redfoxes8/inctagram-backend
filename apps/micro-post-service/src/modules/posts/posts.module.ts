@@ -22,6 +22,15 @@ import { OutboxRelayCron } from './infrastructure/outbox-relay.cron';
 import { FileGrpcClient } from './infrastructure/grpc/file-grpc.client';
 import { GrpcAdapter } from './infrastructure/grpc/grpc.adapter';
 import { PostUserProfileConsumer } from './infrastructure/messaging/post-user-profile.consumer';
+import { PostProfileBootstrapService } from './application/services/post-profile-bootstrap.service';
+import {
+  PostProfileConsumerState,
+  PostProfileExport,
+  PostProjectionProgress,
+} from './application/ports/post-profile-bootstrap.port';
+import { PostProfileExportClient } from './infrastructure/grpc/post-profile-export.client';
+import { PostProjectionBootstrapRepository } from './infrastructure/repositories/post-projection-bootstrap.repository';
+import { PostProfileBootstrapWorker } from './infrastructure/schedulers/post-profile-bootstrap.worker';
 
 const Handlers = [
   CreatePostHandler,
@@ -67,6 +76,11 @@ const Repositories = [
     FileGrpcClient,
     GrpcAdapter,
     PostUserProfileConsumer,
+    { provide: PostProfileConsumerState, useExisting: PostUserProfileConsumer },
+    { provide: PostProfileExport, useClass: PostProfileExportClient },
+    { provide: PostProjectionProgress, useClass: PostProjectionBootstrapRepository },
+    PostProfileBootstrapService,
+    PostProfileBootstrapWorker,
     // Outbox relay
     OutboxRelayCron,
   ],
