@@ -13,6 +13,14 @@ import { buildSchema, printSchema, printType, lexicographicSortSchema } from 'gr
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import {
+  createSourceFile,
+  ScriptTarget,
+  isVariableStatement,
+  isIdentifier,
+  isArrayLiteralExpression,
+  isStringLiteral,
+} from 'typescript';
 import { IsolatedAdminDatabase } from './isolated-admin-database';
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { SuperadminModule } from '../../src/modules/superadmin/superadmin.module';
@@ -70,6 +78,29 @@ const LOGIN =
 const SESSION = '{ superadminSession { authenticated } }';
 const LOGOUT = 'mutation { superadminLogout { loggedOut } }';
 const INITIAL_TIME = Date.parse('2026-10-18T12:00:00.000Z');
+
+// main.ts starts the real process on import. Read its literal REST policy without executing bootstrap
+// or duplicating a second allow-list in this fixture; Superadmin origins stay independent.
+function bootstrapCorsArray(name: string): string[] {
+  const source = createSourceFile(
+    'main.ts',
+    readFileSync(join(process.cwd(), 'apps/main-gateway-service/src/main.ts'), 'utf8'),
+    ScriptTarget.Latest,
+  );
+  for (const statement of source.statements) {
+    if (!isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!isIdentifier(declaration.name) || declaration.name.text !== name) continue;
+      const initializer = declaration.initializer;
+      if (initializer && isArrayLiteralExpression(initializer))
+        return initializer.elements.map((element) => {
+          if (isStringLiteral(element)) return element.text;
+          throw new Error(`REST bootstrap policy ${name} must contain literal origins/headers`);
+        });
+    }
+  }
+  throw new Error(`REST bootstrap policy ${name} must be reviewed`);
+}
 
 type Browser = { cookie: string; token: string; nonce: string };
 
@@ -178,9 +209,12 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
         enableCookies: true,
         enableCors: true,
         corsOptions: {
-          origin: ['https://main.example.test'],
+          origin: bootstrapCorsArray('corsAllowedOrigins'),
           credentials: true,
-          exposedHeaders: ['X-Superadmin-CSRF'],
+          methods: bootstrapCorsArray('corsAllowedMethods'),
+          allowedHeaders: bootstrapCorsArray('corsAllowedHeaders'),
+          exposedHeaders: bootstrapCorsArray('corsExposedHeaders'),
+          maxAge: 86400,
         },
       },
     });
@@ -573,6 +607,22 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
   });
 
   it('preserves ordinary user login/refresh cookies and REST errors with admin GraphQL enabled', async (): Promise<void> => {
+    const frontendOrigin = 'https://nymbi.org';
+    const preflight = await request(app.getHttpServer())
+      .options('/api/v1/auth/login')
+      .set('Origin', frontendOrigin)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'authorization,content-type');
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe(frontendOrigin);
+    expect(preflight.headers['access-control-allow-credentials']).toBe('true');
+    expect(String(preflight.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'authorization',
+    );
+    expect(String(preflight.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'content-type',
+    );
+    expect(preflight.headers['access-control-allow-methods']).toContain('POST');
     const userPassword = 'FixtureUser@2026';
     const user = await prisma.user.create({
       data: {
@@ -584,8 +634,13 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
     try {
       const loggedIn = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
+        .set('Origin', frontendOrigin)
+        .set('Authorization', 'Bearer isolated-unused-login-header')
+        .set('Cookie', 'corsFixture=disposable')
         .send({ usernameOrEmail: user.email, password: userPassword });
       expect(loggedIn.status).toBe(200);
+      expect(loggedIn.headers['access-control-allow-origin']).toBe(frontendOrigin);
+      expect(loggedIn.headers['access-control-allow-credentials']).toBe('true');
       expect(loggedIn.body).toEqual({ accessToken: expect.any(String) });
       const refreshCookies = loggedIn.headers['set-cookie'] as unknown as string[];
       expect(refreshCookies).toHaveLength(1);
@@ -611,8 +666,12 @@ describe('SA-GQL-02 HTTP + real isolated PostgreSQL', () => {
       ).toBe('UNAUTHENTICATED');
       const badLogin = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
+        .set('Origin', frontendOrigin)
+        .set('Authorization', 'Bearer isolated-unused-login-header')
         .send({ usernameOrEmail: user.email, password: 'wrong-fixture' });
       expect(badLogin.status).toBe(401);
+      expect(badLogin.headers['access-control-allow-origin']).toBe(frontendOrigin);
+      expect(badLogin.headers['access-control-allow-credentials']).toBe('true');
       expect(badLogin.body).toEqual({ code: 401, message: 'Invalid credentials', extensions: [] });
       const configDisabled = await createApp({ enabled: false });
       expect(

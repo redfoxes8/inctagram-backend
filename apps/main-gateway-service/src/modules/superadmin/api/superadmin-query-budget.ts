@@ -11,6 +11,11 @@ import {
 } from 'graphql';
 import type { ApolloServerPlugin, BaseContext, GraphQLRequestListener } from '@apollo/server';
 import { SUPERADMIN_PAYMENTS_PAGE_SIZE } from '../../../../../../libs/common/types/superadmin-payments-list';
+import {
+  SUPERADMIN_POSTS_DEFAULT_FIRST,
+  SUPERADMIN_POSTS_MAX_FIRST,
+  SUPERADMIN_POSTS_MAX_IMAGES,
+} from '../../../../../../libs/common/types/superadmin-posts';
 
 export const SUPERADMIN_MAX_DEPTH = 8;
 export const SUPERADMIN_MAX_COMPLEXITY = 200;
@@ -20,7 +25,8 @@ export function assertSuperadminBudget(input: {
   document: DocumentNode;
   variables?: Record<string, unknown>;
   includePagination?: boolean;
-}): void {
+  allowSubscriptions?: boolean;
+}): number {
   const fragments = new Map<string, FragmentDefinitionNode>();
   for (const definition of input.document.definitions) {
     if (definition.kind === Kind.FRAGMENT_DEFINITION)
@@ -51,6 +57,19 @@ export function assertSuperadminBudget(input: {
               : options.pageSize;
           if (selection.name.value === 'superadminPayments')
             requestedSize = SUPERADMIN_PAYMENTS_PAGE_SIZE;
+          if (selection.name.value === 'superadminPosts') {
+            requestedSize =
+              typeof value === 'object' && value !== null && 'first' in value
+                ? value.first
+                : SUPERADMIN_POSTS_DEFAULT_FIRST;
+            if (
+              typeof requestedSize !== 'number' ||
+              !Number.isInteger(requestedSize) ||
+              requestedSize < 1 ||
+              requestedSize > SUPERADMIN_POSTS_MAX_FIRST
+            )
+              throw budgetError();
+          }
           const pageSize =
             typeof requestedSize === 'number' &&
             Number.isInteger(requestedSize) &&
@@ -58,10 +77,12 @@ export function assertSuperadminBudget(input: {
             requestedSize <= 50
               ? requestedSize
               : 8;
-          const multiplier =
+          let multiplier =
             selection.name.value === 'items' && input.includePagination !== false
               ? options.multiplier * pageSize
               : options.multiplier;
+          if (selection.name.value === 'images' && input.includePagination !== false)
+            multiplier *= SUPERADMIN_POSTS_MAX_IMAGES;
           visitSelections({
             selection: selection.selectionSet,
             depth: options.depth + 1,
@@ -86,7 +107,8 @@ export function assertSuperadminBudget(input: {
   };
   for (const definition of input.document.definitions) {
     if (definition.kind === Kind.OPERATION_DEFINITION) {
-      if (definition.operation === OperationTypeNode.SUBSCRIPTION) throw budgetError();
+      if (definition.operation === OperationTypeNode.SUBSCRIPTION && !input.allowSubscriptions)
+        throw budgetError();
       visitSelections({
         selection: definition.selectionSet,
         depth: 1,
@@ -96,6 +118,7 @@ export function assertSuperadminBudget(input: {
       });
     }
   }
+  return complexity;
 }
 
 function budgetError(): GraphQLError {

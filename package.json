@@ -92,6 +92,7 @@
     "express": "5.2.1",
     "google-auth-library": "^10.6.2",
     "graphql": "16.14.2",
+    "graphql-ws": "6.2.1",
     "handlebars": "4.7.9",
     "nestjs-prisma": "^0.27.0",
     "nodemailer": "8.0.6",
@@ -105,7 +106,8 @@
     "sqs-consumer": "^15.0.1",
     "stripe": "^22.3.1",
     "swagger-ui-express": "^5.0.1",
-    "tsx": "^4.22.4"
+    "tsx": "^4.22.4",
+    "ws": "8.21.3"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.69.0",
@@ -122,6 +124,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
+    "@types/ws": "8.18.1",
     "concurrently": "9.2.1",
     "cross-env": "^10.1.0",
     "eslint": "^9.18.0",

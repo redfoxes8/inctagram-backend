@@ -11,6 +11,11 @@ import { formatSuperadminError } from './api/superadmin-errors';
 import { superadminBudgetPlugin, superadminBudgetRule } from './api/superadmin-query-budget';
 import { dateTimeScalar } from '../../../../../libs/common/src/graphql/date-time.scalar';
 import { SuperadminExceptionFilter } from './api/superadmin-exception.filter';
+import {
+  SUPERADMIN_SUBSCRIPTIONS,
+  SuperadminSubscriptionServer,
+  type SuperadminSubscriptionOptions,
+} from './api/superadmin-subscription-server';
 
 @Module({
   providers: [
@@ -26,10 +31,22 @@ export class SuperadminModule {
     production: boolean;
     imports?: ModuleMetadata['imports'];
     principalVerifier?: Provider<AdminPrincipalVerifier>;
+    subscriptions?: Omit<SuperadminSubscriptionOptions, 'production'>;
   }): DynamicModule {
     return {
       module: SuperadminModule,
-      providers: input.principalVerifier ? [input.principalVerifier] : [],
+      providers: [
+        ...(input.principalVerifier ? [input.principalVerifier] : []),
+        ...(input.subscriptions
+          ? [
+              {
+                provide: SUPERADMIN_SUBSCRIPTIONS,
+                useValue: { ...input.subscriptions, production: input.production },
+              },
+              SuperadminSubscriptionServer,
+            ]
+          : []),
+      ],
       imports: [
         ...(input.imports ?? []),
         GraphQLModule.forRoot<ApolloDriverConfig>({
