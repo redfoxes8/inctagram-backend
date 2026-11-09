@@ -805,7 +805,7 @@ describe('SA-GQL-06 HTTP + real Nest Payment gRPC controller/handler + separate 
     expect(detail.body.data.superadminUser).toEqual({
       userId,
       username: 'final-journey-user',
-      profileUrl: null,
+      profileUrl: `https://nymbi.org/profile/${userId}`,
       state: 'ACTIVE',
       payments: {
         items: [{ transactionId: paymentId, amountMinor: 899, currency: 'EUR' }],
