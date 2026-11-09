@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SuperadminUsersQueryRepository } from '../users/domain/interfaces/superadmin-users.query-repository';
 import { PrismaSuperadminUsersQueryRepository } from '../users/infrastructure/superadmin-users.query-repository';
@@ -8,7 +9,7 @@ import { SuperadminUsersResolver } from './api/superadmin-users.resolver';
 import { SuperadminFollowZeroResolver } from './api/superadmin-follow-zero.resolver';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ConfigModule],
   providers: [
     { provide: SuperadminUsersQueryRepository, useClass: PrismaSuperadminUsersQueryRepository },
     GetSuperadminUsersQuery,

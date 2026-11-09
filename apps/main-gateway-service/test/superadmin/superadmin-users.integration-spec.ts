@@ -145,7 +145,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       .overrideProvider(AdminClock)
       .useValue({ now: (): Date => new Date(NOW) })
       .overrideProvider(ConfigService)
-      .useValue(new ConfigService({ NODE_ENV: 'test' }))
+      .useValue(new ConfigService({ NODE_ENV: 'test', FRONTEND_URL: 'https://nymbi.org/' }))
       .compile();
     app = module.createNestApplication();
     setupSuperadminHttp({ app, policy: { allowedOrigins: [ORIGIN] } });
@@ -195,11 +195,14 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
     });
     expect(page.items[0]).toMatchObject({
       username: null,
-      profileUrl: null,
+      profileUrl: `https://nymbi.org/profile/${ids[9]}`,
       state: 'BLOCKED',
       isEmailConfirmed: false,
     });
     expect(page.items[1].state).toBe('ACTIVE');
+    for (const item of page.items) {
+      expect(item.profileUrl).toBe(`https://nymbi.org/profile/${item.userId}`);
+    }
   });
 
   it.each([
@@ -280,7 +283,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       userId: id,
       username: null,
       avatarUrl: null,
-      profileUrl: null,
+      profileUrl: `https://nymbi.org/profile/${id}`,
       state: 'ACTIVE',
       isEmailConfirmed: false,
     });
@@ -288,6 +291,7 @@ describe('SA-GQL-03 real isolated PostgreSQL + GraphQL HTTP', () => {
       (await post({ query: DETAIL, variables: { userId: profiled } })).body.data.superadminUser,
     ).toMatchObject({
       username: 'confirmed',
+      profileUrl: `https://nymbi.org/profile/${profiled}`,
       avatarUrl: 'https://files.example.test/avatar.jpg',
       state: 'BLOCKED',
       isEmailConfirmed: true,
