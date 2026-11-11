@@ -1,4 +1,4 @@
-# Target contract 1.6.0. Never load this file into runtime wholesale.
+# Target contract 1.7.0. Never load this file into runtime wholesale.
 scalar DateTime
 enum SuperadminUserSort {
   USERNAME_ASC
@@ -263,4 +263,18 @@ extend type Query {
 }
 type Subscription {
   superadminPostPublished(input: SuperadminPostPublishedInput!): SuperadminPostPublishedEvent!
+}
+
+type SuperadminUserPhoto {
+  imageId: ID!
+  postId: ID!
+  url: String
+}
+type SuperadminUserPhotosConnection {
+  items: [SuperadminUserPhoto!]!
+  totalCount: Int!
+  pageInfo: PageInfo!
+}
+extend type SuperadminUser {
+  uploadedPhotos(input: PageInput!): SuperadminUserPhotosConnection
 }

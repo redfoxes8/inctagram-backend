@@ -10,6 +10,8 @@ import {
   type Observable,
 } from 'rxjs';
 import type {
+  GetSuperadminUserPhotosRequest,
+  GetSuperadminUserPhotosResponse,
   GetSuperadminPostsPageRequest,
   GetSuperadminPostsPageResponse,
   GetSuperadminPostPublishedViewRequest,
@@ -47,6 +49,15 @@ export class PostGrpcClient implements OnModuleInit {
     this.postService = this.client.getService<PostServiceClient>(POST_SERVICE_NAME);
   }
 
+  getSuperadminUserPhotos(input: {
+    request: GetSuperadminUserPhotosRequest;
+    signal: AbortSignal;
+  }): Promise<GetSuperadminUserPhotosResponse> {
+    return this.adminRead({
+      source: this.postService.getSuperadminUserPhotos(input.request),
+      signal: input.signal,
+    });
+  }
   getSuperadminPostsPage(input: {
     request: GetSuperadminPostsPageRequest;
     signal: AbortSignal;

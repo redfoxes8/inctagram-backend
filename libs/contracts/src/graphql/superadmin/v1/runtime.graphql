@@ -257,6 +257,7 @@ type SuperadminUser {
   payments(input: PageInput!): PaymentConnection
   profileUrl: String
   state: SuperadminUserState!
+  uploadedPhotos(input: PageInput!): SuperadminUserPhotosConnection
   userId: ID!
   username: String
 }
@@ -272,6 +273,18 @@ type SuperadminUserListItem {
   state: SuperadminUserState!
   userId: ID!
   username: String
+}
+
+type SuperadminUserPhoto {
+  imageId: ID!
+  postId: ID!
+  url: String
+}
+
+type SuperadminUserPhotosConnection {
+  items: [SuperadminUserPhoto!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 enum SuperadminUserSort {

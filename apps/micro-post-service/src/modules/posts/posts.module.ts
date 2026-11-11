@@ -43,6 +43,11 @@ import { SuperadminPostFilesAdapter } from './infrastructure/grpc/superadmin-pos
 import { PostPublishedRelay } from './infrastructure/post-published.relay';
 import { SuperadminPostsGrpcController } from './api/superadmin-posts-grpc.controller';
 
+import { GetSuperadminUserPhotosHandler } from './application/queries/get-superadmin-user-photos.query';
+import { SuperadminUserPhotosMapper } from './application/mappers/superadmin-user-photos.mapper';
+import { SuperadminUserPhotosRead } from './application/ports/superadmin-user-photos.port';
+import { SuperadminUserPhotosQueryRepository } from './infrastructure/repositories/superadmin-user-photos.query-repository';
+
 const Handlers = [
   CreatePostHandler,
   UpdatePostHandler,
@@ -51,6 +56,7 @@ const Handlers = [
   GetLatestPostsHandler,
   GetPostsCountByUserIdHandler,
   GetPostByIdHandler,
+  GetSuperadminUserPhotosHandler,
   GetSuperadminPostsPageHandler,
   GetSuperadminPostPublishedViewHandler,
 ];
@@ -97,6 +103,8 @@ const Repositories = [
     { provide: SuperadminPostsRead, useClass: SuperadminPostsQueryRepository },
     { provide: SuperadminPostFiles, useClass: SuperadminPostFilesAdapter },
     SuperadminPostImagesMapper,
+    SuperadminUserPhotosMapper,
+    { provide: SuperadminUserPhotosRead, useClass: SuperadminUserPhotosQueryRepository },
     PostPublishedRelay,
     // Outbox relay
     OutboxRelayCron,
