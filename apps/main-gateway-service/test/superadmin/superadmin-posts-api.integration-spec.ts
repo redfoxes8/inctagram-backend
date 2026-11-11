@@ -392,7 +392,7 @@ describe('D6b actual GraphQL HTTP/WS -> Post gRPC -> isolated Post DB and publis
         join(process.cwd(), 'libs/contracts/src/graphql/superadmin/v1/runtime.graphql'),
         printSchema(lexicographicSortSchema(schema)) + '\n',
       );
-    expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.6.0');
+    expect(SUPERADMIN_CONTRACT_VERSION).toBe('1.7.0');
     expect(printSchema(lexicographicSortSchema(schema))).toBe(
       printSchema(
         lexicographicSortSchema(

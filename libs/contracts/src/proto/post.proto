@@ -94,6 +94,7 @@ message GetPostByIdResponse {
 }
 
 service PostService {
+  rpc GetSuperadminUserPhotos(GetSuperadminUserPhotosRequest) returns (GetSuperadminUserPhotosResponse);
   rpc GetSuperadminPostsPage(GetSuperadminPostsPageRequest) returns (GetSuperadminPostsPageResponse);
   rpc GetSuperadminPostPublishedView(GetSuperadminPostPublishedViewRequest) returns (GetSuperadminPostPublishedViewResponse);
   rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
@@ -104,6 +105,25 @@ service PostService {
   rpc Ping(PingRequest) returns (PingResponse);
   rpc GetPostsCountByUserId(GetPostsCountByUserIdRequest) returns (GetPostsCountByUserIdResponse);
   rpc GetPostById(GetPostByIdRequest) returns (GetPostByIdResponse);
+}
+
+message GetSuperadminUserPhotosRequest {
+  string user_id = 1;
+  optional int32 page = 2;
+  optional int32 page_size = 3;
+}
+message SuperadminUserPhotoView {
+  string image_id = 1;
+  string post_id = 2;
+  optional string url = 3;
+}
+message GetSuperadminUserPhotosResponse {
+  repeated SuperadminUserPhotoView items = 1;
+  optional int32 total_count = 2;
+  optional int32 page = 3;
+  optional int32 page_size = 4;
+  optional int32 pages_count = 5;
+  optional bool has_next_page = 6;
 }
 
 message SuperadminPostAuthorSnapshot {

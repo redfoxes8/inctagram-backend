@@ -4,6 +4,8 @@ import { GrpcMethod } from '@nestjs/microservices';
 import { GrpcExceptionInterceptor } from '../../../../../../libs/common/src/exceptions/grpc-exception.interceptor';
 import { GetSuperadminPostsPageQuery } from '../application/queries/get-superadmin-posts-page.query';
 import { GetSuperadminPostPublishedViewQuery } from '../application/queries/get-superadmin-post-published-view.query';
+import { GetSuperadminUserPhotosQuery } from '../application/queries/get-superadmin-user-photos.query';
+import type { SuperadminUserPhotosPage } from '../application/ports/superadmin-user-photos.port';
 import type {
   SuperadminPost,
   SuperadminPostsPage,
@@ -16,6 +18,8 @@ import {
   type GetSuperadminPostsPageResponse,
   type GetSuperadminPostPublishedViewRequest,
   type GetSuperadminPostPublishedViewResponse,
+  type GetSuperadminUserPhotosRequest,
+  type GetSuperadminUserPhotosResponse,
 } from '../../../../../../libs/contracts/src/generated/post';
 
 function toRpc(post: SuperadminPost): SuperadminPostView {
@@ -33,6 +37,21 @@ function toRpc(post: SuperadminPost): SuperadminPostView {
 @UseInterceptors(GrpcExceptionInterceptor)
 export class SuperadminPostsGrpcController {
   constructor(private readonly queries: QueryBus) {}
+  @GrpcMethod('PostService', 'GetSuperadminUserPhotos')
+  async photos(input: GetSuperadminUserPhotosRequest): Promise<GetSuperadminUserPhotosResponse> {
+    const page = await this.queries.execute<GetSuperadminUserPhotosQuery, SuperadminUserPhotosPage>(
+      new GetSuperadminUserPhotosQuery({
+        userId: input.userId,
+        page: input.page ?? 1,
+        pageSize: input.pageSize ?? 8,
+      }),
+    );
+    return {
+      items: page.items.map((photo) => ({ ...photo, url: photo.url ?? undefined })),
+      totalCount: page.totalCount,
+      ...page.pageInfo,
+    };
+  }
   @GrpcMethod('PostService', 'GetSuperadminPostsPage')
   async page(input: GetSuperadminPostsPageRequest): Promise<GetSuperadminPostsPageResponse> {
     const page = await this.queries.execute<GetSuperadminPostsPageQuery, SuperadminPostsPage>(

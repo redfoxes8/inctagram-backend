@@ -5,7 +5,7 @@ import {
   GetFilesDataRequest,
   GetFilesDataResponse,
 } from '../../../../../../../libs/contracts/src/';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { GrpcErrorMapper } from '../../../../../../../libs/common/src/grpc/grpc-error.mapper';
 
 @Injectable()
@@ -13,6 +13,16 @@ export class FileGrpcClient {
   private fileService: FileServiceClient;
   constructor(@Inject('FILE_SERVICE_PACKAGE') private readonly client: ClientGrpc) {
     this.fileService = this.client.getService('FileService');
+  }
+
+  async getPhotoFilesByIds(data: GetFilesDataRequest): Promise<GetFilesDataResponse> {
+    try {
+      return await firstValueFrom(
+        this.fileService.getFilesData(data).pipe(timeout({ first: 3000 })),
+      );
+    } catch (error) {
+      throw GrpcErrorMapper.toDomainException(error);
+    }
   }
 
   async getFilesByIds(data: GetFilesDataRequest): Promise<GetFilesDataResponse> {

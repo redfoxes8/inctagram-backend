@@ -29,6 +29,7 @@ import { SessionAdminPrincipalVerifier } from './modules/superadmin/infrastructu
 import { AdminPrincipalVerifier } from './modules/superadmin/domain/admin-principal';
 import { SUPERADMIN_RUNTIME_TYPE_DEFS } from '../../../libs/contracts/src/graphql/superadmin/v1/runtime-type-defs';
 import { SuperadminUsersModule } from './modules/superadmin/superadmin-users.module';
+import { SuperadminUserPhotosModule } from './modules/superadmin/superadmin-user-photos.module';
 import { SuperadminPaymentsModule } from './modules/superadmin/superadmin-payments.module';
 import { SuperadminModerationModule } from './modules/superadmin/superadmin-moderation.module';
 import { SuperadminPostsDeliveryModule } from './modules/superadmin/superadmin-posts-delivery.module';
@@ -51,6 +52,7 @@ import { UserAccessRevokeRelay } from './modules/users/infrastructure/outbox/use
       imports: [
         SuperadminAuthModule,
         SuperadminUsersModule,
+        SuperadminUserPhotosModule,
         SuperadminModerationModule,
         SuperadminPaymentsModule,
         SuperadminPostsDeliveryModule,

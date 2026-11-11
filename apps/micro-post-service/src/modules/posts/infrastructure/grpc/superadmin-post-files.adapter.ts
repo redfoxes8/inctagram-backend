@@ -11,12 +11,25 @@ export class SuperadminPostFilesAdapter extends SuperadminPostFiles {
   }
 
   async findUrls(fileIds: string[]): Promise<ReadonlyMap<string, string>> {
-    const unique = [...new Set(fileIds)];
+    return this.readUrls({ fileIds, photos: false });
+  }
+
+  async findPhotoUrls(fileIds: string[]): Promise<ReadonlyMap<string, string>> {
+    return this.readUrls({ fileIds, photos: true });
+  }
+
+  private async readUrls(input: {
+    fileIds: string[];
+    photos: boolean;
+  }): Promise<ReadonlyMap<string, string>> {
+    const unique = [...new Set(input.fileIds)];
     if (unique.length > SUPERADMIN_POSTS_MAX_FILE_IDS)
       throw new SuperadminPostsUnavailableException('INVALID_READ_MODEL');
     if (!unique.length) return new Map();
     try {
-      const response = await this.client.getFilesByIds({ fileIds: unique });
+      const response = await (input.photos
+        ? this.client.getPhotoFilesByIds({ fileIds: unique })
+        : this.client.getFilesByIds({ fileIds: unique }));
       // An omitted empty protobuf map is valid; an invalid entry is not a missing File.
       const files = response.files ?? {};
       if (typeof files !== 'object' || Array.isArray(files) || response.files === null)

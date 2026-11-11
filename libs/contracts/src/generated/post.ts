@@ -111,6 +111,27 @@ export interface GetPostByIdResponse {
   post: Post | undefined;
 }
 
+export interface GetSuperadminUserPhotosRequest {
+  userId: string;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+}
+
+export interface SuperadminUserPhotoView {
+  imageId: string;
+  postId: string;
+  url?: string | undefined;
+}
+
+export interface GetSuperadminUserPhotosResponse {
+  items: SuperadminUserPhotoView[];
+  totalCount?: number | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  pagesCount?: number | undefined;
+  hasNextPage?: boolean | undefined;
+}
+
 export interface SuperadminPostAuthorSnapshot {
   userId: string;
   sourceVersion: string;
@@ -169,6 +190,11 @@ export interface GetSuperadminPostPublishedViewResponse {
 export const INCTAGRAM_POST_V1_PACKAGE_NAME = 'inctagram.post.v1';
 
 export interface PostServiceClient {
+  getSuperadminUserPhotos(
+    request: GetSuperadminUserPhotosRequest,
+    metadata?: Metadata,
+  ): Observable<GetSuperadminUserPhotosResponse>;
+
   getSuperadminPostsPage(
     request: GetSuperadminPostsPageRequest,
     metadata?: Metadata,
@@ -206,6 +232,14 @@ export interface PostServiceClient {
 }
 
 export interface PostServiceController {
+  getSuperadminUserPhotos(
+    request: GetSuperadminUserPhotosRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetSuperadminUserPhotosResponse>
+    | Observable<GetSuperadminUserPhotosResponse>
+    | GetSuperadminUserPhotosResponse;
+
   getSuperadminPostsPage(
     request: GetSuperadminPostsPageRequest,
     metadata?: Metadata,
@@ -272,6 +306,7 @@ export interface PostServiceController {
 export function PostServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      'getSuperadminUserPhotos',
       'getSuperadminPostsPage',
       'getSuperadminPostPublishedView',
       'createPost',

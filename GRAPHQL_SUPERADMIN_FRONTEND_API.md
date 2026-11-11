@@ -1,6 +1,6 @@
-# Superadmin GraphQL API — контракт 1.6.0
+# Superadmin GraphQL API — контракт 1.7.0
 
-Posts query/subscription реализованы в D6b (1.6.0); production rollout, публичный wss URL и browser integration пока не подтверждены. Существующие login/session/CSRF, Payments и moderation ниже сохраняются.
+Uploaded photos добавлены в 1.7.0; Posts query/subscription реализованы в D6b (1.6.0); production rollout, публичный wss URL и browser integration пока не подтверждены. Существующие login/session/CSRF, Payments и moderation ниже сохраняются.
 
 До включения Posts нужны согласованные Gateway/Post builds, существующие private Post gRPC/Rabbit подключения и настоящая initial READY Post projection после bootstrap/rollout marker. Proxy должен пропускать WS upgrade точного `/api/v1/graphql`, Cookie/Origin/Sec-WebSocket-Protocol, с idle timeout≥60с. Отсутствие этих условий возвращается ошибкой, не пустой лентой. Фактические адреса и готовность окружения проверяются при deployment.
 
@@ -22,7 +22,7 @@ Posts query/subscription реализованы в D6b (1.6.0); production rollo
 4. После reload сначала выполнить `superadminSession` без cache; при успехе обновить nonce из header. `UNAUTHENTICATED` → форма входа; техническую ошибку не считать logout.
 5. Читать каталог/детали; в mutations передавать актуальный nonce. После logout очищать client cache/состояние.
 
-Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.6.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
+Фактическая schema для Codegen/tooling: [runtime.graphql](libs/contracts/src/graphql/superadmin/v1/runtime.graphql), версия **1.7.0**. Это экспорт реализованной composition, не доказательство версии публичного сервера. Target SDL — проектный контракт, не отдельное подтверждение deployment. Операции и примеры всех вкладок приведены ниже.
 
 ### Backend checklist до браузерного подключения
 
@@ -54,7 +54,7 @@ Posts query/subscription реализованы в D6b (1.6.0); production rollo
 
 В текущем manifest четыре admin Secret key references помечены `optional:true`, timeout отдельно не подключён и использует default. Поэтому отсутствие **этих ключей** не препятствует запуску Node.js. Другие обязательные Secret/key references и инфраструктура остаются необходимыми: если весь существующий Secret или другой обязательный key отсутствует, Kubernetes может не запустить контейнер, и fallback приложения это не исправит. Pipeline/manifest этой задачей не меняются.
 
-Статус: runtime и целевой контракт **1.6.0**. D6b добавил superadminPosts и superadminPostPublished; P2 ранее добавил общий список superadminPayments. Additive S3: существующий superadminBlockUser принимает optional reason; legacy-вызовы сохраняются. S1 ранее добавил banFilter с default ALL в версии 1.3.0. Общий Payments list реализован в 1.5.0; deployment этой версии не подтверждён. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. AC profileUrl карточки 3 закрыт 09.11.2026; прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
+Статус: runtime и целевой контракт **1.7.0**. D6b добавил superadminPosts и superadminPostPublished; P2 ранее добавил общий список superadminPayments. Additive S3: существующий superadminBlockUser принимает optional reason; legacy-вызовы сохраняются. S1 ранее добавил banFilter с default ALL в версии 1.3.0. Общий Payments list реализован в 1.5.0; deployment этой версии не подтверждён. Реализованы auth SA-GQL-02, каталог/детали SA-GQL-03, block/unblock SA-GQL-04B, soft delete SA-GQL-05, Payments SA-GQL-06 и **временный FOLLOW-ZERO-1 SA-GQL-08**. История версии: переход 1.1.0 → 1.2.0 добавил followers/following и их минимальных типов; семантика временных нулей остаётся FOLLOW-ZERO-1. Настоящий social graph не реализован. AC profileUrl карточки 3 закрыт 09.11.2026; прежние product/security/environment вопросы сохраняются; это подготовка к техническому review, не production-приёмка.
 
 **SA-GQL-09:** совместная работа backend проверена автоматизированно; [отчёт, матрица UC/карточки/доказательства и ограничения](SA_GQL_09_ACCEPTANCE.md). Проверка агента не означает человеческое согласование API/security, проверку frontend или production-приёмку. Ниже текущий контракт; прежние приёмочные разделы в конце — история отдельных этапов.
 
@@ -64,7 +64,7 @@ Posts query/subscription реализованы в D6b (1.6.0); production rollo
 
 **Согласованное дополнение реализовано в SA-GQL-02:** защищённая query `superadminSession: SuperadminSessionPayload!` с `authenticated: Boolean!` читает состояние текущей admin session. Действующая session → `{ authenticated: true }`, отсутствие действующей session → `UNAUTHENTICATED`. Query не является публичным исключением и не возвращает token/cookie/hash/credentials; каталог карточки 3 для валидного Query root не требуется.
 
-Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.6.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
+Целевой SDL: `libs/contracts/src/graphql/superadmin/v1/target.graphql`, версия **1.7.0** (`SUPERADMIN_CONTRACT_VERSION`). Runtime собирается отдельно из реализованных feature fragments, весь target не загружается. Общие DateTime/PageInput/PageInfo и pagination validation переиспользуются.
 
 Для frontend tooling: **[экспорт фактически опубликованного runtime SDL](libs/contracts/src/graphql/superadmin/v1/runtime.graphql)**. Это отдельный артефакт, не target и не новая версия контракта. Тест SA-GQL-09 сравнивает его канонический SDL с реальным `GraphQLSchemaHost` всех production superadmin feature modules, а все executable GraphQL-блоки этого guide проходят parse/validate по этой schema. Связный HTTP-сценарий исполняет auth/catalog/все вкладки/moderation/logout; schema validation остальных примеров не объявляется их исполнением.
 
@@ -74,19 +74,20 @@ Posts query/subscription реализованы в D6b (1.6.0); production rollo
 
 **Реализовано — SA-GQL-02:** `superadminLogin`, `superadminLogout`, `superadminSession`. **Реализовано — SA-GQL-03:** `superadminUsers`, `superadminUser` (ссылка профиля пока null). **Реализовано — SA-GQL-04B:** `superadminBlockUser`, `superadminUnblockUser`. **Реализовано — SA-GQL-05:** `superadminDeleteUser`. **Реализовано — SA-GQL-06:** `SuperadminUser.payments`. **Реализовано — SA-GQL-08:** Followers/Following как временный hardcoded-zero API.
 
-| Operation                  | Input                                       | Output                                                                | Карточка                                             |
-| -------------------------- | ------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
-| `superadminLogin`          | `SuperadminLoginInput { email, password }`  | `{ authenticated: Boolean! }`, HttpOnly cookie                        | **Реализовано — SA-GQL-02**                          |
-| `superadminLogout`         | нет                                         | `{ loggedOut: Boolean! }`                                             | **Реализовано — SA-GQL-02**                          |
-| `superadminSession`        | нет                                         | `SuperadminSessionPayload! { authenticated: Boolean! }`               | **Реализовано — SA-GQL-02**                          |
-| `superadminUsers`          | `SuperadminUsersInput!`                     | items, totalCount, pageInfo                                           | **Реализовано — SA-GQL-03**                          |
-| `superadminUser`           | `userId: ID!`                               | nullable SuperadminUser                                               | **Реализовано — SA-GQL-03**                          |
-| `superadminBlockUser`      | `input: { userId: ID! }`, optional `reason` | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED          | **Реализовано — SA-GQL-04B + S3 reason**             |
-| `superadminUnblockUser`    | `{ userId: ID! }`                           | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED         | **Реализовано — SA-GQL-04B**                         |
-| `superadminDeleteUser`     | `{ userId: ID! }`                           | userId, DELETED / ALREADY_DELETED / NOT_FOUND                         | **Реализовано — SA-GQL-05**                          |
-| `SuperadminUser.payments`  | `PageInput!`                                | nullable PaymentConnection                                            | **Реализовано — SA-GQL-06**                          |
-| `SuperadminUser.followers` | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
-| `SuperadminUser.following` | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
+| Operation                       | Input                                       | Output                                                                | Карточка                                             |
+| ------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `superadminLogin`               | `SuperadminLoginInput { email, password }`  | `{ authenticated: Boolean! }`, HttpOnly cookie                        | **Реализовано — SA-GQL-02**                          |
+| `superadminLogout`              | нет                                         | `{ loggedOut: Boolean! }`                                             | **Реализовано — SA-GQL-02**                          |
+| `superadminSession`             | нет                                         | `SuperadminSessionPayload! { authenticated: Boolean! }`               | **Реализовано — SA-GQL-02**                          |
+| `superadminUsers`               | `SuperadminUsersInput!`                     | items, totalCount, pageInfo                                           | **Реализовано — SA-GQL-03**                          |
+| `superadminUser`                | `userId: ID!`                               | nullable SuperadminUser                                               | **Реализовано — SA-GQL-03**                          |
+| `superadminBlockUser`           | `input: { userId: ID! }`, optional `reason` | userId, BLOCKED / ALREADY_BLOCKED / NOT_FOUND / USER_DELETED          | **Реализовано — SA-GQL-04B + S3 reason**             |
+| `superadminUnblockUser`         | `{ userId: ID! }`                           | userId, UNBLOCKED / ALREADY_ACTIVE / NOT_FOUND / USER_DELETED         | **Реализовано — SA-GQL-04B**                         |
+| `superadminDeleteUser`          | `{ userId: ID! }`                           | userId, DELETED / ALREADY_DELETED / NOT_FOUND                         | **Реализовано — SA-GQL-05**                          |
+| `SuperadminUser.uploadedPhotos` | `PageInput!`                                | nullable SuperadminUserPhotosConnection                               | **Реализовано — 1.7.0**                              |
+| `SuperadminUser.payments`       | `PageInput!`                                | nullable PaymentConnection                                            | **Реализовано — SA-GQL-06**                          |
+| `SuperadminUser.followers`      | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
+| `SuperadminUser.following`      | `PageInput!`                                | nullable SuperadminFollowConnection, только items=[]/нулевые metadata | **Реализовано — временный FOLLOW-ZERO-1, SA-GQL-08** |
 
 Followers/Following **реализованы как временный FOLLOW-ZERO-1** по решению пользователя от 19.10.2026; [ADR](docs/adr/SA_FOLLOW_DISCOVERY.md) сохраняет доказательства отсутствия пригодного source и отложенные предложения о настоящих связях. Оба поля всегда возвращают пустые items и нулевые metadata с page/pageSize из валидированного input. Это не чтение реальных отношений; публичные нулевые counters не изменены. FOLLOW-PREP-01/02 остаются отложенными. Приёмка карточки 9 начинается после технической приёмки/merge 8; только здесь разрешены постоянные нулевые ответы, не маскирующие ошибки Payments/других данных.
 
@@ -104,7 +105,7 @@ query CurrentSuperadminSession {
 
 ## Followers/Following — реализован временный FOLLOW-ZERO-1 (SA-GQL-08)
 
-Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.6.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
+Это **реализованный временный контракт FOLLOW-ZERO-1**, опубликованный в текущих runtime и target **1.7.0** (добавлен в 1.2.0) отдельным `follow-zero-type-defs.ts`. Минимальный `SuperadminFollowZeroResolver` вызывает общую чистую application-функцию `getTemporaryFollowZero`; нет repository, social DB, клиентов/RPC, DataLoader или feature flags. Старый candidate 0.1 с followedAt/profile/privacy в ADR остаётся отложенным и не применяется к текущему API.
 
 ```graphql
 extend type SuperadminUser {
@@ -327,6 +328,36 @@ query User($userId: ID!) {
 ```
 
 Variables: `{"userId":"00000000-0000-4000-8000-000000000001"}`. Отсутствующий/soft-deleted пользователь: `{"data":{"superadminUser":null}}`. Без Profile возвращается объект с username=null, avatarUrl=null и `profileUrl="https://nymbi.org/profile/00000000-0000-4000-8000-000000000001"`, без создания Profile. Маршрут `/profile/{userId}` подтверждён пользователем 09.11.2026; прежний открытый AC маршрута закрыт. Это не подтверждение production rollout или browser-приёмки.
+
+## Uploaded photos выбранного пользователя (1.7.0)
+
+Общая сетка `superadminUser.uploadedPhotos` содержит отдельную плитку на каждую `PostImage` опубликованных неудалённых постов выбранного пользователя. Порядок: дата Post и его ID по убыванию, затем порядок изображения и его ID по возрастанию. Blocked пользователь доступен по обычным правилам admin detail. Это чтение не зависит от готовности username projection общего Posts API.
+
+```graphql
+query UserUploadedPhotos($userId: ID!, $input: PageInput!) {
+  superadminUser(userId: $userId) {
+    userId
+    uploadedPhotos(input: $input) {
+      items {
+        imageId
+        postId
+        url
+      }
+      totalCount
+      pageInfo {
+        page
+        pageSize
+        pagesCount
+        hasNextPage
+      }
+    }
+  }
+}
+```
+
+Variables для первой страницы: `{"userId":"00000000-0000-4000-8000-000000000001","input":{}}`; для следующей: `{"userId":"00000000-0000-4000-8000-000000000001","input":{"page":2,"pageSize":8}}`. `input` обязателен; по умолчанию page=1, pageSize=8, допустимы page 1..10000 и pageSize 1..50. `imageId` идентифицирует строку изображения, `postId` — пост, `url` может быть null, если File отсутствует. `totalCount` и PageInfo считают изображения, не посты. Пустая галерея — items=[], totalCount=0, pagesCount=0; выходящая за диапазон страница пуста с фактическим totalCount. Отсутствующий/deleted User даёт `superadminUser=null`.
+
+Нужны действующая admin session и разрешённый Origin; query не требует mutation-CSRF. Post/File outage или timeout возвращает nullable `uploadedPhotos=null` и ошибку `UPSTREAM_UNAVAILABLE` с path поля; это не пустая галерея. Backend не проверяет доступность S3 или браузером по URL. При конкурентной публикации или удалении offset-страницы могут сдвигаться: frontend сбрасывает pagination и заново запрашивает первую страницу; для merge использует imageId.
 
 ## Payments (реализовано — SA-GQL-06)
 

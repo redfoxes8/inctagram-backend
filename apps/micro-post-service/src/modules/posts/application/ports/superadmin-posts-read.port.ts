@@ -14,4 +14,5 @@ export abstract class SuperadminPostsRead {
 
 export abstract class SuperadminPostFiles {
   abstract findUrls(fileIds: string[]): Promise<ReadonlyMap<string, string>>;
+  abstract findPhotoUrls(fileIds: string[]): Promise<ReadonlyMap<string, string>>;
 }
